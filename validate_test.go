@@ -1,0 +1,70 @@
+package core
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestValidateConfig_ValidConfig(t *testing.T) {
+	cfg := validTestConfig()
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestValidateConfig_MissingDatabaseHost(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Database.Host = ""
+	assertValidationError(t, cfg, "Config.Database.Host is required")
+}
+
+func TestValidateConfig_MissingDatabasePort(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Database.Port = 0
+	assertValidationError(t, cfg, "Config.Database.Port must be > 0")
+}
+
+func TestValidateConfig_MissingDatabaseName(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Database.DBName = ""
+	assertValidationError(t, cfg, "Config.Database.DBName is required")
+}
+
+func TestValidateConfig_MissingDatabaseUser(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Database.User = ""
+	assertValidationError(t, cfg, "Config.Database.User is required")
+}
+
+func TestValidateConfig_MissingJWTSecret(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.JWT.Secret = ""
+	assertValidationError(t, cfg, "Config.JWT.Secret is required")
+}
+
+func TestValidateConfig_ShortJWTSecret(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.JWT.Secret = "tooshort"
+	assertValidationError(t, cfg, "Config.JWT.Secret must be at least 32 characters")
+}
+
+func validTestConfig() Config {
+	cfg := DefaultConfig()
+	cfg.Database.Host = "localhost"
+	cfg.Database.Port = 5432
+	cfg.Database.DBName = "testdb"
+	cfg.Database.User = "postgres"
+	cfg.JWT.Secret = "a-test-secret-that-is-at-least-32-characters-long"
+	return cfg
+}
+
+func assertValidationError(t *testing.T, cfg Config, want string) {
+	t.Helper()
+	err := ValidateConfig(cfg)
+	if err == nil {
+		t.Fatalf("expected error containing %q, got nil", want)
+	}
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("expected error containing %q, got: %v", want, err)
+	}
+}

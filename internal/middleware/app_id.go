@@ -1,0 +1,69 @@
+package middleware
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+)
+
+const (
+	AppIDKey     = "app_id"
+	DefaultAppID = "00000000-0000-0000-0000-000000000001"
+	HeaderAppID  = "X-App-ID"
+)
+
+// AppIDMiddleware extracts X-App-ID from the request header.
+// When multiTenant is false (single-tenant mode), the default app ID is injected
+// automatically if the header is missing, so callers don't need to provide it.
+func AppIDMiddleware(multiTenant bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+
+		// Skip validation for Swagger documentation, Admin API routes, GUI routes,
+		// and OIDC routes (OIDC routes carry app_id in URL path, not X-App-ID header)
+		if (len(path) >= 8 && path[:8] == "/swagger") ||
+			(len(path) >= 6 && path[:6] == "/admin") ||
+			(len(path) >= 4 && path[:4] == "/gui") ||
+			(len(path) >= 5 && path[:5] == "/oidc") {
+			c.Next()
+			return
+		}
+
+		appIDStr := c.GetHeader(HeaderAppID)
+
+		// If header is missing, check query parameter
+		if appIDStr == "" {
+			appIDStr = c.Query("app_id")
+		}
+
+		// If still missing, check if it's a social callback
+		// Social callbacks carry app_id in the 'state' parameter which is handled by the handler
+		if appIDStr == "" && strings.HasPrefix(path, "/auth") && strings.Contains(path, "/callback") {
+			c.Next()
+			return
+		}
+
+		// In single-tenant mode, inject the default app ID if none provided
+		if appIDStr == "" && !multiTenant {
+			appIDStr = DefaultAppID
+		}
+
+		// If still missing, return error
+		if appIDStr == "" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "X-App-ID header is required"})
+			return
+		}
+
+		// Validate UUID
+		appID, err := uuid.Parse(appIDStr)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Invalid App ID"})
+			return
+		}
+
+		c.Set(AppIDKey, appID)
+		c.Next()
+	}
+}

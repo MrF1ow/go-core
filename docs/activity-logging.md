@@ -1,0 +1,78 @@
+# Activity Logging
+
+A smart activity logging system that balances security auditing with database performance. Uses intelligent categorization, anomaly detection, and automatic cleanup to reduce database bloat by 80-95% while maintaining critical security data.
+
+Configurable via environment variables or the Admin GUI.
+
+---
+
+## Event Categories
+
+| Severity | Events | Retention | Always Logged |
+|----------|--------|-----------|---------------|
+| **Critical** | LOGIN, LOGOUT, PASSWORD_CHANGE, 2FA_ENABLE/DISABLE, ACCOUNT_LOCKED, ACCOUNT_UNLOCKED, OIDC_LOGIN | 1 year | Yes |
+| **Important** | REGISTER, EMAIL_VERIFY, SOCIAL_LOGIN, PROFILE_UPDATE, SMS_2FA_ENABLE/DISABLE, BACKUP_EMAIL_2FA_ENABLE/DISABLE, TRUSTED_DEVICE_ADDED, TRUSTED_DEVICE_REVOKED | 6 months | Yes |
+| **Informational** | TOKEN_REFRESH, PROFILE_ACCESS, PASSKEY_REGISTER, PASSKEY_DELETE, PASSKEY_LOGIN, MAGIC_LINK_REQUESTED, MAGIC_LINK_LOGIN, MAGIC_LINK_FAILED, EMAIL_VERIFY_RESEND, SOCIAL_ACCOUNT_LINKED, SOCIAL_ACCOUNT_UNLINKED, BRUTE_FORCE_ATTEMPT | 3 months | Only on anomalies |
+
+> **Note:** New event types (SMS 2FA, backup email 2FA, trusted devices, OIDC login, account lock/unlock, brute-force attempts) follow the same severity rules. Critical and Important events are always logged; Informational events follow anomaly detection rules.
+
+---
+
+## Anomaly Detection
+
+Informational events are automatically logged when unusual activity is detected:
+
+- New IP address detected
+- New device or browser (user agent) detected
+- Configurable analysis window (default: 30 days)
+
+---
+
+## Default Behavior
+
+- All critical and important security events are logged
+- Token refreshes and profile access are **not** logged by default (high frequency)
+- Both are logged if an anomaly is detected (new IP or device)
+- Automatic cleanup runs based on retention policies
+
+---
+
+## Configuration
+
+```bash
+# High-frequency events (default: disabled)
+LOG_TOKEN_REFRESH=false
+LOG_PROFILE_ACCESS=false
+
+# Anomaly detection (default: enabled)
+LOG_ANOMALY_DETECTION_ENABLED=true
+LOG_ANOMALY_NEW_IP=true
+LOG_ANOMALY_NEW_USER_AGENT=true
+
+# Retention policies (days)
+LOG_RETENTION_CRITICAL=365      # 1 year
+LOG_RETENTION_IMPORTANT=180     # 6 months
+LOG_RETENTION_INFORMATIONAL=90  # 3 months
+
+# Automatic cleanup
+LOG_CLEANUP_ENABLED=true
+LOG_CLEANUP_INTERVAL=24h
+```
+
+---
+
+## Related Documentation
+
+- [Configuration](configuration.md) — Environment variables for logging
+- [API Endpoints](api-endpoints.md) — Activity log query and export endpoints
+
+---
+
+## Export
+
+Activity logs can be exported as CSV:
+
+- `GET /activity-logs/export` — Export the authenticated user's own logs (JWT auth)
+- `GET /admin/activity-logs/export` — Export all users' logs (Admin API Key)
+
+Both endpoints support the same query filters as the paginated list endpoints (date range, event type, severity, etc.).

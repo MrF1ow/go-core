@@ -1,0 +1,306 @@
+package dto
+
+// RegisterRequest represents the request payload for user registration
+type RegisterRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8,max=128"` // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+}
+
+// LoginRequest represents the request payload for user login
+type LoginRequest struct {
+	Email        string `json:"email" validate:"required,email"`
+	Password     string `json:"password" validate:"required,max=128"` // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+	CaptchaToken string `json:"captcha_token,omitempty"`              // Google reCAPTCHA response token (required when CAPTCHA is triggered)
+}
+
+// RefreshTokenRequest represents the request payload for token refresh
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"` // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+}
+
+// LogoutRequest represents the request payload for user logout
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"` // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+	AccessToken  string `json:"access_token" validate:"required"`  // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+}
+
+// ForgotPasswordRequest represents the request payload for forgot password
+type ForgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// ResendVerificationRequest represents the request payload for resending email verification
+type ResendVerificationRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// ResetPasswordRequest represents the request payload for password reset
+type ResetPasswordRequest struct {
+	Token       string `json:"token" validate:"required"` // #nosec G101 -- This is a DTO field, not a hardcoded credential
+	NewPassword string `json:"new_password" validate:"required,min=8,max=128"`
+}
+
+// LoginResponse represents the response payload for successful login
+type LoginResponse struct {
+	AccessToken     string `json:"access_token"`               // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+	RefreshToken    string `json:"refresh_token"`              // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+	PasswordExpired bool   `json:"password_expired,omitempty"` // true when the password has expired; no tokens are issued in this case
+}
+
+// TwoFARequiredResponse represents response when 2FA is required during login
+type TwoFARequiredResponse struct {
+	RequiresTwoFA bool   `json:"requires_2fa"`
+	Message       string `json:"message"`
+	TempToken     string `json:"temp_token"`
+	Method        string `json:"method"` // "totp" or "email" - indicates which 2FA method the user has configured
+}
+
+// TwoFASetupRequiredResponse represents response when 2FA setup is mandatory for the application
+// The user receives tokens so they can authenticate to the /2fa/generate endpoint
+type TwoFASetupRequiredResponse struct {
+	Message      string `json:"message"`
+	AccessToken  string `json:"access_token"`  // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+	RefreshToken string `json:"refresh_token"` // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+}
+
+// TwoFAVerifyRequest represents the request payload for TOTP verification
+type TwoFAVerifyRequest struct {
+	Code string `json:"code" validate:"required"`
+}
+
+// TwoFALoginRequest represents the request payload for 2FA login verification
+type TwoFALoginRequest struct {
+	TempToken      string `json:"temp_token" validate:"required"`
+	Code           string `json:"code,omitempty"`
+	RecoveryCode   string `json:"recovery_code,omitempty"`
+	RememberDevice bool   `json:"remember_device,omitempty"` // When true, create a trusted device record
+	DeviceName     string `json:"device_name,omitempty"`     // Human-readable label for the trusted device
+}
+
+// TwoFADisableRequest represents the request payload for disabling 2FA
+type TwoFADisableRequest struct {
+	Code string `json:"code" validate:"required"`
+}
+
+// TwoFAEnableResponse represents the response when 2FA is enabled
+type TwoFAEnableResponse struct {
+	Message       string   `json:"message"`
+	RecoveryCodes []string `json:"recovery_codes"`
+}
+
+// TwoFARecoveryCodesResponse represents the response for new recovery codes
+type TwoFARecoveryCodesResponse struct {
+	Message       string   `json:"message"`
+	RecoveryCodes []string `json:"recovery_codes"`
+}
+
+// SocialAccountResponse represents social account data in user profile
+type SocialAccountResponse struct {
+	ID             string `json:"id"`
+	Provider       string `json:"provider"`
+	ProviderUserID string `json:"provider_user_id"`
+	Email          string `json:"email,omitempty"`
+	Name           string `json:"name,omitempty"`
+	FirstName      string `json:"first_name,omitempty"`
+	LastName       string `json:"last_name,omitempty"`
+	ProfilePicture string `json:"profile_picture,omitempty"`
+	Username       string `json:"username,omitempty"`
+	Locale         string `json:"locale,omitempty"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+// UserResponse represents the user data in responses
+type UserResponse struct {
+	ID             string                  `json:"id"`
+	Email          string                  `json:"email"`
+	EmailVerified  bool                    `json:"email_verified"`
+	Name           string                  `json:"name,omitempty"`
+	FirstName      string                  `json:"first_name,omitempty"`
+	LastName       string                  `json:"last_name,omitempty"`
+	ProfilePicture string                  `json:"profile_picture,omitempty"`
+	Locale         string                  `json:"locale,omitempty"`
+	TwoFAEnabled   bool                    `json:"two_fa_enabled"`
+	TwoFAMethod    string                  `json:"two_fa_method,omitempty"` // "totp" or "email"
+	HasPassword    bool                    `json:"has_password"`            // false for social-only users
+	Roles          []string                `json:"roles,omitempty"`
+	CreatedAt      string                  `json:"created_at"`
+	UpdatedAt      string                  `json:"updated_at"`
+	SocialAccounts []SocialAccountResponse `json:"social_accounts,omitempty"`
+}
+
+// ErrorResponse represents a standard error response
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// MessageResponse represents a standard message response
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+// UpdateProfileRequest represents the request payload for profile update
+type UpdateProfileRequest struct {
+	Name           string `json:"name,omitempty" validate:"omitempty,min=1,max=100" example:"John Doe"`
+	FirstName      string `json:"first_name,omitempty" validate:"omitempty,min=1,max=50" example:"John"`
+	LastName       string `json:"last_name,omitempty" validate:"omitempty,min=1,max=50" example:"Doe"`
+	ProfilePicture string `json:"profile_picture,omitempty" validate:"omitempty,url" example:"https://example.com/avatar.jpg"`
+	Locale         string `json:"locale,omitempty" validate:"omitempty,min=2,max=10" example:"en-US"`
+}
+
+// UpdateEmailRequest represents the request payload for email update
+type UpdateEmailRequest struct {
+	Email    string `json:"email" validate:"required,email" example:"newemail@example.com"`
+	Password string `json:"password" validate:"required,max=128" example:"currentpassword123"` // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+}
+
+// UpdatePasswordRequest represents the request payload for password update
+type UpdatePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required,max=128" example:"oldpassword123"`
+	NewPassword     string `json:"new_password" validate:"required,min=8,max=128" example:"newpassword123"`
+}
+
+// DeleteAccountRequest represents the request payload for account deletion
+type DeleteAccountRequest struct {
+	Password        string `json:"password" validate:"omitempty,max=128" example:"password123"` // #nosec G101,G117 -- This is a DTO field, not a hardcoded credential
+	ConfirmDeletion bool   `json:"confirm_deletion" validate:"required,eq=true" example:"true"`
+}
+
+// SocialAccountListResponse represents the response for listing linked social accounts
+type SocialAccountListResponse struct {
+	SocialAccounts []SocialAccountResponse `json:"social_accounts"`
+}
+
+// LinkSocialAccountResponse represents the response when a social account is linked
+type LinkSocialAccountResponse struct {
+	Message string                `json:"message"`
+	Account SocialAccountResponse `json:"account"`
+}
+
+// UnlinkSocialAccountResponse represents the response when a social account is unlinked
+type UnlinkSocialAccountResponse struct {
+	Message string `json:"message"`
+}
+
+// MagicLinkRequest represents the request payload for requesting a magic link login email
+type MagicLinkRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+// MagicLinkVerifyRequest represents the request payload for verifying a magic link token
+type MagicLinkVerifyRequest struct {
+	Token string `json:"token" validate:"required"` // #nosec G101 -- This is a DTO field, not a hardcoded credential
+	AppID string `json:"app_id"`                    // optional: overrides the X-App-ID header for multi-app token disambiguation
+}
+
+// AccountLockedResponse represents the response when a user's account is locked
+type AccountLockedResponse struct {
+	Error      string `json:"error"`
+	LockedUtil string `json:"locked_until,omitempty"` // ISO 8601 timestamp when the lockout expires
+	RetryAfter int    `json:"retry_after,omitempty"`  // Seconds until the lockout expires
+}
+
+// CaptchaRequiredResponse represents the response when CAPTCHA verification is needed
+type CaptchaRequiredResponse struct {
+	Error           string `json:"error"`
+	CaptchaRequired bool   `json:"captcha_required"`
+	SiteKey         string `json:"site_key,omitempty"`    // reCAPTCHA site key for the client to render the widget
+	RetryAfter      int    `json:"retry_after,omitempty"` // Advisory: seconds the client should wait before retrying
+}
+
+// ProgressiveDelayResponse represents the response when a progressive delay is imposed
+type ProgressiveDelayResponse struct {
+	Error      string `json:"error"`
+	RetryAfter int    `json:"retry_after"` // Seconds the client should wait before retrying
+}
+
+// ============================================================================
+// Backup Email DTOs
+// ============================================================================
+
+// AddBackupEmailRequest is the request payload for registering a backup email address.
+type AddBackupEmailRequest struct {
+	BackupEmail string `json:"backup_email" validate:"required,email" example:"backup@example.com"`
+}
+
+// VerifyBackupEmailRequest is the request payload for confirming the backup email token.
+type VerifyBackupEmailRequest struct {
+	Token string `json:"token" validate:"required"` // #nosec G101 -- DTO field
+}
+
+// BackupEmailStatusResponse describes the current state of a user's backup email.
+type BackupEmailStatusResponse struct {
+	BackupEmail  string `json:"backup_email,omitempty"`
+	Verified     bool   `json:"verified"`
+	PendingEmail string `json:"pending_email,omitempty"` // set when a verification is in progress
+}
+
+// ============================================================================
+// Phone / SMS DTOs
+// ============================================================================
+
+// AddPhoneRequest is the request payload for registering a phone number for SMS 2FA.
+type AddPhoneRequest struct {
+	PhoneNumber string `json:"phone_number" validate:"required" example:"+12125551234"`
+}
+
+// VerifyPhoneRequest is the request payload for confirming an SMS verification code.
+type VerifyPhoneRequest struct {
+	Code string `json:"code" validate:"required,len=6" example:"123456"`
+}
+
+// PhoneStatusResponse describes the current state of a user's phone number.
+type PhoneStatusResponse struct {
+	PhoneNumber string `json:"phone_number,omitempty"`
+	Verified    bool   `json:"verified"`
+}
+
+// ============================================================================
+// Trusted Device DTOs
+// ============================================================================
+
+// TrustedDeviceResponse represents a single trusted device record.
+type TrustedDeviceResponse struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	UserAgent  string `json:"user_agent,omitempty"`
+	IPAddress  string `json:"ip_address,omitempty"`
+	LastUsedAt string `json:"last_used_at"`
+	ExpiresAt  string `json:"expires_at"`
+	CreatedAt  string `json:"created_at"`
+}
+
+// TrustedDevicesListResponse wraps a slice of TrustedDeviceResponse.
+type TrustedDevicesListResponse struct {
+	Devices []TrustedDeviceResponse `json:"devices"`
+}
+
+// ============================================================================
+// Account Merge DTOs
+// ============================================================================
+
+// MergeAccountRequest is the request payload for confirming an account merge.
+// The merge_token was received as a query parameter in the social-login redirect.
+// The password is the user's existing account password, used to prove ownership
+// before linking the social provider to the existing account.
+type MergeAccountRequest struct {
+	MergeToken string `json:"merge_token" validate:"required"`                       // #nosec G101 -- DTO field, not a hardcoded credential
+	Password   string `json:"password" validate:"required,max=128" example:"s3cr3t"` // #nosec G101,G117 -- DTO field, not a hardcoded credential
+}
+
+// MergeAccountResponse is returned after a successful account merge.
+type MergeAccountResponse struct {
+	Message      string `json:"message"`
+	AccessToken  string `json:"access_token"`  // #nosec G101,G117 -- DTO field
+	RefreshToken string `json:"refresh_token"` // #nosec G101,G117 -- DTO field
+}
+
+// ============================================================================
+// Set Password DTO (for social-only users)
+// ============================================================================
+
+// SetPasswordRequest is used by social-only users (no existing password) to set
+// an initial password so they can also log in with email + password.
+type SetPasswordRequest struct {
+	NewPassword string `json:"new_password" validate:"required,min=8,max=128" example:"Sup3rS3cure!"` // #nosec G101,G117 -- DTO field
+}

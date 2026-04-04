@@ -1,0 +1,193 @@
+{{define "users"}}
+{{template "base" .}}
+{{end}}
+
+{{define "title"}}Users{{end}}
+
+{{define "content"}}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="mb-0 fw-bold">
+        <i class="bi bi-people me-2"></i>Users
+    </h4>
+    <div class="d-flex align-items-center gap-3">
+        <!-- Search input -->
+        <div class="d-flex align-items-center gap-2">
+            <label for="userSearch" class="form-label mb-0 small text-muted text-nowrap">Search:</label>
+            <input type="text" class="form-control form-control-sm" id="userSearch"
+                   placeholder="Email or name..." style="min-width: 180px;">
+        </div>
+        <!-- Application filter dropdown -->
+        <div class="d-flex align-items-center gap-2">
+            <label for="appFilter" class="form-label mb-0 small text-muted text-nowrap">Filter by App:</label>
+            <select class="form-select form-select-sm" id="appFilter" name="app_id" style="min-width: 220px;">
+                <option value="">All Applications</option>
+                {{range .Data}}
+                <option value="{{.ID}}">{{.Name}} ({{.TenantName}})</option>
+                {{end}}
+            </select>
+        </div>
+        <!-- Export buttons -->
+        <a id="exportCsvBtn"
+           href="/gui/users/export?format=csv"
+           class="btn btn-outline-secondary btn-sm text-nowrap">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
+        </a>
+        <a id="exportJsonBtn"
+           href="/gui/users/export?format=json"
+           class="btn btn-outline-secondary btn-sm text-nowrap">
+            <i class="bi bi-file-earmark-code me-1"></i>Export JSON
+        </a>
+        <!-- Import button -->
+        <button type="button"
+                class="btn btn-outline-primary btn-sm text-nowrap"
+                onclick="openImportModal()">
+            <i class="bi bi-upload me-1"></i>Import
+        </button>
+    </div>
+</div>
+
+<!-- User detail panel (populated by HTMX when viewing a user) -->
+<div id="user-detail-container" class="mb-3"></div>
+
+<!-- User table (loaded via HTMX) -->
+<div id="user-table"
+     hx-get="/gui/users/list?page=1"
+     hx-trigger="load, userListRefresh from:body"
+     hx-swap="innerHTML">
+    <!-- Loading placeholder -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 mb-0 text-muted small">Loading users...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Unlink social account confirmation modal -->
+<div class="modal fade" id="unlinkSocialModal" tabindex="-1" aria-labelledby="unlinkSocialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="unlinkSocialModalLabel">
+                    <i class="bi bi-exclamation-triangle text-danger me-2"></i>Unlink Social Account
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="unlink-social-modal-body">
+                <!-- Populated by HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete passkey confirmation modal -->
+<div class="modal fade" id="deletePasskeyModal" tabindex="-1" aria-labelledby="deletePasskeyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="deletePasskeyModalLabel">
+                    <i class="bi bi-exclamation-triangle text-danger me-2"></i>Delete Passkey
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="delete-passkey-modal-body">
+                <!-- Populated by HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import users modal -->
+<div class="modal fade" id="importUsersModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div id="import-modal-body"
+                 hx-get="/gui/users/import/modal"
+                 hx-trigger="show.bs.modal from:#importUsersModal"
+                 hx-swap="innerHTML">
+                <!-- Populated by HTMX on modal open -->
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+    // Build the list URL with current filter/search state
+    function getUserListURL(page) {
+        var url = '/gui/users/list?page=' + (page || 1);
+        var appID = document.getElementById('appFilter').value;
+        var search = document.getElementById('userSearch').value.trim();
+        if (appID) url += '&app_id=' + appID;
+        if (search) url += '&search=' + encodeURIComponent(search);
+        return url;
+    }
+
+    // Update export button hrefs to match current filter/search state
+    function updateExportLinks() {
+        var appID  = document.getElementById('appFilter').value;
+        var search = document.getElementById('userSearch').value.trim();
+        ['exportCsvBtn', 'exportJsonBtn'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            var fmt = el.href.indexOf('format=json') !== -1 ? 'json' : 'csv';
+            var url = '/gui/users/export?format=' + fmt;
+            if (appID)  url += '&app_id=' + appID;
+            if (search) url += '&search=' + encodeURIComponent(search);
+            el.href = url;
+        });
+    }
+
+    // When app filter changes, reload the list and update export links
+    document.getElementById('appFilter').addEventListener('change', function() {
+        htmx.ajax('GET', getUserListURL(1), {target: '#user-table', swap: 'innerHTML'});
+        updateExportLinks();
+    });
+
+    // Debounced search on keyup
+    var searchTimeout = null;
+    document.getElementById('userSearch').addEventListener('keyup', function() {
+        if (searchTimeout) clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            htmx.ajax('GET', getUserListURL(1), {target: '#user-table', swap: 'innerHTML'});
+            updateExportLinks();
+        }, 300);
+    });
+
+    // Close detail panel event
+    document.body.addEventListener('userDetailClosed', function() {
+        document.getElementById('user-detail-container').innerHTML = '';
+    });
+
+    // Close unlink modal after successful social account unlink
+    document.body.addEventListener('socialAccountUnlinked', function() {
+        var modal = bootstrap.Modal.getInstance(document.getElementById('unlinkSocialModal'));
+        if (modal) modal.hide();
+    });
+
+    // Close delete passkey modal after successful passkey deletion
+    document.body.addEventListener('passkeyDeleted', function() {
+        var modal = bootstrap.Modal.getInstance(document.getElementById('deletePasskeyModal'));
+        if (modal) modal.hide();
+    });
+
+    // After a successful import, refresh the user list
+    document.body.addEventListener('userImportComplete', function() {
+        htmx.ajax('GET', getUserListURL(1), {target: '#user-table', swap: 'innerHTML'});
+    });
+
+    // Open the import modal with the current app_id injected into the HTMX URL
+    function openImportModal() {
+        var appID = document.getElementById('appFilter').value;
+        var url = '/gui/users/import/modal';
+        if (appID) url += '?app_id=' + encodeURIComponent(appID);
+        var body = document.getElementById('import-modal-body');
+        body.setAttribute('hx-get', url);
+        htmx.process(body);
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('importUsersModal')).show();
+    }
+</script>
+{{end}}
