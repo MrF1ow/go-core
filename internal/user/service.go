@@ -871,6 +871,13 @@ func (s *Service) DeleteUserAccount(appID uuid.UUID, userID string, req dto.Dele
 		return errors.NewAppError(errors.ErrInternal, "Failed to delete account")
 	}
 
+	// Dispatch webhook event (non-fatal)
+	if s.WebhookService != nil {
+		s.WebhookService.Dispatch(appID, "user.deleted", map[string]interface{}{
+			"user_id": userID,
+		})
+	}
+
 	return nil
 }
 
