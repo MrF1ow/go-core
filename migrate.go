@@ -3,9 +3,9 @@ package core
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -13,10 +13,21 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// RunMigrations applies pending SQL migrations from the given directory.
-// It skips rollback files (*_rollback.sql).
+// RunCoreMigrations applies all go-core built-in migrations from the embedded
+// migrations directory. Consumers should call this before RunMigrations to
+// ensure the core schema (users, sessions, etc.) exists.
+func RunCoreMigrations(ctx context.Context, pool *pgxpool.Pool) error {
+	return runMigrationsFS(ctx, pool, coreMigrationsFS, "migrations")
+}
+
+// RunMigrations applies pending SQL migrations from the given directory on disk.
+// It skips rollback files (*_rollback.sql) and down migration files (*.down.sql).
 // Migrations are tracked in the schema_migrations table.
 func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrationsDir string) error {
+	return runMigrationsFS(ctx, pool, os.DirFS(migrationsDir), ".")
+}
+
+func runMigrationsFS(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS, dir string) error {
 	// Ensure schema_migrations table exists
 	_, err := pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -46,7 +57,7 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrationsDir string
 	}
 
 	// Read migration files
-	entries, err := os.ReadDir(migrationsDir)
+	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
 		return fmt.Errorf("read migrations dir: %w", err)
 	}
@@ -60,6 +71,9 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrationsDir string
 		if strings.HasSuffix(name, "_rollback.sql") {
 			continue
 		}
+		if strings.HasSuffix(name, ".down.sql") {
+			continue
+		}
 		files = append(files, name)
 	}
 	sort.Strings(files)
@@ -71,11 +85,14 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool, migrationsDir string
 			continue
 		}
 
-		// Clean the filename to prevent directory traversal (e.g., "../secret.sql")
-		cleanFile := filepath.Base(file)
-		content, err := os.ReadFile(filepath.Join(migrationsDir, cleanFile)) // #nosec G304 -- path is sanitized via filepath.Base
+		path := file
+		if dir != "." {
+			path = dir + "/" + file
+		}
+
+		content, err := fs.ReadFile(fsys, path)
 		if err != nil {
-			return fmt.Errorf("read migration %s: %w", cleanFile, err)
+			return fmt.Errorf("read migration %s: %w", file, err)
 		}
 
 		tx, err := pool.Begin(ctx)
