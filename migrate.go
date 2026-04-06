@@ -31,9 +31,14 @@ func runMigrationsFS(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS, dir st
 	// Ensure schema_migrations table exists
 	_, err := pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
-			version VARCHAR(255) PRIMARY KEY,
+			id SERIAL PRIMARY KEY,
+			version VARCHAR(255) NOT NULL UNIQUE,
 			name VARCHAR(255) NOT NULL,
-			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			execution_time_ms INTEGER,
+			success BOOLEAN NOT NULL DEFAULT true,
+			error_message TEXT,
+			checksum VARCHAR(64)
 		)
 	`)
 	if err != nil {
