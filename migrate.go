@@ -113,7 +113,7 @@ func runMigrationsFS(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS, dir st
 		}
 
 		if _, err := tx.Exec(ctx,
-			"INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, $3)",
+			"INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, $3) ON CONFLICT (version) DO NOTHING",
 			version, file, time.Now(),
 		); err != nil {
 			if rbErr := tx.Rollback(ctx); rbErr != nil {
