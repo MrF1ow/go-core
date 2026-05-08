@@ -45,7 +45,7 @@ Read the reference that matches your task. Multiple may apply.
 - `pkg/jwt/` — JWT utilities
 - `pkg/errors/` — custom error types
 - `web/` — embedded HTMX templates and static assets
-- `migrations/` — SQL migration files
+- `migrations/` — SQL migration files (embedded at build time via `core.RunCoreMigrations`)
 
 **Config:** All in root package `core` — `Config`, `DefaultConfig()`, `ValidateConfig()`
 
