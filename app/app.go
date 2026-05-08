@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	core "github.com/MrF1ow/go-core"
 	"github.com/MrF1ow/go-core/internal/coreapp"
@@ -28,6 +29,22 @@ func New(cfg core.Config) (*App, error) {
 	}
 
 	internal, err := coreapp.New(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("core: initialization failed: %w", err)
+	}
+
+	return &App{app: internal}, nil
+}
+
+// NewWithDB validates the configuration and initializes the go-core module
+// using an externally managed database connection pool. The caller retains
+// ownership of the pool and is responsible for closing it.
+func NewWithDB(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
+	if err := core.ValidateConfig(cfg); err != nil {
+		return nil, err
+	}
+
+	internal, err := coreapp.NewWithDB(cfg, pool)
 	if err != nil {
 		return nil, fmt.Errorf("core: initialization failed: %w", err)
 	}
