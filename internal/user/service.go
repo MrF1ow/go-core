@@ -192,7 +192,7 @@ func (s *Service) LoginUser(appID uuid.UUID, email, password, ip, userAgent stri
 
 	// Compare password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return nil, errors.NewAppError(errors.ErrUnauthorized, "Invalid credentials")
+		return &LoginResult{UserID: user.ID}, errors.NewAppError(errors.ErrUnauthorized, "Invalid credentials")
 	}
 
 	// Check if account is active

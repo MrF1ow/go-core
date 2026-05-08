@@ -121,8 +121,13 @@ func (s *Service) SetAnomalyCallback(cb AnomalyCallback) {
 	s.anomalyCallback = cb
 }
 
-// LogActivity logs a user activity asynchronously with smart filtering
+// LogActivity logs a user activity asynchronously with smart filtering.
+// Events with a nil userID are silently dropped because activity_logs
+// requires a valid FK reference into the users table.
 func (s *Service) LogActivity(appID, userID uuid.UUID, eventType, ipAddress, userAgent string, details map[string]interface{}) {
+	if userID == uuid.Nil {
+		return
+	}
 	// Get logging configuration
 	cfg := config.GetLoggingConfig()
 
@@ -211,6 +216,9 @@ func (s *Service) LogActivity(appID, userID uuid.UUID, eventType, ipAddress, use
 // This is used by login handlers that run anomaly detection themselves and want
 // to trigger notification callbacks.
 func (s *Service) LogActivityWithAnomalyResult(appID, userID uuid.UUID, email, eventType, ipAddress, userAgent string, details map[string]interface{}, anomalyResult *AnomalyResult) {
+	if userID == uuid.Nil {
+		return
+	}
 	if details == nil {
 		details = make(map[string]interface{})
 	}
@@ -388,9 +396,11 @@ func LogLogin(appID, userID uuid.UUID, ipAddress, userAgent string, details map[
 	GetLogService().LogActivity(appID, userID, EventLogin, ipAddress, userAgent, details)
 }
 
-// LogLoginFailed logs a failed login attempt
-func LogLoginFailed(appID uuid.UUID, ipAddress, userAgent string, details map[string]interface{}) {
-	GetLogService().LogActivity(appID, uuid.Nil, EventLoginFailed, ipAddress, userAgent, details)
+// LogLoginFailed logs a failed login attempt for an identified user.
+// When userID is uuid.Nil (user not found), the event is silently dropped
+// because activity_logs requires a valid user FK reference.
+func LogLoginFailed(appID, userID uuid.UUID, ipAddress, userAgent string, details map[string]interface{}) {
+	GetLogService().LogActivity(appID, userID, EventLoginFailed, ipAddress, userAgent, details)
 }
 
 // LogBruteForceDetected logs a brute-force detection event

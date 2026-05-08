@@ -102,6 +102,10 @@ All database access uses **pgx** (connection pool) and **SQLC** (generated type-
 - **Validation**: `go-playground/validator` struct tags on DTOs
 - **Swagger**: annotate all HTTP handlers; run `make swag-init` after changes
 
+## Testing Requirements
+
+Every new feature, bug fix, or behavioral change **must** include corresponding unit tests. Tests verify the fix works and prevent regressions. Place test files alongside the code they test (e.g., `service_test.go` next to `service.go`). Run `make test` to confirm all tests pass before considering work complete.
+
 ## Pre-commit / Pre-push Checks
 
 Before committing or pushing, run the full CI pipeline locally:

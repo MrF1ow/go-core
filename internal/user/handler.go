@@ -91,10 +91,12 @@ func (h *Handler) runLoginAnomalyDetection(appID, userID uuid.UUID, email, ipAdd
 }
 
 // handleFailedLogin tracks a failed login attempt for brute-force detection.
+// userID should be the real user ID when the user exists (wrong password), or
+// uuid.Nil when the email doesn't match any account.
 // Returns wasLocked and lockExpiresAt if the account was locked as a result.
-func (h *Handler) handleFailedLogin(appID uuid.UUID, email, ipAddress, userAgent string, bfCfg bruteforce.BruteForceConfig) (bool, *time.Time) {
-	// Log the failed attempt
-	log.LogLoginFailed(appID, ipAddress, userAgent, map[string]interface{}{
+func (h *Handler) handleFailedLogin(appID, userID uuid.UUID, email, ipAddress, userAgent string, bfCfg bruteforce.BruteForceConfig) (bool, *time.Time) {
+	// Log the failed attempt (silently dropped when userID is nil)
+	log.LogLoginFailed(appID, userID, ipAddress, userAgent, map[string]interface{}{
 		"email": email,
 	})
 
@@ -112,7 +114,7 @@ func (h *Handler) handleFailedLogin(appID uuid.UUID, email, ipAddress, userAgent
 		var lockErr error
 		wasLocked, lockExpiresAt, failCount, lockErr = h.BruteForceService.HandleFailedLogin(appID, email, bfCfg)
 		if lockErr == nil && wasLocked {
-			log.LogAccountLocked(appID, uuid.Nil, ipAddress, userAgent, map[string]interface{}{
+			log.LogAccountLocked(appID, userID, ipAddress, userAgent, map[string]interface{}{
 				"email":        email,
 				"locked_until": lockExpiresAt.Format(time.RFC3339),
 			})
@@ -152,13 +154,13 @@ func (h *Handler) handleFailedLogin(appID uuid.UUID, email, ipAddress, userAgent
 					NotificationCooldown: cfg.AnomalyDetection.NotificationCooldown,
 				}, count)
 
-				log.LogBruteForceDetected(appID, uuid.Nil, ipAddress, userAgent, map[string]interface{}{
+				log.LogBruteForceDetected(appID, userID, ipAddress, userAgent, map[string]interface{}{
 					"email":        email,
 					"failed_count": count,
 				})
 
 				if bruteResult.NotifyUser {
-					log.GetLogService().LogActivityWithAnomalyResult(appID, uuid.Nil, email, log.EventBruteForceDetected, ipAddress, userAgent, map[string]interface{}{
+					log.GetLogService().LogActivityWithAnomalyResult(appID, userID, email, log.EventBruteForceDetected, ipAddress, userAgent, map[string]interface{}{
 						"email":        email,
 						"failed_count": count,
 					}, &bruteResult)
@@ -311,7 +313,11 @@ func (h *Handler) Login(c *gin.Context) {
 		// Only track as failed login if it was an authentication failure (401),
 		// not if the account is locked/deactivated (403) or other errors.
 		if err.Code == http.StatusUnauthorized {
-			wasLocked, lockExpiresAt := h.handleFailedLogin(appID, req.Email, ipAddress, userAgent, bfCfg)
+			var failedUserID uuid.UUID
+			if loginResult != nil {
+				failedUserID = loginResult.UserID
+			}
+			wasLocked, lockExpiresAt := h.handleFailedLogin(appID, failedUserID, req.Email, ipAddress, userAgent, bfCfg)
 
 			if wasLocked && lockExpiresAt != nil {
 				retryAfter := int(time.Until(*lockExpiresAt).Seconds())

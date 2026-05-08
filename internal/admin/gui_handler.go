@@ -1700,9 +1700,10 @@ func (h *GUIHandler) UserUnlock(c *gin.Context) {
 
 	// Log the unlock event
 	appID, parseErr := uuid.Parse(appIDStr)
-	if parseErr == nil {
+	userID, userParseErr := uuid.Parse(id)
+	if parseErr == nil && userParseErr == nil {
 		adminUser := getAdminUsername(c)
-		logService.LogAccountUnlocked(appID, uuid.Nil, "", "", map[string]interface{}{
+		logService.LogAccountUnlocked(appID, userID, "", "", map[string]interface{}{
 			"email":         userEmail,
 			"unlocked_by":   adminUser,
 			"unlock_method": "admin_gui",
