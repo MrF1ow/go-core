@@ -52,7 +52,7 @@ func (r *Repository) CreateUser(user *models.User) error {
 		TwoFaEnabled:        user.TwoFAEnabled,
 		TwoFaMethod:         user.TwoFAMethod,
 		TwoFaSecret:         user.TwoFASecret,
-		TwoFaRecoveryCodes:  json.RawMessage(user.TwoFARecoveryCodes),
+		TwoFaRecoveryCodes:  jsonOrEmpty(user.TwoFARecoveryCodes),
 		BackupEmail:         user.BackupEmail,
 		BackupEmailVerified: user.BackupEmailVerified,
 		TwoFaPreviousMethod: user.TwoFAPreviousMethod,
@@ -133,7 +133,7 @@ func (r *Repository) UpdateUser(user *models.User) error {
 		TwoFaEnabled:        user.TwoFAEnabled,
 		TwoFaMethod:         user.TwoFAMethod,
 		TwoFaSecret:         user.TwoFASecret,
-		TwoFaRecoveryCodes:  json.RawMessage(user.TwoFARecoveryCodes),
+		TwoFaRecoveryCodes:  jsonOrEmpty(user.TwoFARecoveryCodes),
 		BackupEmail:         user.BackupEmail,
 		BackupEmailVerified: user.BackupEmailVerified,
 		TwoFaPreviousMethod: user.TwoFAPreviousMethod,
@@ -533,6 +533,13 @@ func toModelSocialAccounts(rows []sqlcgen.SocialAccount) []models.SocialAccount 
 		}
 	}
 	return out
+}
+
+func jsonOrEmpty(data json.RawMessage) json.RawMessage {
+	if len(data) == 0 {
+		return json.RawMessage("[]")
+	}
+	return data
 }
 
 func timePtrToTimestamptz(t *time.Time) pgtype.Timestamptz {

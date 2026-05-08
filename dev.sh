@@ -8,4 +8,6 @@ echo "- Redis Commander: http://localhost:8081"
 echo "- PostgreSQL: localhost:5433"
 echo ""
 
+docker network inspect shared-api-network >/dev/null 2>&1 || docker network create shared-api-network
+
 docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
