@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/JedidiahDigital/go-core/pkg/dto"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/google/uuid"
 )
 

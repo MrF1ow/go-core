@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/internal/safeconv"
+	"github.com/MrF1ow/go-core/internal/safeconv"
 )
 
 // memEntry holds a value and its optional expiry time.

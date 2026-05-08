@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/JedidiahDigital/go-core/internal/email"
-	"github.com/JedidiahDigital/go-core/pkg/dto"
-	"github.com/JedidiahDigital/go-core/pkg/jwt"
+	"github.com/MrF1ow/go-core/internal/email"
+	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/jwt"
 )
 
 func setupTestHandler() *Handler {

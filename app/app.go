@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	core "github.com/JedidiahDigital/go-core"
-	"github.com/JedidiahDigital/go-core/internal/coreapp"
-	"github.com/JedidiahDigital/go-core/internal/middleware"
+	core "github.com/MrF1ow/go-core"
+	"github.com/MrF1ow/go-core/internal/coreapp"
+	"github.com/MrF1ow/go-core/internal/middleware"
 )
 
 // App is the public entry point for the go-core authentication module.

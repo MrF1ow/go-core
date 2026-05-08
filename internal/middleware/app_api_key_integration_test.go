@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/JedidiahDigital/go-core/internal/admin"
-	"github.com/JedidiahDigital/go-core/pkg/models"
-	"github.com/JedidiahDigital/go-core/web"
+	"github.com/MrF1ow/go-core/internal/admin"
+	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/web"
 	"github.com/google/uuid"
 )
 

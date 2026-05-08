@@ -1,6 +1,6 @@
 package email
 
-import "github.com/JedidiahDigital/go-core/pkg/models"
+import "github.com/MrF1ow/go-core/pkg/models"
 
 // Email type code constants
 const (

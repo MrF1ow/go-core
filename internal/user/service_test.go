@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/internal/email"
-	"github.com/JedidiahDigital/go-core/pkg/errors"
-	"github.com/JedidiahDigital/go-core/pkg/jwt"
+	"github.com/MrF1ow/go-core/internal/email"
+	"github.com/MrF1ow/go-core/pkg/errors"
+	"github.com/MrF1ow/go-core/pkg/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -6,8 +6,8 @@ How to use go-core as an auth module in your own Go application.
 
 ```go
 import (
-    core "github.com/JedidiahDigital/go-core"       // Config types, DefaultConfig, ValidateConfig
-    "github.com/JedidiahDigital/go-core/app"          // app.New(), app.App
+    core "github.com/MrF1ow/go-core"       // Config types, DefaultConfig, ValidateConfig
+    "github.com/MrF1ow/go-core/app"          // app.New(), app.App
 )
 ```
 

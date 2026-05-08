@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	core "github.com/JedidiahDigital/go-core"
-	"github.com/JedidiahDigital/go-core/internal/redis"
-	"github.com/JedidiahDigital/go-core/pkg/jwt"
+	core "github.com/MrF1ow/go-core"
+	"github.com/MrF1ow/go-core/internal/redis"
+	"github.com/MrF1ow/go-core/pkg/jwt"
 )
 
 // testStore holds the CacheStore used by tests for direct key manipulation (cleanup, etc.).

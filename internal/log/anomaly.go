@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/internal/geoip"
-	"github.com/JedidiahDigital/go-core/internal/redis"
+	"github.com/MrF1ow/go-core/internal/geoip"
+	"github.com/MrF1ow/go-core/internal/redis"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

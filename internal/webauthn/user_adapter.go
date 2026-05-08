@@ -3,7 +3,7 @@ package webauthn
 import (
 	"strings"
 
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/go-webauthn/webauthn/protocol"
 	gowebauthn "github.com/go-webauthn/webauthn/webauthn"
 )

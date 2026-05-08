@@ -4,10 +4,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/internal/redis"
-	"github.com/JedidiahDigital/go-core/pkg/dto"
-	"github.com/JedidiahDigital/go-core/pkg/errors"
-	"github.com/JedidiahDigital/go-core/pkg/jwt"
+	"github.com/MrF1ow/go-core/internal/redis"
+	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/errors"
+	"github.com/MrF1ow/go-core/pkg/jwt"
 	"github.com/google/uuid"
 )
 

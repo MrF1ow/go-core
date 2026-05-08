@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/internal/redis"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/internal/redis"
+	"github.com/MrF1ow/go-core/pkg/models"
 )
 
 // ExpiryService handles detection of expired sessions and triggers group-wide revocation

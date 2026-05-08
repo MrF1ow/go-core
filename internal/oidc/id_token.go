@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/golang-jwt/jwt/v5"
 )
 

@@ -1,6 +1,6 @@
 package email
 
-import "github.com/JedidiahDigital/go-core/pkg/models"
+import "github.com/MrF1ow/go-core/pkg/models"
 
 // GetDefaultTemplate returns the hardcoded fallback template for a given email type.
 // These are used when neither an app-specific nor a global DB template exists.

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/JedidiahDigital/go-core/internal/util"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/internal/util"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/google/uuid"
 )
 

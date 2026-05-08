@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/JedidiahDigital/go-core/internal/email"
-	"github.com/JedidiahDigital/go-core/internal/geoip"
-	"github.com/JedidiahDigital/go-core/internal/twofa"
-	userimport "github.com/JedidiahDigital/go-core/internal/user"
-	"github.com/JedidiahDigital/go-core/pkg/dto"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/internal/email"
+	"github.com/MrF1ow/go-core/internal/geoip"
+	"github.com/MrF1ow/go-core/internal/twofa"
+	userimport "github.com/MrF1ow/go-core/internal/user"
+	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/google/uuid"
 )
 

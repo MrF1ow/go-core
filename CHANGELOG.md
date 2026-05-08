@@ -35,7 +35,7 @@ and refactored from a standalone API into a self-contained library.
 - **All repositories** migrated from GORM to pgx/SQLC (user, admin, social, twofa, webauthn, webhook, rbac, oidc, email, log, bruteforce, settings, trusted devices)
 - **Configuration** — replaced Viper with explicit `core.Config` struct passed by consumers
 - **Composition root** — moved from `cmd/api/main.go` to `internal/coreapp/app.go`
-- **Module path** — `github.com/JedidiahDigital/go-core`
+- **Module path** — `github.com/MrF1ow/go-core`
 - **CI** — removed deploy stages (library, not a service), added integration tests
 - **Migration scripts** — rewritten as clean dispatchers to existing scripts
 - **Documentation** — removed 50+ stale docs, updated architecture/structure/migration docs

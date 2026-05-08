@@ -6,7 +6,7 @@ import (
 	"html/template"
 	"strings"
 
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/pkg/models"
 )
 
 // Renderer handles template rendering for all supported engines.

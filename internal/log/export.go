@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/JedidiahDigital/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/dto"
 )
 
 // csvHeaders defines the column order for CSV exports.

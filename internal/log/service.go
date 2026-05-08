@@ -7,8 +7,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/internal/config"
-	"github.com/JedidiahDigital/go-core/internal/sqlcgen"
+	"github.com/MrF1ow/go-core/internal/config"
+	"github.com/MrF1ow/go-core/internal/sqlcgen"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"

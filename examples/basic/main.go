@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	core "github.com/JedidiahDigital/go-core"
-	"github.com/JedidiahDigital/go-core/app"
+	core "github.com/MrF1ow/go-core"
+	"github.com/MrF1ow/go-core/app"
 )
 
 // This is a minimal example showing how to use go-core as an auth module

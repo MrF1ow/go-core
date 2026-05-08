@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	core "github.com/JedidiahDigital/go-core"
-	"github.com/JedidiahDigital/go-core/pkg/dto"
+	core "github.com/MrF1ow/go-core"
+	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"

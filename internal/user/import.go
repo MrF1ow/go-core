@@ -8,7 +8,7 @@ import (
 	"net/mail"
 	"strings"
 
-	"github.com/JedidiahDigital/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/dto"
 )
 
 // ParseCSVImport reads a CSV from r and returns valid rows plus per-row errors.

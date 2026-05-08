@@ -1,4 +1,4 @@
-module github.com/JedidiahDigital/go-core
+module github.com/MrF1ow/go-core
 
 go 1.24.0
 

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	core "github.com/JedidiahDigital/go-core"
+	core "github.com/MrF1ow/go-core"
 )
 
 // CORSMiddleware creates and configures CORS middleware from the provided config.

@@ -11,9 +11,9 @@ import (
 	"math/big"
 	"time"
 
-	emailpkg "github.com/JedidiahDigital/go-core/internal/email"
-	"github.com/JedidiahDigital/go-core/internal/redis"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	emailpkg "github.com/MrF1ow/go-core/internal/email"
+	"github.com/MrF1ow/go-core/internal/redis"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/pquerna/otp/totp"
 	"github.com/skip2/go-qrcode"
 	"golang.org/x/crypto/bcrypt"

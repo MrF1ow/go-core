@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/JedidiahDigital/go-core/internal/redis"
-	"github.com/JedidiahDigital/go-core/internal/session"
-	"github.com/JedidiahDigital/go-core/internal/user"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/internal/redis"
+	"github.com/MrF1ow/go-core/internal/session"
+	"github.com/MrF1ow/go-core/internal/user"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/google/uuid"
 )
 

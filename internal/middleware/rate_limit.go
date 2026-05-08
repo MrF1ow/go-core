@@ -10,8 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	core "github.com/JedidiahDigital/go-core"
-	"github.com/JedidiahDigital/go-core/web"
+	core "github.com/MrF1ow/go-core"
+	"github.com/MrF1ow/go-core/web"
 )
 
 // cacheStore is the package-level CacheStore used by rate-limit middleware.

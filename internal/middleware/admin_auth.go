@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/JedidiahDigital/go-core/internal/admin"
-	"github.com/JedidiahDigital/go-core/web"
+	"github.com/MrF1ow/go-core/internal/admin"
+	"github.com/MrF1ow/go-core/web"
 )
 
 // AdminAuthMiddleware validates the Admin API Key header.

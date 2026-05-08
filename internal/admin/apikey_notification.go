@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/internal/email"
+	"github.com/MrF1ow/go-core/internal/email"
 	"github.com/google/uuid"
 )
 

@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"unicode"
 
-	"github.com/JedidiahDigital/go-core/internal/admin"
-	"github.com/JedidiahDigital/go-core/internal/database"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/internal/admin"
+	"github.com/MrF1ow/go-core/internal/database"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/term"

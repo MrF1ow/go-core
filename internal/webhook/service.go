@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/google/uuid"
 )
 

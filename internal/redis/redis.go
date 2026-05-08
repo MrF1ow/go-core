@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	core "github.com/JedidiahDigital/go-core"
+	core "github.com/MrF1ow/go-core"
 	goredis "github.com/go-redis/redis/v8"
 )
 

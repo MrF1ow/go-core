@@ -3,7 +3,7 @@ package sms
 import (
 	"log"
 
-	core "github.com/JedidiahDigital/go-core"
+	core "github.com/MrF1ow/go-core"
 )
 
 // NewSender creates the appropriate SMS sender based on the provided config.

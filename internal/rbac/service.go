@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	core "github.com/JedidiahDigital/go-core"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	core "github.com/MrF1ow/go-core"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/google/uuid"
 )
 

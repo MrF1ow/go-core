@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/JedidiahDigital/go-core/internal/config"
+	"github.com/MrF1ow/go-core/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

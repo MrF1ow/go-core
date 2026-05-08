@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/JedidiahDigital/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/google/uuid"
 )
 

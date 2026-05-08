@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JedidiahDigital/go-core/internal/safeconv"
-	"github.com/JedidiahDigital/go-core/internal/sqlcgen"
-	"github.com/JedidiahDigital/go-core/internal/sso"
-	"github.com/JedidiahDigital/go-core/pkg/dto"
-	"github.com/JedidiahDigital/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/internal/safeconv"
+	"github.com/MrF1ow/go-core/internal/sqlcgen"
+	"github.com/MrF1ow/go-core/internal/sso"
+	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/models"
 )
 
 // errNotFound is returned when a record is not found.
