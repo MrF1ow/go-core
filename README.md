@@ -39,6 +39,16 @@ func main() {
 
 That's it. You get registration, login, token refresh, password reset, email verification, 2FA, social login, and more out of the box.
 
+### Public API
+
+| Function | Description |
+|----------|-------------|
+| `app.New(cfg)` | Validates config, connects to Postgres, initializes all services |
+| `app.NewWithDB(cfg, pool)` | Same as `New` but reuses an existing `*pgxpool.Pool` |
+| `app.RegisterRoutes(r)` | Mounts all routes onto a Gin engine |
+| `app.AuthMiddleware()` | Returns a `gin.HandlerFunc` for protecting your own routes |
+| `app.Close()` | Shuts down background services and connection pool |
+
 ## Required Config
 
 These must be set or `app.New()` returns an error:
@@ -71,10 +81,15 @@ Everything below is off or defaulted until you configure it. `DefaultConfig()` g
 | `MultiTenant` | Enables multi-app mode with `X-App-ID` header | False. Single-app mode. |
 | `PublicURL` | Base URL for API links in emails and redirects | Empty. |
 | `FrontendURL` | Frontend app URL for redirect targets | Empty. |
+| `AppName` | Application name used in emails and admin GUI | Empty. |
+| `Port` | Server port for the reference `cmd/api` implementation | Empty. |
+| `GinMode` | Gin framework mode (`debug`, `release`, `test`) | Empty (Gin default). |
 
 ## Features
 
 - JWT authentication (access + refresh tokens)
+- Registration, login, password reset, email verification
+- Magic link authentication
 - OAuth2 social login (Google, Facebook, GitHub)
 - WebAuthn / passkeys
 - Two-factor auth (TOTP, SMS, email, passkey)
@@ -108,8 +123,13 @@ go run ./examples/basic
 ```bash
 make dev          # Hot reload dev server
 make test         # Run all tests
+make fmt          # Format code
 make lint         # golangci-lint
+make security     # gosec + govulncheck scans
+make ci           # Run full CI pipeline (fmt, lint, test, security, build)
 make build-prod   # Production binary
+make setup-admin  # Create admin account for Admin GUI
+make swag-init    # Regenerate Swagger docs after API changes
 ```
 
 ## Claude Code Skills

@@ -19,6 +19,7 @@ make test               # Run all tests
 make fmt                # Format code
 make lint               # golangci-lint (5m timeout)
 make security           # gosec + govulncheck vulnerability scans
+make ci                 # Run full CI pipeline (fmt, lint, test, security, build)
 make swag-init          # Regenerate Swagger docs (after API changes)
 make build-prod         # Cross-compile for Linux (CGO_ENABLED=0)
 make docker-dev         # Start PostgreSQL + Redis via Docker
@@ -43,7 +44,9 @@ go test -v -tags=integration ./app/...                    # Public API integrati
 
 The module exposes a minimal surface via the `app/` package:
 - `app.New(cfg)` — validates config, connects to Postgres, initializes all services
+- `app.NewWithDB(cfg, pool)` — same as `New` but reuses an existing `*pgxpool.Pool`
 - `app.RegisterRoutes(r)` — mounts all routes onto a Gin engine
+- `app.AuthMiddleware()` — returns a `gin.HandlerFunc` for protecting consumer routes
 - `app.Close()` — shuts down background services and connection pool
 
 Configuration types live in the root `core` package (`Config`, `DatabaseConfig`, etc.). The module never reads environment variables — consumers build the `Config` struct however they want.
@@ -109,6 +112,12 @@ Every new feature, bug fix, or behavioral change **must** include corresponding 
 ## Pre-commit / Pre-push Checks
 
 Before committing or pushing, run the full CI pipeline locally:
+
+```bash
+make ci                 # Runs: fmt, lint, test, security, build-prod
+```
+
+Or individually:
 
 ```bash
 make fmt                # Format code
