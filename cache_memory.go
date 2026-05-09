@@ -95,6 +95,8 @@ func (m *MemoryCacheStore) Delete(_ context.Context, keys ...string) error {
 	m.mu.Lock()
 	for _, k := range keys {
 		delete(m.data, k)
+		delete(m.hashes, k)
+		delete(m.sets, k)
 	}
 	m.mu.Unlock()
 	return nil
@@ -103,9 +105,17 @@ func (m *MemoryCacheStore) Delete(_ context.Context, keys ...string) error {
 // Exists reports whether a key is present and not expired.
 func (m *MemoryCacheStore) Exists(_ context.Context, key string) (bool, error) {
 	m.mu.RLock()
-	e, ok := m.data[key]
-	m.mu.RUnlock()
-	return ok && !e.expired(), nil
+	defer m.mu.RUnlock()
+	if e, ok := m.data[key]; ok && !e.expired() {
+		return true, nil
+	}
+	if _, ok := m.hashes[key]; ok {
+		return true, nil
+	}
+	if _, ok := m.sets[key]; ok {
+		return true, nil
+	}
+	return false, nil
 }
 
 // Increment atomically increments a counter. The existing TTL is preserved; if the key
