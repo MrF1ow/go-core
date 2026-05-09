@@ -1,6 +1,6 @@
 # Auth API Makefile
 
-.PHONY: build run dev test clean air setup-admin
+.PHONY: build run dev test clean air setup-admin ci
 
 # Build the application
 build:
@@ -75,6 +75,9 @@ vulnerability-scan:
 
 # Run all security checks
 security: security-scan vulnerability-scan
+
+# Run all CI checks locally (mirrors GitHub Actions pipeline)
+ci: fmt lint test security build-prod
 
 # Build for production
 build-prod:
@@ -195,6 +198,7 @@ help:
 	@echo "  security-scan        - Run gosec security scanner"
 	@echo "  vulnerability-scan   - Run govulncheck vulnerability scanner"
 	@echo "  security             - Run all security checks"
+	@echo "  ci                   - Run full CI pipeline locally (fmt, lint, test, security, build)"
 	@echo "  build-prod           - Build for production"
 	@echo "  docker-dev           - Run development environment with Docker"
 	@echo "  docker-compose-build - Build Docker images using docker-compose"
