@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/web"
+	"github.com/gin-gonic/gin"
 )
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,9 @@ func clearRateLimitState(keyPrefixes ...string) {
 				break
 			}
 			if len(keys) > 0 {
-				cacheStore.Delete(ctx, keys...)
+				if err := cacheStore.Delete(ctx, keys...); err != nil {
+					break
+				}
 			}
 			cursor = next
 			if cursor == 0 {

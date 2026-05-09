@@ -3,16 +3,17 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	core "github.com/MrF1ow/go-core"
 	"github.com/MrF1ow/go-core/internal/redis"
 	"github.com/MrF1ow/go-core/pkg/jwt"
+	"github.com/gin-gonic/gin"
 )
 
 // testStore holds the CacheStore used by tests for direct key manipulation (cleanup, etc.).
@@ -36,7 +37,9 @@ func setupTestRedis() {
 	redisPassword := os.Getenv("REDIS_PASSWORD")
 	redisDB := 1
 	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
-		fmt.Sscanf(dbStr, "%d", &redisDB)
+		if _, err := fmt.Sscanf(dbStr, "%d", &redisDB); err != nil {
+			log.Printf("invalid REDIS_DB %q, using default: %v", dbStr, err)
+		}
 	}
 
 	store, err := core.NewRedisCacheStore(core.RedisConfig{
@@ -252,7 +255,9 @@ func TestAuthMiddlewareBlacklistedToken(t *testing.T) {
 	}
 
 	// Cleanup
-	testStore.Delete(context.Background(), "app:test-app-id:blacklist_token:"+token)
+	if err := testStore.Delete(context.Background(), "app:test-app-id:blacklist_token:"+token); err != nil {
+		t.Logf("cleanup failed: %v", err)
+	}
 }
 
 func TestAuthMiddlewareUserTokensBlacklisted(t *testing.T) {
@@ -295,7 +300,9 @@ func TestAuthMiddlewareUserTokensBlacklisted(t *testing.T) {
 	}
 
 	// Cleanup
-	testStore.Delete(context.Background(), "app:test-app-id:blacklist_user:"+userID)
+	if err := testStore.Delete(context.Background(), "app:test-app-id:blacklist_user:"+userID); err != nil {
+		t.Logf("cleanup failed: %v", err)
+	}
 }
 
 // Helper function to check if a string contains a substring

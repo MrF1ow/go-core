@@ -3,14 +3,15 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"time"
 
+	"github.com/MrF1ow/go-core/internal/sqlcgen"
+	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/MrF1ow/go-core/internal/sqlcgen"
-	"github.com/MrF1ow/go-core/pkg/models"
 )
 
 type Repository struct {
@@ -241,7 +242,11 @@ func (r *Repository) DeleteUser(userID string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			log.Printf("rollback failed: %v", err)
+		}
+	}()
 
 	// 1. social_accounts.user_id → users.id (NOT NULL, NO ACTION) — must delete first
 	if _, err := tx.Exec(ctx, "DELETE FROM social_accounts WHERE user_id = $1", uid); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -281,7 +282,11 @@ func (r *Repository) SetRolePermissions(roleID string, permissionIDs []string) e
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			log.Printf("rollback failed: %v", err)
+		}
+	}()
 
 	qtx := r.queries.WithTx(tx)
 

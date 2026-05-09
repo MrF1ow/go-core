@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/web"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -181,7 +181,6 @@ func (h *GUIHandler) OIDCClientList(c *gin.Context) {
 		start := (page - 1) * pageSize
 		end := start + pageSize
 		if start > total {
-			start = total
 			items = nil
 		} else {
 			if end > total {

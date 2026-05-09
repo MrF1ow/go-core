@@ -23,12 +23,8 @@ func newTestUser() *models.User {
 	}
 }
 
-func newTestParams(key interface { /* *rsa.PrivateKey */
-}) MintIDTokenParams {
+func newTestParams() MintIDTokenParams {
 	rsaKey, _ := GenerateRSAKey()
-	if key != nil {
-		// type assert only used internally; caller passes nil to use fresh key
-	}
 	user := newTestUser()
 	return MintIDTokenParams{
 		Issuer:   "https://auth.example.com/oidc/app-1",
@@ -46,7 +42,7 @@ func newTestParams(key interface { /* *rsa.PrivateKey */
 // ─── MintIDToken ────────────────────────────────────────────────────────────
 
 func TestMintIDToken_ReturnsToken(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	token, err := MintIDToken(params)
 	if err != nil {
 		t.Fatalf("MintIDToken() error = %v", err)
@@ -62,7 +58,7 @@ func TestMintIDToken_ReturnsToken(t *testing.T) {
 }
 
 func TestMintIDToken_ContainsExpectedClaims(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	tokenStr, err := MintIDToken(params)
 	if err != nil {
 		t.Fatalf("MintIDToken() error = %v", err)
@@ -88,7 +84,7 @@ func TestMintIDToken_ContainsExpectedClaims(t *testing.T) {
 }
 
 func TestMintIDToken_ProfileScopeClaims(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	tokenStr, _ := MintIDToken(params)
 	claims, err := ParseIDToken(tokenStr, params.Key)
 	if err != nil {
@@ -114,7 +110,7 @@ func TestMintIDToken_ProfileScopeClaims(t *testing.T) {
 }
 
 func TestMintIDToken_EmailScopeClaims(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	tokenStr, _ := MintIDToken(params)
 	claims, err := ParseIDToken(tokenStr, params.Key)
 	if err != nil {
@@ -130,7 +126,7 @@ func TestMintIDToken_EmailScopeClaims(t *testing.T) {
 }
 
 func TestMintIDToken_RolesScopeClaims(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	tokenStr, _ := MintIDToken(params)
 	claims, err := ParseIDToken(tokenStr, params.Key)
 	if err != nil {
@@ -143,7 +139,7 @@ func TestMintIDToken_RolesScopeClaims(t *testing.T) {
 }
 
 func TestMintIDToken_OpenIDOnlyScope(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	params.Scopes = []string{"openid"} // no profile, email, roles
 	tokenStr, _ := MintIDToken(params)
 	claims, err := ParseIDToken(tokenStr, params.Key)
@@ -167,7 +163,7 @@ func TestMintIDToken_OpenIDOnlyScope(t *testing.T) {
 }
 
 func TestMintIDToken_NoNonce(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	params.Nonce = ""
 	tokenStr, err := MintIDToken(params)
 	if err != nil {
@@ -183,7 +179,7 @@ func TestMintIDToken_NoNonce(t *testing.T) {
 }
 
 func TestMintIDToken_ExpirationRespected(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	params.TTL = 5 * time.Minute
 	before := time.Now().UTC()
 	tokenStr, _ := MintIDToken(params)
@@ -202,7 +198,7 @@ func TestMintIDToken_ExpirationRespected(t *testing.T) {
 }
 
 func TestMintIDToken_KidInHeader(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	params.Kid = "my-app-uuid"
 	tokenStr, err := MintIDToken(params)
 	if err != nil {
@@ -223,7 +219,7 @@ func TestMintIDToken_KidInHeader(t *testing.T) {
 // ─── ParseIDToken ────────────────────────────────────────────────────────────
 
 func TestParseIDToken_InvalidSignature(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 
 	// Sign with a different key and try to verify with the original — should fail.
 	wrongKey, _ := GenerateRSAKey()
@@ -238,7 +234,7 @@ func TestParseIDToken_InvalidSignature(t *testing.T) {
 }
 
 func TestParseIDToken_TamperedToken(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	tokenStr, _ := MintIDToken(params)
 
 	// Tamper with the payload segment.
@@ -256,7 +252,7 @@ func TestParseIDToken_TamperedToken(t *testing.T) {
 }
 
 func TestParseIDToken_ExpiredToken(t *testing.T) {
-	params := newTestParams(nil)
+	params := newTestParams()
 	params.TTL = -1 * time.Minute // already expired
 	tokenStr, err := MintIDToken(params)
 	if err != nil {

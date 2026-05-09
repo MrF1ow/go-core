@@ -3,6 +3,7 @@ package email
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -331,7 +332,11 @@ func (r *Repository) DeleteEmailType(id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			log.Printf("rollback failed: %v", err)
+		}
+	}()
 
 	qtx := r.queries.WithTx(tx)
 

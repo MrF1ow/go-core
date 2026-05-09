@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/bruteforce"
 	"github.com/MrF1ow/go-core/internal/email"
 	"github.com/MrF1ow/go-core/internal/geoip"
@@ -29,6 +28,7 @@ import (
 	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/MrF1ow/go-core/web"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -5548,7 +5548,6 @@ func (h *GUIHandler) SessionList(c *gin.Context) {
 
 	// Collect all sessions across selected apps
 	var allSessions []map[string]string
-	var allAppIDs []string // parallel array tracking which appID each session belongs to
 	for _, appID := range appIDs {
 		sessions, err := redis.GetAllSessionsForApp(appID)
 		if err != nil {
@@ -5557,7 +5556,6 @@ func (h *GUIHandler) SessionList(c *gin.Context) {
 		for _, s := range sessions {
 			s["app_id"] = appID
 			allSessions = append(allSessions, s)
-			allAppIDs = append(allAppIDs, appID)
 		}
 	}
 
