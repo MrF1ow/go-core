@@ -31,7 +31,7 @@ type IPRule struct {
 	AppID       uuid.UUID `json:"app_id"`
 	RuleType    string    `json:"rule_type"`  // "allow" or "block"
 	MatchType   string    `json:"match_type"` // "ip", "cidr", "country"
-	Value       string    `json:"value"`                       // IP address, CIDR notation, or ISO country code
+	Value       string    `json:"value"`      // IP address, CIDR notation, or ISO country code
 	Description string    `json:"description"`
 	IsActive    bool      `json:"is_active"`
 	CreatedAt   time.Time `json:"created_at"`

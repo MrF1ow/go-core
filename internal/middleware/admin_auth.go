@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/admin"
 	"github.com/MrF1ow/go-core/web"
+	"github.com/gin-gonic/gin"
 )
 
 // AdminAuthMiddleware validates the Admin API Key header.

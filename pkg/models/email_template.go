@@ -16,10 +16,10 @@ type EmailTemplate struct {
 	Subject        string     `json:"subject"`
 	BodyHTML       string     `json:"body_html"`
 	BodyText       string     `json:"body_text"`
-	TemplateEngine string     `json:"template_engine"` // go_template | placeholder | raw_html
-	FromEmail      string     `json:"from_email,omitempty"`               // Optional sender override
-	FromName       string     `json:"from_name,omitempty"`                // Optional sender name override
-	ServerConfigID *uuid.UUID `json:"server_config_id,omitempty"`                            // Optional link to specific SMTP config
+	TemplateEngine string     `json:"template_engine"`            // go_template | placeholder | raw_html
+	FromEmail      string     `json:"from_email,omitempty"`       // Optional sender override
+	FromName       string     `json:"from_name,omitempty"`        // Optional sender name override
+	ServerConfigID *uuid.UUID `json:"server_config_id,omitempty"` // Optional link to specific SMTP config
 	IsActive       bool       `json:"is_active"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`

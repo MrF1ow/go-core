@@ -46,7 +46,7 @@ func NewService(repo *Repository, roleLookup RoleLookupFunc, publicURL string, a
 	return &Service{
 		repo:           repo,
 		roleLookup:     roleLookup,
-		PublicURL:       publicURL,
+		PublicURL:      publicURL,
 		AuthCodeTTL:    authCodeTTL,
 		IDTokenTTL:     idTokenTTL,
 		AccessTokenTTL: accessTokenTTL,

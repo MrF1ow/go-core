@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/email"
 	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/MrF1ow/go-core/pkg/jwt"
+	"github.com/gin-gonic/gin"
 )
 
 func setupTestHandler() *Handler {

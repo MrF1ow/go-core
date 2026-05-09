@@ -9,24 +9,24 @@ import "time"
 // Consuming applications construct this struct however they want (env vars,
 // files, flags, etc.). The core module never reads environment variables itself.
 type Config struct {
-	Database     DatabaseConfig
-	Redis        *RedisConfig  // nil = use in-memory store
-	JWT          JWTConfig
-	Email        *EmailConfig  // nil = no email sending
-	CORS         CORSConfig
-	OIDC         OIDCConfig
-	WebAuthn     WebAuthnConfig
-	SMS          SMSConfig
-	Admin        AdminConfig
-	Social       SocialConfig
-	GeoIP        GeoIPConfig
-	Session      SessionConfig
-	MultiTenant  bool
-	PublicURL    string
-	FrontendURL  string
-	AppName      string
-	Port         string
-	GinMode      string
+	Database    DatabaseConfig
+	Redis       *RedisConfig // nil = use in-memory store
+	JWT         JWTConfig
+	Email       *EmailConfig // nil = no email sending
+	CORS        CORSConfig
+	OIDC        OIDCConfig
+	WebAuthn    WebAuthnConfig
+	SMS         SMSConfig
+	Admin       AdminConfig
+	Social      SocialConfig
+	GeoIP       GeoIPConfig
+	Session     SessionConfig
+	MultiTenant bool
+	PublicURL   string
+	FrontendURL string
+	AppName     string
+	Port        string
+	GinMode     string
 }
 
 // DatabaseConfig holds PostgreSQL connection parameters.
@@ -92,10 +92,10 @@ type WebAuthnConfig struct {
 
 // SMSConfig holds SMS provider credentials.
 type SMSConfig struct {
-	Provider           string
-	TwilioAccountSID   string
-	TwilioAuthToken    string
-	TwilioFromNumber   string
+	Provider         string
+	TwilioAccountSID string
+	TwilioAuthToken  string
+	TwilioFromNumber string
 }
 
 // AdminConfig holds admin GUI / API settings.
@@ -119,11 +119,11 @@ type GeoIPConfig struct {
 
 // SessionConfig holds session and trusted-device settings.
 type SessionConfig struct {
-	TrustedDeviceCookieSameSite    string
-	GroupExpiryEnabled             bool
-	GroupExpiryScanInterval        time.Duration
-	GroupKeyspaceNotifEnabled      bool
-	RedisNotifyKeyspaceEvents      string // value of REDIS_NOTIFY_KEYSPACE_EVENTS for expiry service
+	TrustedDeviceCookieSameSite string
+	GroupExpiryEnabled          bool
+	GroupExpiryScanInterval     time.Duration
+	GroupKeyspaceNotifEnabled   bool
+	RedisNotifyKeyspaceEvents   string // value of REDIS_NOTIFY_KEYSPACE_EVENTS for expiry service
 }
 
 // DefaultConfig returns a Config populated with sensible defaults that match
@@ -131,12 +131,12 @@ type SessionConfig struct {
 func DefaultConfig() Config {
 	return Config{
 		Database: DatabaseConfig{
-			Host:    "localhost",
-			Port:    5432,
-			User:    "postgres",
+			Host:     "localhost",
+			Port:     5432,
+			User:     "postgres",
 			Password: "",
-			DBName:  "go_core",
-			SSLMode: "disable",
+			DBName:   "go_core",
+			SSLMode:  "disable",
 		},
 		Redis: &RedisConfig{
 			Addr:     "localhost:6379",
@@ -215,7 +215,7 @@ func DefaultConfig() Config {
 			TrustedDeviceCookieSameSite: "none",
 			GroupExpiryEnabled:          false,
 			GroupExpiryScanInterval:     5 * time.Minute,
-			GroupKeyspaceNotifEnabled: false,
+			GroupKeyspaceNotifEnabled:   false,
 		},
 		MultiTenant: false,
 		PublicURL:   "http://localhost:8080",

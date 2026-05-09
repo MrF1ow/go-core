@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/bruteforce"
 	"github.com/MrF1ow/go-core/internal/config"
 	"github.com/MrF1ow/go-core/internal/geoip"
@@ -13,6 +12,7 @@ import (
 	"github.com/MrF1ow/go-core/internal/util"
 	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/MrF1ow/go-core/pkg/jwt"
+	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )

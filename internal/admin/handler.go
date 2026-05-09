@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/email"
 	"github.com/MrF1ow/go-core/internal/geoip"
 	"github.com/MrF1ow/go-core/internal/twofa"
 	userimport "github.com/MrF1ow/go-core/internal/user"
 	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 

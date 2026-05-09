@@ -42,11 +42,11 @@ type Service struct {
 	EmailService      *emailpkg.Service
 	AppLookup         func(appID string) (*models.Application, error) // Resolves app config by ID (wired in main.go)
 	SessionService    *session.Service                                // Session management for multi-device tracking
-	LookupRoles       RoleLookupFunc                                 // Optional: if nil, tokens are generated without roles
-	AssignDefaultRole AssignDefaultRoleFunc                          // Optional: if nil, no default role is assigned on registration
-	WebhookService    *webhook.Service                               // Optional: if nil, webhook dispatch is skipped
-	SMSSender         sms.Sender                                     // Optional: if nil, SMS 2FA auto-send is skipped
-	GroupLogoutFunc   GroupLogoutFunc                                // Optional: if non-nil, called after logout for SSO group propagation
+	LookupRoles       RoleLookupFunc                                  // Optional: if nil, tokens are generated without roles
+	AssignDefaultRole AssignDefaultRoleFunc                           // Optional: if nil, no default role is assigned on registration
+	WebhookService    *webhook.Service                                // Optional: if nil, webhook dispatch is skipped
+	SMSSender         sms.Sender                                      // Optional: if nil, SMS 2FA auto-send is skipped
+	GroupLogoutFunc   GroupLogoutFunc                                 // Optional: if non-nil, called after logout for SSO group propagation
 }
 
 func NewService(r *Repository, es *emailpkg.Service) *Service {

@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 

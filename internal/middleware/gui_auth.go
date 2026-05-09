@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/web"
+	"github.com/gin-gonic/gin"
 )
 
 // GUIAuthMiddleware validates admin sessions via HTTP-only cookies.

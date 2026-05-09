@@ -13,8 +13,8 @@ type TrustedDevice struct {
 	ID         uuid.UUID `json:"id"`
 	UserID     uuid.UUID `json:"user_id"`
 	AppID      uuid.UUID `json:"app_id"`
-	TokenHash  string    `json:"-"` // SHA-256 hex of the plaintext device token (never stored in plain)
-	Name       string    `json:"name"`                  // Human-readable label auto-generated from User-Agent
+	TokenHash  string    `json:"-"`    // SHA-256 hex of the plaintext device token (never stored in plain)
+	Name       string    `json:"name"` // Human-readable label auto-generated from User-Agent
 	UserAgent  string    `json:"user_agent"`
 	IPAddress  string    `json:"ip_address"` // IPv4 or IPv6
 	LastUsedAt time.Time `json:"last_used_at"`

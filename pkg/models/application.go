@@ -12,36 +12,36 @@ type Application struct {
 	TenantID                  uuid.UUID `json:"tenant_id"`
 	Name                      string    `json:"name"`
 	Description               string    `json:"description"`
-	TwoFAIssuerName           string    `json:"two_fa_issuer_name"`                   // Custom name shown in authenticator apps (overrides app name)
-	TwoFAEnabled              bool      `json:"two_fa_enabled"`                     // Master switch: allow 2FA for this application
-	TwoFARequired             bool      `json:"two_fa_required"`                   // Force all users to set up 2FA
-	Email2FAEnabled           bool      `json:"email_2fa_enabled"`                 // Allow email-based 2FA for this application
-	Passkey2FAEnabled         bool      `json:"passkey_2fa_enabled"`               // Allow passkey as a 2FA method
-	PasskeyLoginEnabled       bool      `json:"passkey_login_enabled"`             // Allow fully passwordless login via passkey
-	MagicLinkEnabled          bool      `json:"magic_link_enabled"`                // Allow passwordless login via email magic link
-	TwoFAMethods              string    `json:"two_fa_methods"` // Comma-separated available methods: "totp", "email", "passkey", or combinations
-	LoginNotificationsEnabled bool      `json:"login_notifications_enabled"`       // Send email notifications on new device/location logins
-	SuspiciousActivityAlerts  bool      `json:"suspicious_activity_alerts"`        // Send email alerts for suspicious activity (brute force, etc.)
+	TwoFAIssuerName           string    `json:"two_fa_issuer_name"`          // Custom name shown in authenticator apps (overrides app name)
+	TwoFAEnabled              bool      `json:"two_fa_enabled"`              // Master switch: allow 2FA for this application
+	TwoFARequired             bool      `json:"two_fa_required"`             // Force all users to set up 2FA
+	Email2FAEnabled           bool      `json:"email_2fa_enabled"`           // Allow email-based 2FA for this application
+	Passkey2FAEnabled         bool      `json:"passkey_2fa_enabled"`         // Allow passkey as a 2FA method
+	PasskeyLoginEnabled       bool      `json:"passkey_login_enabled"`       // Allow fully passwordless login via passkey
+	MagicLinkEnabled          bool      `json:"magic_link_enabled"`          // Allow passwordless login via email magic link
+	TwoFAMethods              string    `json:"two_fa_methods"`              // Comma-separated available methods: "totp", "email", "passkey", or combinations
+	LoginNotificationsEnabled bool      `json:"login_notifications_enabled"` // Send email notifications on new device/location logins
+	SuspiciousActivityAlerts  bool      `json:"suspicious_activity_alerts"`  // Send email alerts for suspicious activity (brute force, etc.)
 	// SMS-based recovery — allows users to register a phone number for SMS 2FA / recovery codes
 	SMS2FAEnabled bool `json:"sms_2fa_enabled"` // Allow SMS-based recovery codes for this application
 	// Trusted device management — allows users to skip 2FA for a configurable number of days
-	TrustedDeviceEnabled bool `json:"trusted_device_enabled"` // Allow users to mark devices as trusted (skips 2FA)
-	TrustedDeviceMaxDays int  `json:"trusted_device_max_days"`   // How many days a device is trusted (default 30)
+	TrustedDeviceEnabled bool `json:"trusted_device_enabled"`  // Allow users to mark devices as trusted (skips 2FA)
+	TrustedDeviceMaxDays int  `json:"trusted_device_max_days"` // How many days a device is trusted (default 30)
 
 	// Brute-Force Protection — per-app overrides (NULL = use global default from .env)
-	BfLockoutEnabled   *bool   `json:"bf_lockout_enabled,omitempty"`                     // Override account lockout master switch
-	BfLockoutThreshold *int    `json:"bf_lockout_threshold,omitempty"`                   // Override failed attempts before lockout
+	BfLockoutEnabled   *bool   `json:"bf_lockout_enabled,omitempty"`   // Override account lockout master switch
+	BfLockoutThreshold *int    `json:"bf_lockout_threshold,omitempty"` // Override failed attempts before lockout
 	BfLockoutDurations *string `json:"bf_lockout_durations,omitempty"` // Override escalating durations (comma-separated, e.g. "15m,30m,1h")
-	BfLockoutWindow    *string `json:"bf_lockout_window,omitempty"`     // Override sliding window for counting failures (e.g. "15m")
-	BfLockoutTierTTL   *string `json:"bf_lockout_tier_ttl,omitempty"`   // Override tier escalation persistence (e.g. "24h")
-	BfDelayEnabled     *bool   `json:"bf_delay_enabled,omitempty"`                       // Override progressive delay master switch
-	BfDelayStartAfter  *int    `json:"bf_delay_start_after,omitempty"`                   // Override failures before delays begin
-	BfDelayMaxSeconds  *int    `json:"bf_delay_max_seconds,omitempty"`                   // Override maximum delay cap
-	BfDelayTierTTL     *string `json:"bf_delay_tier_ttl,omitempty"`     // Override delay tier persistence (e.g. "30m")
-	BfCaptchaEnabled   *bool   `json:"bf_captcha_enabled,omitempty"`                     // Override CAPTCHA master switch
+	BfLockoutWindow    *string `json:"bf_lockout_window,omitempty"`    // Override sliding window for counting failures (e.g. "15m")
+	BfLockoutTierTTL   *string `json:"bf_lockout_tier_ttl,omitempty"`  // Override tier escalation persistence (e.g. "24h")
+	BfDelayEnabled     *bool   `json:"bf_delay_enabled,omitempty"`     // Override progressive delay master switch
+	BfDelayStartAfter  *int    `json:"bf_delay_start_after,omitempty"` // Override failures before delays begin
+	BfDelayMaxSeconds  *int    `json:"bf_delay_max_seconds,omitempty"` // Override maximum delay cap
+	BfDelayTierTTL     *string `json:"bf_delay_tier_ttl,omitempty"`    // Override delay tier persistence (e.g. "30m")
+	BfCaptchaEnabled   *bool   `json:"bf_captcha_enabled,omitempty"`   // Override CAPTCHA master switch
 	BfCaptchaSiteKey   *string `json:"bf_captcha_site_key,omitempty"`  // Override reCAPTCHA site key
 	BfCaptchaSecretKey *string `json:"-"`                              // Override reCAPTCHA secret key (hidden from API responses)
-	BfCaptchaThreshold *int    `json:"bf_captcha_threshold,omitempty"`                   // Override failures before CAPTCHA required
+	BfCaptchaThreshold *int    `json:"bf_captcha_threshold,omitempty"` // Override failures before CAPTCHA required
 
 	// Frontend URL — per-app override for the frontend URL used in emails and WebAuthn origins.
 	// Falls back to the FRONTEND_URL environment variable when empty.
@@ -55,27 +55,27 @@ type Application struct {
 	VerifyEmailPath   string `json:"verify_email_path"`   // Default: /verify-email
 
 	// OIDC Provider settings — allows this application to act as an OIDC issuer
-	OIDCEnabled       bool   `json:"oidc_enabled"`                      // Master switch: expose OIDC endpoints for this app
-	OIDCRSAPrivateKey string `json:"-"`                  // PEM-encoded RSA private key (generated on first use, never exposed)
-	OIDCIDTokenTTL    int    `json:"oidc_id_token_ttl"`             // ID token lifetime in seconds (default 1h)
-	OIDCIssuerURL     string `json:"oidc_issuer_url"` // Optional custom issuer URL override (empty = auto-generated)
+	OIDCEnabled       bool   `json:"oidc_enabled"`      // Master switch: expose OIDC endpoints for this app
+	OIDCRSAPrivateKey string `json:"-"`                 // PEM-encoded RSA private key (generated on first use, never exposed)
+	OIDCIDTokenTTL    int    `json:"oidc_id_token_ttl"` // ID token lifetime in seconds (default 1h)
+	OIDCIssuerURL     string `json:"oidc_issuer_url"`   // Optional custom issuer URL override (empty = auto-generated)
 
 	// Login Page Branding — customize the look of login UIs for this application
-	LoginLogoURL        string `json:"login_logo_url"`       // URL to the app logo shown on login pages
-	LoginTheme          string `json:"login_theme"`       // Color scheme for OIDC pages when no client theme is available: "auto", "light", "dark"
+	LoginLogoURL        string `json:"login_logo_url"`        // URL to the app logo shown on login pages
+	LoginTheme          string `json:"login_theme"`           // Color scheme for OIDC pages when no client theme is available: "auto", "light", "dark"
 	LoginPrimaryColor   string `json:"login_primary_color"`   // Primary brand color (e.g. "#4f46e5")
 	LoginSecondaryColor string `json:"login_secondary_color"` // Secondary brand color (e.g. "#7c3aed")
-	LoginDisplayName    string `json:"login_display_name"`   // Display name shown on login page (falls back to Name if empty)
+	LoginDisplayName    string `json:"login_display_name"`    // Display name shown on login page (falls back to Name if empty)
 
 	// Password Policy — per-app overrides for password strength and rotation requirements
-	PwMinLength     int  `json:"pw_min_length"`         // Minimum password length (default 8)
-	PwMaxLength     int  `json:"pw_max_length"`       // Maximum password length (default 128)
+	PwMinLength     int  `json:"pw_min_length"`     // Minimum password length (default 8)
+	PwMaxLength     int  `json:"pw_max_length"`     // Maximum password length (default 128)
 	PwRequireUpper  bool `json:"pw_require_upper"`  // Require at least one uppercase letter
 	PwRequireLower  bool `json:"pw_require_lower"`  // Require at least one lowercase letter
 	PwRequireDigit  bool `json:"pw_require_digit"`  // Require at least one digit
 	PwRequireSymbol bool `json:"pw_require_symbol"` // Require at least one special character
-	PwHistoryCount  int  `json:"pw_history_count"`      // Number of previous passwords to remember (0 = disabled)
-	PwMaxAgeDays    int  `json:"pw_max_age_days"`       // Days before password expires (0 = never)
+	PwHistoryCount  int  `json:"pw_history_count"`  // Number of previous passwords to remember (0 = disabled)
+	PwMaxAgeDays    int  `json:"pw_max_age_days"`   // Days before password expires (0 = never)
 
 	// Token TTL overrides — per-app token lifetimes (0 = use global env var defaults)
 	AccessTokenTTLMinutes int `json:"access_token_ttl_minutes"` // Access token lifetime in minutes (0 = use ACCESS_TOKEN_EXPIRATION_MINUTES)

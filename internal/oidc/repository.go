@@ -421,4 +421,3 @@ func toModelUser(row sqlcgen.User) models.User {
 
 	return u
 }
-

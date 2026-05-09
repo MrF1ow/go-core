@@ -21,8 +21,8 @@ import (
 type Service struct {
 	Repo        *Repository
 	UserRepo    *user.Repository
-	AppLookup   func(appID string) (*models.Application, error)  // Resolves app config by ID (wired in main.go)
-	AdminLookup func(string) (*models.AdminAccount, error)       // Resolve admin account by ID (wired in main.go)
+	AppLookup   func(appID string) (*models.Application, error) // Resolves app config by ID (wired in main.go)
+	AdminLookup func(string) (*models.AdminAccount, error)      // Resolve admin account by ID (wired in main.go)
 }
 
 // NewService creates a new WebAuthn service.

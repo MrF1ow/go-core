@@ -3,10 +3,10 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/rbac"
 	"github.com/MrF1ow/go-core/internal/redis"
 	"github.com/MrF1ow/go-core/pkg/jwt"
+	"github.com/gin-gonic/gin"
 )
 
 // AuthMiddleware authenticates requests using JWT

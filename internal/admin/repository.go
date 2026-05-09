@@ -593,7 +593,7 @@ func (r *Repository) UpdateApp(id string, name string, description string, front
 	// Only update CAPTCHA secret key if explicitly provided (non-nil and non-empty).
 	if bf.CaptchaSecretKey != nil {
 		if err := r.queries.AdminUpdateAppCaptchaSecretKey(context.Background(), sqlcgen.AdminUpdateAppCaptchaSecretKeyParams{
-			ID:                uid,
+			ID:                 uid,
 			BfCaptchaSecretKey: bf.CaptchaSecretKey,
 		}); err != nil {
 			return err

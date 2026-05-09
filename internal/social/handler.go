@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/config"
 	"github.com/MrF1ow/go-core/internal/geoip"
 	"github.com/MrF1ow/go-core/internal/health"
@@ -17,6 +16,7 @@ import (
 	twofa "github.com/MrF1ow/go-core/internal/twofa"
 	"github.com/MrF1ow/go-core/internal/util"
 	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"

@@ -19,9 +19,9 @@ type ActivityLog struct {
 	Details   json.RawMessage `json:"details"` // Use json.RawMessage for flexible JSONB
 
 	// New fields for smart logging
-	Severity  string     `json:"severity"` // CRITICAL, IMPORTANT, INFORMATIONAL
-	ExpiresAt *time.Time `json:"expires_at"`                                // Automatic expiration timestamp for cleanup
-	IsAnomaly bool       `json:"is_anomaly"`                                    // Flag if this was logged due to anomaly detection
+	Severity  string     `json:"severity"`   // CRITICAL, IMPORTANT, INFORMATIONAL
+	ExpiresAt *time.Time `json:"expires_at"` // Automatic expiration timestamp for cleanup
+	IsAnomaly bool       `json:"is_anomaly"` // Flag if this was logged due to anomaly detection
 }
 
 // TableName specifies the table name for ActivityLog

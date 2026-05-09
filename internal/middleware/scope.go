@@ -3,8 +3,8 @@ package middleware
 import (
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/web"
+	"github.com/gin-gonic/gin"
 )
 
 // parseScopes splits a comma-separated scopes string into a trimmed []string.

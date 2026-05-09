@@ -11,21 +11,21 @@ import (
 // App keys authenticate to per-app routes alongside X-App-ID.
 type ApiKey struct {
 	ID              uuid.UUID    `json:"id"`
-	KeyType         string       `json:"key_type"`                                            // "admin" or "app"
-	Name            string       `json:"name"`                                                      // Human-readable label
-	Description     string       `json:"description"`                                                               // Optional purpose description
-	KeyHash         string       `json:"-"`                                             // SHA-256 hash of the raw key
-	KeyPrefix       string       `json:"key_prefix"`                                                // First 8 chars for display (e.g., "ak_a1b2c")
-	KeySuffix       string       `json:"key_suffix"`                                                // Last 4 chars for identification
-	Scopes          string       `json:"scopes"`                                        // Comma-separated permission scopes, e.g. "users:read,auth:*"
-	AppID           *uuid.UUID   `json:"app_id"`                                             // Required when key_type = "app"
-	ExpiresAt       *time.Time   `json:"expires_at"`                                                   // Optional expiration
-	LastUsedAt      *time.Time   `json:"last_used_at"`                                                              // Updated on each use
-	IsRevoked       bool         `json:"is_revoked"`                                     // Revocation flag
-	Notified7DaysAt *time.Time   `json:"notified_7_days_at"`                                                        // Set when 7-day expiry warning email was sent
-	Notified1DayAt  *time.Time   `json:"notified_1_day_at"`                                                         // Set when 1-day expiry warning email was sent
-	CreatedAt       time.Time    `json:"created_at"`                                                                // Auto-managed by GORM
-	UpdatedAt       time.Time    `json:"updated_at"`                                                                // Auto-managed by GORM
+	KeyType         string       `json:"key_type"`              // "admin" or "app"
+	Name            string       `json:"name"`                  // Human-readable label
+	Description     string       `json:"description"`           // Optional purpose description
+	KeyHash         string       `json:"-"`                     // SHA-256 hash of the raw key
+	KeyPrefix       string       `json:"key_prefix"`            // First 8 chars for display (e.g., "ak_a1b2c")
+	KeySuffix       string       `json:"key_suffix"`            // Last 4 chars for identification
+	Scopes          string       `json:"scopes"`                // Comma-separated permission scopes, e.g. "users:read,auth:*"
+	AppID           *uuid.UUID   `json:"app_id"`                // Required when key_type = "app"
+	ExpiresAt       *time.Time   `json:"expires_at"`            // Optional expiration
+	LastUsedAt      *time.Time   `json:"last_used_at"`          // Updated on each use
+	IsRevoked       bool         `json:"is_revoked"`            // Revocation flag
+	Notified7DaysAt *time.Time   `json:"notified_7_days_at"`    // Set when 7-day expiry warning email was sent
+	Notified1DayAt  *time.Time   `json:"notified_1_day_at"`     // Set when 1-day expiry warning email was sent
+	CreatedAt       time.Time    `json:"created_at"`            // Auto-managed by GORM
+	UpdatedAt       time.Time    `json:"updated_at"`            // Auto-managed by GORM
 	Application     *Application `json:"application,omitempty"` // Optional relation
 }
 

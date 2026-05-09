@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/config"
 	emailpkg "github.com/MrF1ow/go-core/internal/email"
 	"github.com/MrF1ow/go-core/internal/geoip"
@@ -22,6 +21,7 @@ import (
 	"github.com/MrF1ow/go-core/pkg/errors"
 	"github.com/MrF1ow/go-core/pkg/jwt"
 	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -38,12 +38,12 @@ type SettingResolverFunc func(key string) string
 
 type Handler struct {
 	Service           *Service
-	SessionService    *session.Service         // Session management for creating sessions on 2FA login completion
-	LookupRoles       RoleLookupFunc           // Optional: if nil, tokens are generated without roles
-	AssignDefaultRole AssignDefaultRoleFunc    // Optional: if nil, no self-healing role assignment
-	IPRuleEvaluator   *geoip.IPRuleEvaluator   // IP access control evaluator (nil = no IP rules)
-	AnomalyDetector   *log.AnomalyDetector     // Anomaly detector for login monitoring (nil = disabled)
-	TrustedDeviceRepo *TrustedDeviceRepository                         // nil = trusted device feature disabled
+	SessionService    *session.Service                                // Session management for creating sessions on 2FA login completion
+	LookupRoles       RoleLookupFunc                                  // Optional: if nil, tokens are generated without roles
+	AssignDefaultRole AssignDefaultRoleFunc                           // Optional: if nil, no self-healing role assignment
+	IPRuleEvaluator   *geoip.IPRuleEvaluator                          // IP access control evaluator (nil = no IP rules)
+	AnomalyDetector   *log.AnomalyDetector                            // Anomaly detector for login monitoring (nil = disabled)
+	TrustedDeviceRepo *TrustedDeviceRepository                        // nil = trusted device feature disabled
 	AppLookup         func(appID string) (*models.Application, error) // Resolves app config by ID (wired in main.go)
 	SettingResolver   SettingResolverFunc                             // Optional: resolves system settings (env > DB > default); falls back to os.Getenv if nil
 }

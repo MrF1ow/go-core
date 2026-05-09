@@ -3,8 +3,8 @@ package web
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 

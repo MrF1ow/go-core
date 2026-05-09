@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/internal/config"
 	"github.com/MrF1ow/go-core/internal/geoip"
 	"github.com/MrF1ow/go-core/internal/health"
@@ -20,6 +19,7 @@ import (
 	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/MrF1ow/go-core/pkg/jwt"
 	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -34,10 +34,10 @@ type Handler struct {
 	Service           *Service
 	SessionService    *session.Service // Session management for creating sessions on passkey login
 	LookupRoles       RoleLookupFunc
-	AssignDefaultRole AssignDefaultRoleFunc  // Optional: if nil, no self-healing role assignment
-	IPRuleEvaluator   *geoip.IPRuleEvaluator // IP access control evaluator (nil = no IP rules)
-	AnomalyDetector   *log.AnomalyDetector   // Anomaly detector for login monitoring (nil = disabled)
-	WebhookService    *webhook.Service                               // Optional: webhook dispatcher (nil = disabled)
+	AssignDefaultRole AssignDefaultRoleFunc                           // Optional: if nil, no self-healing role assignment
+	IPRuleEvaluator   *geoip.IPRuleEvaluator                          // IP access control evaluator (nil = no IP rules)
+	AnomalyDetector   *log.AnomalyDetector                            // Anomaly detector for login monitoring (nil = disabled)
+	WebhookService    *webhook.Service                                // Optional: webhook dispatcher (nil = disabled)
 	AppLookup         func(appID string) (*models.Application, error) // Resolves app config by ID (wired in main.go)
 }
 

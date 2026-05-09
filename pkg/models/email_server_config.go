@@ -13,8 +13,8 @@ import (
 // Resolution chain for sending emails: app-specific config -> global config -> dev mode (log to stdout).
 type EmailServerConfig struct {
 	ID           uuid.UUID  `json:"id"`
-	AppID        *uuid.UUID `json:"app_id"`                            // NULL = global/system-level config
-	Name         string     `json:"name"` // Label (e.g., "Transactional", "Marketing")
+	AppID        *uuid.UUID `json:"app_id"` // NULL = global/system-level config
+	Name         string     `json:"name"`   // Label (e.g., "Transactional", "Marketing")
 	SMTPHost     string     `json:"smtp_host"`
 	SMTPPort     int        `json:"smtp_port"`
 	SMTPUsername string     `json:"smtp_username"`

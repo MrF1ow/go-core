@@ -16,8 +16,8 @@ import (
 	"github.com/MrF1ow/go-core/pkg/jwt"
 	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // MergeTokenTTL is the duration a pending merge token is valid.
@@ -54,9 +54,9 @@ type Service struct {
 	UserRepo          *user.Repository
 	SocialRepo        *Repository
 	SessionService    *session.Service                                // Session management for creating sessions on social login
-	LookupRoles       user.RoleLookupFunc                            // Optional: if nil, tokens are generated without roles
-	AssignDefaultRole user.AssignDefaultRoleFunc                     // Optional: if nil, no default role on social signup
-	WebhookService    *webhook.Service                               // Optional: if nil, webhook dispatch is skipped
+	LookupRoles       user.RoleLookupFunc                             // Optional: if nil, tokens are generated without roles
+	AssignDefaultRole user.AssignDefaultRoleFunc                      // Optional: if nil, no default role on social signup
+	WebhookService    *webhook.Service                                // Optional: if nil, webhook dispatch is skipped
 	AppLookup         func(appID string) (*models.Application, error) // Resolves app config by ID (wired in main.go)
 }
 

@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	jwtSecret        []byte
+	jwtSecret         []byte
 	defaultAccessTTL  time.Duration
 	defaultRefreshTTL time.Duration
 )

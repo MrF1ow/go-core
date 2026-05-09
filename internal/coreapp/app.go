@@ -63,17 +63,17 @@ type App struct {
 	oidcHandler     *oidc.Handler
 
 	// Services that need references for wiring and cleanup
-	rbacService          *rbac.Service
-	accountService       *admin.AccountService
-	adminRepo            *admin.Repository
-	sessionGroupRevoker  *sessiongroup.Revoker
-	settingsService      *admin.SettingsService
+	rbacService         *rbac.Service
+	accountService      *admin.AccountService
+	adminRepo           *admin.Repository
+	sessionGroupRevoker *sessiongroup.Revoker
+	settingsService     *admin.SettingsService
 
 	// Background services (for graceful shutdown)
-	webhookService       *webhook.Service
-	cleanupService       *logService.CleanupService
+	webhookService        *webhook.Service
+	cleanupService        *logService.CleanupService
 	apiKeyNotificationSvc *admin.ApiKeyNotificationService
-	expiryService        *sessiongroup.ExpiryService
+	expiryService         *sessiongroup.ExpiryService
 }
 
 // New creates a new App by connecting to the database (pgx) and initializing

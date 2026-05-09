@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/MrF1ow/go-core/web"
+	"github.com/gin-gonic/gin"
 )
 
 // CSRFMiddleware provides CSRF protection for the Admin GUI.
