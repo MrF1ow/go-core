@@ -116,6 +116,36 @@
             --bs-table-hover-color: rgba(255, 255, 255, 0.45);
         }
     </style>
+    {{if or .PrimaryColor .SecondaryColor .BorderRadius .SidebarColor}}
+    <style>
+        {{if or .PrimaryColor .SecondaryColor .BorderRadius}}
+        :root {
+            {{if .PrimaryColor}}--bs-primary: {{.PrimaryColor}};{{end}}
+            {{if .SecondaryColor}}--bs-secondary: {{.SecondaryColor}};{{end}}
+            {{if .BorderRadius}}--bs-border-radius: {{.BorderRadius}};{{end}}
+        }
+        {{end}}
+        {{if .PrimaryColor}}
+        .btn-primary {
+            --bs-btn-bg: {{.PrimaryColor}};
+            --bs-btn-border-color: {{.PrimaryColor}};
+            --bs-btn-hover-bg: color-mix(in srgb, {{.PrimaryColor}} 85%, black);
+            --bs-btn-hover-border-color: color-mix(in srgb, {{.PrimaryColor}} 75%, black);
+            --bs-btn-active-bg: color-mix(in srgb, {{.PrimaryColor}} 75%, black);
+            --bs-btn-active-border-color: color-mix(in srgb, {{.PrimaryColor}} 75%, black);
+        }
+        .text-primary { color: {{.PrimaryColor}} !important; }
+        {{end}}
+        {{if .SidebarColor}}
+        .sidebar { background-color: {{.SidebarColor}} !important; }
+        .sidebar .nav-link { color: {{.SidebarTextColor}}; opacity: 0.75; }
+        .sidebar .nav-link:hover { color: {{.SidebarTextColor}}; opacity: 1; }
+        .sidebar .nav-link.active { color: {{.SidebarTextColor}}; opacity: 1; }
+        .sidebar-heading { color: {{.SidebarTextColor}}; opacity: 0.5; }
+        [data-bs-theme="dark"] .sidebar { background-color: {{.SidebarColor}} !important; }
+        {{end}}
+    </style>
+    {{end}}
 </head>
 <body>
     <!-- Sidebar -->
@@ -124,8 +154,8 @@
             <a href="/gui/" class="text-white text-decoration-none d-flex align-items-center sidebar-link"
                data-page="dashboard"
                hx-get="/gui/" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
-                <i class="bi bi-shield-lock fs-4 me-2"></i>
-                <span class="fs-5 fw-semibold">Auth API</span>
+                {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}}" style="height:28px;width:28px;object-fit:contain;" class="me-2">{{else}}<i class="bi bi-shield-lock fs-4 me-2"></i>{{end}}
+                <span class="fs-5 fw-semibold">{{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}}</span>
             </a>
         </div>
         <hr class="text-secondary mx-3 my-0">
