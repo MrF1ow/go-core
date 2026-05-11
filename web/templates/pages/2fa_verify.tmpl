@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Two-Factor Verification - Auth API Admin</title>
+    <title>Two-Factor Verification - {{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}} Admin</title>
     <script>
         (function () {
             try {
@@ -144,7 +144,7 @@
         </div>
 
         <p class="text-center text-muted mt-3 small">
-            Auth API Admin Panel &bull; Secure Access Only
+            {{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}} Admin Panel &bull; Secure Access Only
         </p>
     </div>
 

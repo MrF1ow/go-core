@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{.CSRFToken}}">
-    <title>{{block "title" .}}Admin{{end}} - Auth API</title>
+    <title>{{block "title" .}}Admin{{end}} - {{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}}</title>
     <!-- Apply theme from cookie before CSS loads to prevent flash of wrong theme.
          This is the single source of truth for all pages regardless of whether
          the Go handler populates TemplateData.Theme. -->
@@ -363,7 +363,7 @@
             <button class="btn btn-outline-secondary btn-sm" onclick="document.querySelector('.sidebar').classList.toggle('show')">
                 <i class="bi bi-list"></i>
             </button>
-            <span class="navbar-text fw-semibold">Auth API Admin</span>
+            <span class="navbar-text fw-semibold">{{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}} Admin</span>
         </nav>
 
         <!-- Page content wrapper (HTMX swaps this on sidebar navigation) -->
@@ -446,7 +446,7 @@
                 'my-account': 'My Account'
             };
             if (activePage && titleMap[activePage]) {
-                document.title = titleMap[activePage] + ' - Auth API';
+                document.title = titleMap[activePage] + ' - {{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}}';
             }
 
             currentActivePage = activePage;
