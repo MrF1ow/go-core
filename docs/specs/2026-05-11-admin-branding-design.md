@@ -14,7 +14,7 @@ New `AdminBrandingConfig` nested inside `AdminConfig`:
 ```go
 type AdminBrandingConfig struct {
     OrgName          string // Replaces "Auth API" text on login page + sidebar. Default: "Auth API"
-    LogoURL          string // URL to org logo image. Login page (64px) + sidebar (32px). Empty = shield icon fallback
+    LogoURL          string // URL or file path to org logo. Login page (64px) + sidebar (32px). Empty = shield icon fallback
     PrimaryColor     string // Hex "#RRGGBB" or "#RGB". Overrides --bs-primary. Empty = Bootstrap default (#0d6efd)
     SecondaryColor   string // Hex color. Overrides --bs-secondary. Empty = Bootstrap default
     BorderRadius     string // CSS length ("0.5rem", "0", "1rem"). Overrides --bs-border-radius. Empty = Bootstrap default
@@ -42,7 +42,7 @@ cfg := core.Config{
     Admin: core.AdminConfig{
         Branding: core.AdminBrandingConfig{
             OrgName:      "Acme Corp",
-            LogoURL:      "https://acme.com/logo.svg",
+            LogoURL:      "https://acme.com/logo.svg",  // or "./assets/logo.png"
             PrimaryColor: "#4f46e5",
             BorderRadius: "0.75rem",
             SidebarColor: "#1a1a2e",
@@ -53,6 +53,22 @@ app, err := app.New(cfg)
 ```
 
 Zero-value `AdminBrandingConfig` = no branding overrides, default Bootstrap appearance.
+
+## LogoURL Resolution
+
+`LogoURL` accepts two forms:
+
+1. **External URL** (`http://` or `https://` prefix) — used as-is in template `<img src>` attributes
+2. **File path** (anything else) — file is served at `/gui/branding/logo` route; templates receive that internal URL
+
+Resolution happens once in `ResolveBranding()` at startup:
+- Check if `LogoURL` starts with `http://` or `https://`
+- If yes: store as-is
+- If no: validate file exists and is readable, store original path for serving, set resolved URL to `/gui/branding/logo`
+
+Route registration: when `LogoURL` is a file path, `RegisterRoutes` adds a `GET /gui/branding/logo` handler that serves the file with appropriate `Content-Type` detection via `http.DetectContentType`. The file is read once at startup and served from memory.
+
+Validation at `app.New()`: if `LogoURL` is a file path, the file must exist and be readable. Return error if not.
 
 ## TemplateData Pass-through
 
@@ -165,15 +181,16 @@ At `app.New()` time, validate branding config before proceeding:
 | `SidebarColor` | Valid hex or empty | Return error |
 | `SidebarTextColor` | Valid hex or empty | Return error |
 | `BorderRadius` | Valid CSS length (digits + rem/px/em) or empty | Return error |
-| `LogoURL` | No validation (consumer-controlled URL) | — |
+| `LogoURL` | If URL: no validation. If file path: must exist and be readable | Return error |
 | `OrgName` | No validation (any string) | — |
 
 Invalid config = `app.New()` returns error. No silent fallback to defaults for bad values.
 
 ## New Files
 
-- `web/branding.go` — `ParseHexColor`, `RelativeLuminance`, `AutoSidebarTextColor`, `ResolveBranding`, hex validation
+- `web/branding.go` — `ParseHexColor`, `RelativeLuminance`, `AutoSidebarTextColor`, `ResolveBranding`, hex validation, logo file loading
 - `web/branding_test.go` — unit tests for luminance calc, hex parsing, auto-derive logic, validation
+- `web/README.md` — documents AdminBrandingConfig fields, usage examples, and theming behavior
 
 ## Modified Files
 
@@ -184,6 +201,25 @@ Invalid config = `app.New()` returns error. No silent fallback to defaults for b
 - `web/templates/pages/2fa_verify.tmpl` — same as login if standalone layout
 - `internal/coreapp/app.go` — validate branding config, call `renderer.SetBranding()` during init
 - `app/app.go` — pass branding config through to coreapp
+- `internal/coreapp/app.go` — register `/gui/branding/logo` route when LogoURL is a file path
+- `README.md` — reference web/README.md for admin branding docs
+- `CLAUDE.md` — reference web/README.md for admin branding docs
+
+## Documentation
+
+### `web/README.md`
+
+New file documenting:
+- All `AdminBrandingConfig` fields with types, defaults, and examples
+- LogoURL resolution behavior (URL vs file path)
+- Sidebar text color auto-derivation logic
+- CSS variables that get overridden
+- Complete consumer usage example
+
+### Main `README.md` + `CLAUDE.md`
+
+Add brief reference to `web/README.md` under admin GUI section, e.g.:
+> See [`web/README.md`](web/README.md) for admin dashboard branding and theming configuration.
 
 ## Out of Scope
 
