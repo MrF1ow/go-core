@@ -10,38 +10,45 @@ import (
 
 // GUIAuthMiddleware validates admin sessions via HTTP-only cookies.
 // Unauthenticated requests are redirected to the login page.
-func GUIAuthMiddleware(sessionValidator web.SessionValidator) gin.HandlerFunc {
+// basePath is the URL prefix for the admin GUI (e.g. "/gui").
+func GUIAuthMiddleware(sessionValidator web.SessionValidator, basePath string) gin.HandlerFunc {
+	loginPath := basePath + "/login"
+	twoFAPath := basePath + "/2fa-verify"
+	twoFAResendPath := basePath + "/2fa-resend-email"
+	passkeyBeginPath := basePath + "/passkey-login/begin"
+	passkeyFinishPath := basePath + "/passkey-login/finish"
+	staticPrefix := basePath + "/static/"
+	magicLinkPath := basePath + "/magic-link-login"
+	magicLinkVerifyPath := basePath + "/magic-link-login/verify"
+
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		// Skip authentication for login page, 2FA verification, passkey login, and static assets
-		if path == "/gui/login" ||
-			path == "/gui/2fa-verify" ||
-			path == "/gui/2fa-resend-email" ||
-			path == "/gui/passkey-login/begin" ||
-			path == "/gui/passkey-login/finish" ||
-			strings.HasPrefix(path, "/gui/static/") {
+		if path == loginPath ||
+			path == twoFAPath ||
+			path == twoFAResendPath ||
+			path == passkeyBeginPath ||
+			path == passkeyFinishPath ||
+			path == magicLinkPath ||
+			path == magicLinkVerifyPath ||
+			strings.HasPrefix(path, staticPrefix) {
 			c.Next()
 			return
 		}
 
-		// Read session cookie
 		sessionID, err := c.Cookie(web.AdminSessionCookie)
 		if err != nil || sessionID == "" {
-			redirectToLogin(c)
+			redirectToLogin(c, basePath)
 			return
 		}
 
-		// Validate session
 		account, err := sessionValidator.ValidateSession(sessionID)
 		if err != nil {
-			// Clear invalid cookie
-			web.ClearSessionCookie(c)
-			redirectToLogin(c)
+			web.ClearSessionCookie(c, basePath)
+			redirectToLogin(c, basePath)
 			return
 		}
 
-		// Set admin context for downstream handlers
 		c.Set(web.GUIAdminIDKey, account.ID.String())
 		c.Set(web.GUIAdminUsernameKey, account.Username)
 		c.Set(web.GUISessionIDKey, sessionID)
@@ -50,13 +57,13 @@ func GUIAuthMiddleware(sessionValidator web.SessionValidator) gin.HandlerFunc {
 	}
 }
 
-// redirectToLogin sends a 302 redirect to the login page, preserving the original URL
-func redirectToLogin(c *gin.Context) {
+func redirectToLogin(c *gin.Context, basePath string) {
 	originalURL := c.Request.URL.Path
-	if originalURL == "/gui/" || originalURL == "/gui" {
-		c.Redirect(http.StatusFound, "/gui/login")
+	loginPath := basePath + "/login"
+	if originalURL == basePath+"/" || originalURL == basePath {
+		c.Redirect(http.StatusFound, loginPath)
 	} else {
-		c.Redirect(http.StatusFound, "/gui/login?redirect="+originalURL)
+		c.Redirect(http.StatusFound, loginPath+"?redirect="+originalURL)
 	}
 	c.Abort()
 }

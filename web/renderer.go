@@ -68,16 +68,19 @@ type Renderer struct {
 	templates map[string]*template.Template
 	funcMap   template.FuncMap
 	branding  ResolvedBranding
+	basePath  string // URL path prefix for admin GUI (e.g. "/gui", "/admin")
 }
 
 // NewRenderer creates a Renderer by parsing all embedded templates.
 // Layout templates are combined with each page template so that
 // {{template "base" .}} works from page templates.
-func NewRenderer() (*Renderer, error) {
+// basePath is the URL prefix for the admin GUI (e.g. "/gui", "/admin").
+func NewRenderer(basePath string) (*Renderer, error) {
 	r := &Renderer{
 		templates: make(map[string]*template.Template),
-		funcMap:   defaultFuncMap(),
+		basePath:  basePath,
 	}
+	r.funcMap = r.defaultFuncMap()
 
 	if err := r.parseTemplates(); err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %w", err)
@@ -193,8 +196,10 @@ func (r *Renderer) parseTemplates() error {
 }
 
 // defaultFuncMap returns template helper functions available in all templates.
-func defaultFuncMap() template.FuncMap {
+func (r *Renderer) defaultFuncMap() template.FuncMap {
+	bp := r.basePath
 	return template.FuncMap{
+		"basePath": func() string { return bp },
 		// Date/time formatting
 		"formatDate": func(t time.Time) string {
 			return t.Format("Jan 02, 2006")

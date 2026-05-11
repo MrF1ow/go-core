@@ -18,7 +18,7 @@
             </select>
         </div>
         <button class="btn btn-primary btn-sm"
-                hx-get="/gui/webhooks/new"
+                hx-get="{{basePath}}/webhooks/new"
                 hx-target="#webhook-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Register Webhook
@@ -34,7 +34,7 @@
 
 <!-- Webhook table (loaded via HTMX) -->
 <div id="webhook-table"
-     hx-get="/gui/webhooks/list?page=1"
+     hx-get="{{basePath}}/webhooks/list?page=1"
      hx-trigger="load, webhookListRefresh from:body"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->
@@ -118,7 +118,7 @@
     // Filter by app
     document.getElementById('appFilter').addEventListener('change', function() {
         var appID = this.value;
-        var url = '/gui/webhooks/list?page=1';
+        var url = '{{basePath}}/webhooks/list?page=1';
         if (appID) url += '&app_id=' + appID;
         htmx.ajax('GET', url, {target: '#webhook-table', swap: 'innerHTML'});
     });

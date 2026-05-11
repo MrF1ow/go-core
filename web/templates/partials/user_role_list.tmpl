@@ -27,7 +27,7 @@
                             {{if $.AvailableRoles}}
                             <select class="form-select form-select-sm"
                                     style="min-width:120px"
-                                    hx-put="/gui/user-roles"
+                                    hx-put="{{basePath}}/user-roles"
                                     hx-target="#user-role-table"
                                     hx-swap="innerHTML"
                                     hx-trigger="change"
@@ -47,7 +47,7 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/user-roles/revoke?user_id={{.UserID}}&role_id={{.RoleID}}&app_id={{.AppID}}&user_email={{.UserEmail}}&role_name={{.RoleName}}"
+                                    hx-get="{{basePath}}/user-roles/revoke?user_id={{.UserID}}&role_id={{.RoleID}}&app_id={{.AppID}}&user_email={{.UserEmail}}&role_name={{.RoleName}}"
                                     hx-target="#revoke-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -72,13 +72,13 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {{if le .Page 1}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/user-roles/list?app_id={{.AppID}}&page={{sub .Page 1}}"
+                           hx-get="{{basePath}}/user-roles/list?app_id={{.AppID}}&page={{sub .Page 1}}"
                            hx-target="#user-role-table"
                            hx-swap="innerHTML">Previous</a>
                     </li>
                     <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/user-roles/list?app_id={{.AppID}}&page={{add .Page 1}}"
+                           hx-get="{{basePath}}/user-roles/list?app_id={{.AppID}}&page={{add .Page 1}}"
                            hx-target="#user-role-table"
                            hx-swap="innerHTML">Next</a>
                     </li>

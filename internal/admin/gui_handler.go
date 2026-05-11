@@ -72,6 +72,7 @@ type GUIHandler struct {
 	AdminSessionTTL   time.Duration                  // Admin session cookie TTL
 	AdminBaseURL      string                         // Base URL for admin links (e.g. magic link emails)
 	AccessTokenTTL    time.Duration                  // Access token TTL (used for session status display)
+	BasePath          string                         // URL path prefix for admin GUI (e.g. "/gui")
 }
 
 // NewGUIHandler creates a new GUIHandler
@@ -174,8 +175,8 @@ func (h *GUIHandler) LoginSubmit(c *gin.Context) {
 		}
 
 		// Build redirect URL to 2FA verification page
-		redirectURL := fmt.Sprintf("/gui/2fa-verify?token=%s&method=%s", tempToken, account.TwoFAMethod)
-		if redirect != "" && redirect != "/gui/login" {
+		redirectURL := fmt.Sprintf("%s/2fa-verify?token=%s&method=%s", h.BasePath, tempToken, account.TwoFAMethod)
+		if redirect != "" && redirect != h.BasePath+"/login" {
 			redirectURL += "&redirect=" + redirect
 		}
 		c.Redirect(http.StatusFound, redirectURL)
@@ -197,7 +198,7 @@ func (h *GUIHandler) LoginSubmit(c *gin.Context) {
 
 	// Set session cookie
 	maxAge := h.sessionMaxAgeSeconds()
-	web.SetSessionCookie(c, sessionID, maxAge)
+	web.SetSessionCookie(c, sessionID, maxAge, h.BasePath)
 
 	// Clear rate limit counters on successful login (both Redis and in-memory fallback)
 	_ = redis.ClearLoginAttempts(c.ClientIP())              // legacy admin:login_attempts keys
@@ -207,11 +208,11 @@ func (h *GUIHandler) LoginSubmit(c *gin.Context) {
 	}
 
 	// Redirect to original page or dashboard
-	if redirect != "" && redirect != "/gui/login" {
+	if redirect != "" && redirect != h.BasePath+"/login" {
 		c.Redirect(http.StatusFound, redirect)
 		return
 	}
-	c.Redirect(http.StatusFound, "/gui/")
+	c.Redirect(http.StatusFound, h.BasePath+"/")
 }
 
 // Logout destroys the admin session and redirects to login.
@@ -223,9 +224,9 @@ func (h *GUIHandler) Logout(c *gin.Context) {
 	}
 
 	// Clear cookie
-	web.ClearSessionCookie(c)
+	web.ClearSessionCookie(c, h.BasePath)
 
-	c.Redirect(http.StatusFound, "/gui/login")
+	c.Redirect(http.StatusFound, h.BasePath+"/login")
 }
 
 // Dashboard renders the main dashboard page.
@@ -1454,10 +1455,10 @@ func (h *GUIHandler) OAuthToggleEnabled(c *gin.Context) {
 	// Return the updated toggle HTML fragment
 	if config.IsEnabled {
 		c.String(http.StatusOK,
-			`<div id="toggle-`+id+`" hx-put="/gui/oauth/`+id+`/toggle" hx-target="#toggle-`+id+`" hx-swap="outerHTML" style="cursor: pointer;"><span class="badge bg-success bg-opacity-10 text-success"><i class="bi bi-check-circle-fill me-1"></i>On</span></div>`)
+			`<div id="toggle-`+id+`" hx-put="`+h.BasePath+`/oauth/`+id+`/toggle" hx-target="#toggle-`+id+`" hx-swap="outerHTML" style="cursor: pointer;"><span class="badge bg-success bg-opacity-10 text-success"><i class="bi bi-check-circle-fill me-1"></i>On</span></div>`)
 	} else {
 		c.String(http.StatusOK,
-			`<div id="toggle-`+id+`" hx-put="/gui/oauth/`+id+`/toggle" hx-target="#toggle-`+id+`" hx-swap="outerHTML" style="cursor: pointer;"><span class="badge bg-danger bg-opacity-10 text-danger"><i class="bi bi-x-circle-fill me-1"></i>Off</span></div>`)
+			`<div id="toggle-`+id+`" hx-put="`+h.BasePath+`/oauth/`+id+`/toggle" hx-target="#toggle-`+id+`" hx-swap="outerHTML" style="cursor: pointer;"><span class="badge bg-danger bg-opacity-10 text-danger"><i class="bi bi-x-circle-fill me-1"></i>Off</span></div>`)
 	}
 }
 
@@ -1654,7 +1655,7 @@ func (h *GUIHandler) UserToggleActive(c *gin.Context) {
 
 	if newActive {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(
-			`<div hx-put="/gui/users/`+id+`/toggle"`+
+			`<div hx-put="`+h.BasePath+`/users/`+id+`/toggle"`+
 				` hx-target="this"`+
 				` hx-swap="outerHTML"`+
 				` hx-confirm="`+confirmMsg+`"`+
@@ -1664,7 +1665,7 @@ func (h *GUIHandler) UserToggleActive(c *gin.Context) {
 				`</div>`))
 	} else {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(
-			`<div hx-put="/gui/users/`+id+`/toggle"`+
+			`<div hx-put="`+h.BasePath+`/users/`+id+`/toggle"`+
 				` hx-target="this"`+
 				` hx-swap="outerHTML"`+
 				` hx-confirm="`+confirmMsg+`"`+
@@ -3752,13 +3753,13 @@ func (h *GUIHandler) TwoFAVerifyPage(c *gin.Context) {
 	redirect := c.Query("redirect")
 
 	if tempToken == "" {
-		c.Redirect(http.StatusFound, "/gui/login")
+		c.Redirect(http.StatusFound, h.BasePath+"/login")
 		return
 	}
 
 	// Validate the temp session still exists
 	if _, err := h.AccountService.Validate2FATempSession(tempToken); err != nil {
-		c.Redirect(http.StatusFound, "/gui/login?error=session_expired")
+		c.Redirect(http.StatusFound, h.BasePath+"/login?error=session_expired")
 		return
 	}
 
@@ -3796,7 +3797,7 @@ func (h *GUIHandler) TwoFAVerifySubmit(c *gin.Context) {
 	// Validate temp session (without consuming it yet)
 	account, err := h.AccountService.Validate2FATempSession(tempToken)
 	if err != nil {
-		c.Redirect(http.StatusFound, "/gui/login?error=session_expired")
+		c.Redirect(http.StatusFound, h.BasePath+"/login?error=session_expired")
 		return
 	}
 
@@ -3840,7 +3841,7 @@ func (h *GUIHandler) TwoFAVerifySubmit(c *gin.Context) {
 
 	// Set session cookie
 	maxAge := h.sessionMaxAgeSeconds()
-	web.SetSessionCookie(c, sessionID, maxAge)
+	web.SetSessionCookie(c, sessionID, maxAge, h.BasePath)
 
 	// Clear rate limit counters on successful login
 	_ = redis.ClearLoginAttempts(c.ClientIP())
@@ -3849,11 +3850,11 @@ func (h *GUIHandler) TwoFAVerifySubmit(c *gin.Context) {
 		web.ClearRateLimitFallback("gui:login", c.ClientIP())
 	}
 
-	if redirect != "" && redirect != "/gui/login" {
+	if redirect != "" && redirect != h.BasePath+"/login" {
 		c.Redirect(http.StatusFound, redirect)
 		return
 	}
-	c.Redirect(http.StatusFound, "/gui/")
+	c.Redirect(http.StatusFound, h.BasePath+"/")
 }
 
 // TwoFAResendEmail resends the 2FA email code during login verification.
@@ -3894,7 +3895,7 @@ func (h *GUIHandler) MyAccountPage(c *gin.Context) {
 
 	account, err := h.AccountService.Repo.GetByID(adminID)
 	if err != nil {
-		c.Redirect(http.StatusFound, "/gui/")
+		c.Redirect(http.StatusFound, h.BasePath+"/")
 		return
 	}
 
@@ -5271,7 +5272,7 @@ func (h *GUIHandler) PasskeyLoginFinish(c *gin.Context) {
 
 	// Set session cookie
 	maxAge := h.sessionMaxAgeSeconds()
-	web.SetSessionCookie(c, sessionID, maxAge)
+	web.SetSessionCookie(c, sessionID, maxAge, h.BasePath)
 
 	// Clear rate limit counters on successful login
 	_ = redis.ClearLoginAttempts(c.ClientIP())
@@ -5280,7 +5281,7 @@ func (h *GUIHandler) PasskeyLoginFinish(c *gin.Context) {
 		web.ClearRateLimitFallback("gui:passkey-login", c.ClientIP())
 	}
 
-	c.JSON(http.StatusOK, gin.H{"redirect": "/gui/"})
+	c.JSON(http.StatusOK, gin.H{"redirect": h.BasePath + "/"})
 }
 
 // ============================================================
@@ -5450,7 +5451,7 @@ func (h *GUIHandler) MagicLinkLoginVerify(c *gin.Context) {
 
 	// Set session cookie
 	maxAge := h.sessionMaxAgeSeconds()
-	web.SetSessionCookie(c, sessionID, maxAge)
+	web.SetSessionCookie(c, sessionID, maxAge, h.BasePath)
 
 	// Clear rate limit counters on successful login
 	_ = redis.ClearRateLimitKeys("gui:magic-link", c.ClientIP())
@@ -5459,7 +5460,7 @@ func (h *GUIHandler) MagicLinkLoginVerify(c *gin.Context) {
 	}
 
 	// Redirect to admin dashboard
-	c.Redirect(http.StatusFound, "/gui/")
+	c.Redirect(http.StatusFound, h.BasePath+"/")
 }
 
 // schemeFromRequest returns "https" or "http" based on the incoming request.
@@ -7199,7 +7200,7 @@ func (h *GUIHandler) SessionGroupAddApp(c *gin.Context) {
 	}
 
 	// Re-render the apps panel
-	c.Request.URL.Path = "/gui/session-groups/" + groupID + "/apps"
+	c.Request.URL.Path = h.BasePath + "/session-groups/" + groupID + "/apps"
 	h.SessionGroupApps(c)
 }
 
@@ -7216,6 +7217,6 @@ func (h *GUIHandler) SessionGroupRemoveApp(c *gin.Context) {
 	}
 
 	// Re-render the apps panel
-	c.Request.URL.Path = "/gui/session-groups/" + groupID + "/apps"
+	c.Request.URL.Path = h.BasePath + "/session-groups/" + groupID + "/apps"
 	h.SessionGroupApps(c)
 }

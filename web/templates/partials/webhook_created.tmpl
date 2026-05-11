@@ -28,7 +28,7 @@
                 <i class="bi bi-x-lg me-1"></i>Dismiss
             </button>
             <button type="button" class="btn btn-outline-primary btn-sm"
-                    hx-get="/gui/webhooks/list?page=1"
+                    hx-get="{{basePath}}/webhooks/list?page=1"
                     hx-target="#webhook-table"
                     hx-swap="innerHTML"
                     onclick="document.getElementById('webhook-created-container').innerHTML = ''; document.getElementById('webhook-form-container').innerHTML = '';">

@@ -9,9 +9,9 @@
             {{end}}
         </h6>
         <form {{if .ID}}
-                hx-put="/gui/session-groups/{{.ID}}"
+                hx-put="{{basePath}}/session-groups/{{.ID}}"
               {{else}}
-                hx-post="/gui/session-groups"
+                hx-post="{{basePath}}/session-groups"
               {{end}}
               hx-target="#session-group-form-container"
               hx-swap="innerHTML">
@@ -52,7 +52,7 @@
                         <i class="bi bi-check-lg me-1"></i>{{if .ID}}Update{{else}}Create{{end}}
                     </button>
                     <button type="button" class="btn btn-outline-secondary"
-                            hx-get="/gui/session-groups/form-cancel"
+                            hx-get="{{basePath}}/session-groups/form-cancel"
                             hx-target="#session-group-form-container"
                             hx-swap="innerHTML">
                         Cancel

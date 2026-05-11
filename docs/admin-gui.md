@@ -1,6 +1,6 @@
 # Admin GUI
 
-The Admin GUI is a built-in web panel for managing the Authentication API. It runs from the same binary at `/gui/*` and requires no separate frontend deployment.
+The Admin GUI is a built-in web panel for managing the Authentication API. It is mounted at the path configured by `Config.Admin.AdminBasePath` (default `/gui/*`), and requires no separate frontend deployment.
 
 ---
 
@@ -23,6 +23,8 @@ Once the server is running, navigate to:
 ```
 http://localhost:8080/gui/login
 ```
+
+(Replace `/gui` with your configured `Config.Admin.AdminBasePath` if different.)
 
 The login page supports three authentication methods:
 

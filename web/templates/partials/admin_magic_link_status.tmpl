@@ -15,7 +15,7 @@
 
         {{if .Data.MagicLinkEnabled}}
         <button type="button" class="btn btn-outline-danger btn-sm w-100"
-                hx-post="/gui/my-account/magic-link/toggle"
+                hx-post="{{basePath}}/my-account/magic-link/toggle"
                 hx-target="#magic-link-section"
                 hx-swap="innerHTML"
                 hx-vals='{"_csrf": "{{.CSRFToken}}"}'
@@ -24,7 +24,7 @@
         </button>
         {{else}}
         <button type="button" class="btn btn-primary btn-sm w-100"
-                hx-post="/gui/my-account/magic-link/toggle"
+                hx-post="{{basePath}}/my-account/magic-link/toggle"
                 hx-target="#magic-link-section"
                 hx-swap="innerHTML"
                 hx-vals='{"_csrf": "{{.CSRFToken}}"}'>

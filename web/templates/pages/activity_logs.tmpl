@@ -10,11 +10,11 @@
         <i class="bi bi-journal-text me-2"></i>Activity Logs
     </h4>
     <div class="d-flex gap-2">
-        <a id="exportCsvBtn" href="/gui/logs/export?format=csv"
+        <a id="exportCsvBtn" href="{{basePath}}/logs/export?format=csv"
            class="btn btn-sm btn-outline-success">
             <i class="bi bi-filetype-csv me-1"></i>Export CSV
         </a>
-        <a id="exportJsonBtn" href="/gui/logs/export?format=json"
+        <a id="exportJsonBtn" href="{{basePath}}/logs/export?format=json"
            class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-filetype-json me-1"></i>Export JSON
         </a>
@@ -86,7 +86,7 @@
 
 <!-- Log table (loaded via HTMX) -->
 <div id="log-table"
-     hx-get="/gui/logs/list?page=1"
+     hx-get="{{basePath}}/logs/list?page=1"
      hx-trigger="load, logListRefresh from:body"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->
@@ -105,7 +105,7 @@
 <script>
     // Build the list URL with current filter/search state
     function getLogListURL(page) {
-        var url = '/gui/logs/list?page=' + (page || 1);
+        var url = '{{basePath}}/logs/list?page=' + (page || 1);
         var search    = document.getElementById('logSearch').value.trim();
         var eventType = document.getElementById('eventTypeFilter').value;
         var severity  = document.getElementById('severityFilter').value;
@@ -123,7 +123,7 @@
 
     // Build the export URL with current filter state
     function getExportURL(format) {
-        var url = '/gui/logs/export?format=' + format;
+        var url = '{{basePath}}/logs/export?format=' + format;
         var search    = document.getElementById('logSearch').value.trim();
         var eventType = document.getElementById('eventTypeFilter').value;
         var severity  = document.getElementById('severityFilter').value;

@@ -37,7 +37,7 @@ All fields are optional. Zero values produce the default Bootstrap look.
 `LogoURL` accepts two formats:
 
 - **URL** (`http://` or `https://`): used directly as `<img src>`.
-- **File path**: the file is read at startup and served at `/gui/branding/logo`. The file must exist when `app.New()` is called.
+- **File path**: the file is read at startup and served at `<AdminBasePath>/branding/logo` (default `/gui/branding/logo`). The file must exist when `app.New()` is called.
 
 Supported formats: PNG, SVG, JPG, WebP — anything a browser `<img>` tag can render.
 

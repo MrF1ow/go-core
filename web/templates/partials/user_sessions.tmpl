@@ -9,7 +9,7 @@
         </h6>
         {{if .Sessions}}
         <button class="btn btn-outline-danger btn-sm"
-                hx-delete="/gui/sessions/revoke-all-user?app_id={{.AppID}}&user_id={{.UserID}}&from_user_detail=1"
+                hx-delete="{{basePath}}/sessions/revoke-all-user?app_id={{.AppID}}&user_id={{.UserID}}&from_user_detail=1"
                 hx-target="#user-sessions-container"
                 hx-swap="innerHTML"
                 hx-confirm="Revoke ALL sessions for this user?">
@@ -60,7 +60,7 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-delete="/gui/sessions/{{.AppID}}/{{.SessionID}}?user_id={{.UserID}}&from_user_detail=1"
+                                    hx-delete="{{basePath}}/sessions/{{.AppID}}/{{.SessionID}}?user_id={{.UserID}}&from_user_detail=1"
                                     hx-target="#user-sessions-container"
                                     hx-swap="innerHTML"
                                     hx-confirm="Revoke this session?"

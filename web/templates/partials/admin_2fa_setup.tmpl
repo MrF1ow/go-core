@@ -45,7 +45,7 @@
         <p class="small text-muted mb-2">
             <strong>Step 2:</strong> Enter the 6-digit code from your authenticator app to verify setup.
         </p>
-        <form hx-post="/gui/my-account/2fa/verify-totp"
+        <form hx-post="{{basePath}}/my-account/2fa/verify-totp"
               hx-target="#twofa-setup-area" hx-swap="innerHTML">
             <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
             {{if .Data.Switching}}

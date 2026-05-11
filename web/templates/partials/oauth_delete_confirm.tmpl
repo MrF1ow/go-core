@@ -9,7 +9,7 @@
 <div class="modal-footer border-0">
     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
     <button type="button" class="btn btn-danger btn-sm"
-            hx-delete="/gui/oauth/{{.ID}}"
+            hx-delete="{{basePath}}/oauth/{{.ID}}"
             hx-target="#oauth-table"
             hx-swap="innerHTML"
             hx-headers='{"HX-Trigger-After-Swap": "oauthDeleted"}'>

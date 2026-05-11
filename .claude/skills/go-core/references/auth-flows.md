@@ -147,22 +147,24 @@ Additional guard that ensures the `:id` URL parameter matches the `X-App-ID` hea
 
 ### GUIAuthMiddleware Flow (`internal/middleware/gui_auth.go`)
 
+The GUI path prefix is configurable via `Config.Admin.AdminBasePath` (default `/gui`). Paths below use `<basePath>` to indicate the configured prefix.
+
 ```
 1. Read "admin_session" cookie
 2. Call sessionValidator.ValidateSession(sessionID) -> *AdminAccount
-3. If invalid: clear cookie, redirect to /gui/login
+3. If invalid: clear cookie, redirect to <basePath>/login
 4. Set context: admin_id, admin_username, admin_session_id
 ```
 
 ### Admin Login Flow
 
 ```
-1. POST /gui/login with username + password
+1. POST <basePath>/login with username + password
 2. accountService.Authenticate(username, password) via bcrypt
 3. If 2FA enabled:
    - Create pending 2FA session in Redis
-   - Redirect to /gui/2fa-verify
-   - POST /gui/2fa-verify with code
+   - Redirect to <basePath>/2fa-verify
+   - POST <basePath>/2fa-verify with code
    - Promote pending session to full session
 4. If no 2FA:
    - Create full session in Redis
@@ -240,7 +242,7 @@ Permissions are `resource:action` pairs (e.g., `user:read`, `settings:write`).
 ## AppID Extraction (`internal/middleware/app_id.go`)
 
 ```
-1. Skip for /swagger, /admin, /gui paths
+1. Skip for /swagger, /admin, and configured admin base path
 2. Read X-App-ID header
 3. Fallback: app_id query parameter
 4. Skip for /auth/*/callback (OAuth state carries app_id)

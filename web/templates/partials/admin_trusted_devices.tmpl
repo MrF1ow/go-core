@@ -4,11 +4,11 @@
         <h6 class="mb-0 fw-semibold"><i class="bi bi-device-hdd me-2"></i>Trusted Devices</h6>
         {{if .Devices}}
         <button class="btn btn-outline-danger btn-sm"
-                hx-delete="/gui/my-account/trusted-devices/all"
+                hx-delete="{{basePath}}/my-account/trusted-devices/all"
                 hx-target="#trusted-devices-card"
                 hx-swap="outerHTML"
                 hx-confirm="Revoke all trusted devices? You will need to pass 2FA on your next login from each device."
-                hx-on::after-request="htmx.ajax('GET', '/gui/my-account/trusted-devices', {target: '#trusted-devices-card', swap: 'outerHTML'})">
+                hx-on::after-request="htmx.ajax('GET', '{{basePath}}/my-account/trusted-devices', {target: '#trusted-devices-card', swap: 'outerHTML'})">
             <i class="bi bi-x-circle me-1"></i>Revoke All
         </button>
         {{end}}
@@ -48,7 +48,7 @@
                         </td>
                         <td class="text-center">
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-delete="/gui/my-account/trusted-devices/{{.ID}}"
+                                    hx-delete="{{basePath}}/my-account/trusted-devices/{{.ID}}"
                                     hx-target="#my-trusted-device-row-{{.ID}}"
                                     hx-swap="outerHTML"
                                     hx-confirm="Revoke this trusted device? You will need to pass 2FA on your next login from this device."

@@ -4,7 +4,7 @@
         <h6 class="fw-bold mb-3">
             <i class="bi bi-plus-lg me-2"></i>Create API Key
         </h6>
-        <form hx-post="/gui/api-keys"
+        <form hx-post="{{basePath}}/api-keys"
               hx-target="#apikey-created-container"
               hx-swap="innerHTML">
             <div class="row g-3">
@@ -54,7 +54,7 @@
                     <i class="bi bi-key me-1"></i>Generate Key
                 </button>
                 <button type="button" class="btn btn-outline-secondary"
-                        hx-get="/gui/api-keys/form-cancel"
+                        hx-get="{{basePath}}/api-keys/form-cancel"
                         hx-target="#apikey-form-container"
                         hx-swap="innerHTML">
                     Cancel

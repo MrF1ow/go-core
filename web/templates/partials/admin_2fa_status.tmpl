@@ -61,7 +61,7 @@
                 <i class="bi bi-arrow-repeat me-1"></i>Regenerate Recovery Codes
             </button>
             <div class="collapse mt-2" id="regenerate-codes-form">
-                <form hx-post="/gui/my-account/2fa/regenerate-codes"
+                <form hx-post="{{basePath}}/my-account/2fa/regenerate-codes"
                       hx-target="#twofa-setup-area" hx-swap="innerHTML">
                     <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
                     <div class="mb-2">
@@ -96,7 +96,7 @@
                     You must set an email address before switching to email-based 2FA.
                 </div>
                 {{else}}
-                <form hx-post="/gui/my-account/2fa/enable-email"
+                <form hx-post="{{basePath}}/my-account/2fa/enable-email"
                       hx-target="#twofa-setup-area" hx-swap="innerHTML">
                     <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
                     <input type="hidden" name="switching" value="true">
@@ -116,7 +116,7 @@
                     <i class="bi bi-info-circle me-1"></i>
                     Switching methods will generate new recovery codes. Your current codes will be invalidated.
                 </div>
-                <form hx-post="/gui/my-account/2fa/generate"
+                <form hx-post="{{basePath}}/my-account/2fa/generate"
                       hx-target="#twofa-setup-area" hx-swap="innerHTML">
                     <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
                     <input type="hidden" name="switching" value="true">
@@ -140,7 +140,7 @@
                 <i class="bi bi-exclamation-triangle me-1"></i>
                 Disabling 2FA will make your account less secure. All recovery codes will be deleted.
             </div>
-            <form hx-post="/gui/my-account/2fa/disable"
+            <form hx-post="{{basePath}}/my-account/2fa/disable"
                   hx-target="#twofa-section" hx-swap="innerHTML">
                 <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
                 <div class="mb-2">
@@ -170,7 +170,7 @@
                         <p class="text-muted small mb-2">
                             Use an app like Google Authenticator, Authy, or 1Password to generate time-based codes.
                         </p>
-                        <form hx-post="/gui/my-account/2fa/generate"
+                        <form hx-post="{{basePath}}/my-account/2fa/generate"
                               hx-target="#twofa-setup-area" hx-swap="innerHTML">
                             <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
                             <button type="submit" class="btn btn-primary btn-sm">
@@ -195,7 +195,7 @@
                             <br><span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>You must set an email address first.</span>
                             {{end}}
                         </p>
-                        <form hx-post="/gui/my-account/2fa/enable-email"
+                        <form hx-post="{{basePath}}/my-account/2fa/enable-email"
                               hx-target="#twofa-setup-area" hx-swap="innerHTML">
                             <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
                             <button type="submit" class="btn btn-primary btn-sm"

@@ -273,6 +273,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 	guiHandler.AdminBaseURL = cfg.Admin.BaseURL
 	guiHandler.AccessTokenTTL = cfg.JWT.AccessTokenTTL
 	guiHandler.AdminSessionTTL = cfg.Admin.SessionTTL
+	guiHandler.BasePath = cfg.Admin.AdminBasePath
 
 	// Initialize SSO Handler
 	ssoHandler := ssopkg.NewHandler(adminRepo, userRepo, sessionService)
@@ -425,8 +426,14 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 func (a *App) RegisterRoutes(r *gin.Engine) {
 	cfg := a.config
 
+	// Resolve admin base path (default "/gui")
+	adminBasePath := cfg.Admin.AdminBasePath
+	if adminBasePath == "" {
+		adminBasePath = "/gui"
+	}
+
 	// Initialize template renderer for GUI
-	renderer, err := web.NewRenderer()
+	renderer, err := web.NewRenderer(adminBasePath)
 	if err != nil {
 		log.Fatalf("Failed to initialize template renderer: %v", err)
 	}
@@ -439,7 +446,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 		!strings.HasPrefix(b.LogoURL, "https://")
 	logoServeURL := ""
 	if isFileURL {
-		logoServeURL = "/gui/branding/logo"
+		logoServeURL = adminBasePath + "/branding/logo"
 	}
 	renderer.SetBranding(web.ResolveBranding(
 		b.OrgName,
@@ -453,11 +460,11 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	))
 
 	// Add security headers middleware (before CORS so headers are always set)
-	r.Use(middleware.SecurityHeadersMiddleware())
+	r.Use(middleware.SecurityHeadersMiddleware(adminBasePath))
 
 	// Add CORS middleware
 	r.Use(middleware.CORSMiddleware(cfg.CORS))
-	r.Use(middleware.AppIDMiddleware(cfg.MultiTenant))
+	r.Use(middleware.AppIDMiddleware(cfg.MultiTenant, adminBasePath))
 
 	// Instrument all requests with Prometheus metrics
 	r.Use(health.PrometheusMiddleware())
@@ -709,7 +716,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	}
 
 	// GUI routes (Admin web interface)
-	gui := r.Group("/gui")
+	gui := r.Group(adminBasePath)
 	{
 		// Static assets (no auth required)
 		gui.StaticFS("/static", static.HTTPFileSystem())
@@ -741,7 +748,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 
 		// Authenticated GUI routes
 		guiAuth := gui.Group("/")
-		guiAuth.Use(middleware.GUIAuthMiddleware(a.accountService))
+		guiAuth.Use(middleware.GUIAuthMiddleware(a.accountService, adminBasePath))
 		guiAuth.Use(middleware.CSRFMiddleware(a.accountService))
 		{
 			guiAuth.GET("/", a.guiHandler.Dashboard)

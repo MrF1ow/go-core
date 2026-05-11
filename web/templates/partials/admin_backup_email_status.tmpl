@@ -22,7 +22,7 @@
         {{end}}
 
         <!-- Set / update form -->
-        <form hx-post="/gui/my-account/backup-email"
+        <form hx-post="{{basePath}}/my-account/backup-email"
               hx-target="#backup-email-result"
               hx-swap="innerHTML">
             <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
@@ -39,11 +39,11 @@
         {{if .BackupEmail}}
         <div class="mt-2">
             <button class="btn btn-outline-danger btn-sm"
-                    hx-delete="/gui/my-account/backup-email"
+                    hx-delete="{{basePath}}/my-account/backup-email"
                     hx-target="#backup-email-result"
                     hx-swap="innerHTML"
                     hx-confirm="Remove your backup email?"
-                    hx-on::after-request="htmx.ajax('GET', '/gui/my-account/backup-email/status', {target: '#backup-email-card', swap: 'outerHTML'})">
+                    hx-on::after-request="htmx.ajax('GET', '{{basePath}}/my-account/backup-email/status', {target: '#backup-email-card', swap: 'outerHTML'})">
                 <i class="bi bi-trash me-1"></i>Remove
             </button>
         </div>

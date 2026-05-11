@@ -16,7 +16,7 @@ import (
 //   - Permissions-Policy                               — restricts browser features
 //   - Content-Security-Policy                          — restrictive CSP with exceptions for GUI assets
 //   - Strict-Transport-Security                        — HSTS when served over TLS
-func SecurityHeadersMiddleware() gin.HandlerFunc {
+func SecurityHeadersMiddleware(adminBasePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h := c.Writer.Header()
 
@@ -41,7 +41,7 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		// because Bootstrap and HTMX use inline styles, and for scripts
 		// because HTMX uses inline event handlers.
 		path := c.Request.URL.Path
-		if strings.HasPrefix(path, "/gui") {
+		if strings.HasPrefix(path, adminBasePath) {
 			// GUI routes — allow self-hosted assets + inline styles/scripts for HTMX/Bootstrap
 			h.Set("Content-Security-Policy", strings.Join([]string{
 				"default-src 'self'",

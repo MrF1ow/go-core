@@ -14,7 +14,7 @@
 
 <!-- Stats cards (loaded via HTMX) -->
 <div id="dashboard-stats"
-     hx-get="/gui/dashboard/stats"
+     hx-get="{{basePath}}/dashboard/stats"
      hx-trigger="load"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->
@@ -84,7 +84,7 @@
 
 <!-- Recent activity table (loaded via HTMX) -->
 <div id="dashboard-activity"
-     hx-get="/gui/dashboard/activity"
+     hx-get="{{basePath}}/dashboard/activity"
      hx-trigger="load"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->

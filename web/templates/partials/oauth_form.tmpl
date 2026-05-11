@@ -9,9 +9,9 @@
             {{end}}
         </h6>
         <form {{if .IsEdit}}
-                hx-put="/gui/oauth/{{.ID}}"
+                hx-put="{{basePath}}/oauth/{{.ID}}"
               {{else}}
-                hx-post="/gui/oauth"
+                hx-post="{{basePath}}/oauth"
               {{end}}
               hx-target="#oauth-form-container"
               hx-swap="innerHTML">
@@ -75,7 +75,7 @@
                     <i class="bi bi-check-lg me-1"></i>{{if .IsEdit}}Update{{else}}Create{{end}}
                 </button>
                 <button type="button" class="btn btn-outline-secondary"
-                        hx-get="/gui/oauth/form-cancel"
+                        hx-get="{{basePath}}/oauth/form-cancel"
                         hx-target="#oauth-form-container"
                         hx-swap="innerHTML">
                     Cancel

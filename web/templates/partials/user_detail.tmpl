@@ -56,7 +56,7 @@
                     <label class="form-label small text-muted mb-1">Status</label>
                 <div>
                     <div id="user-detail-toggle-{{.ID}}"
-                         hx-put="/gui/users/{{.ID}}/toggle"
+                         hx-put="{{basePath}}/users/{{.ID}}/toggle"
                          hx-target="this"
                          hx-swap="outerHTML"
                          hx-confirm="{{if .IsActive}}Deactivate this user? Their sessions will be revoked immediately.{{else}}Reactivate this user?{{end}}"
@@ -107,7 +107,7 @@
             </div>
             <div id="unlock-btn-{{.ID}}">
                 <button class="btn btn-outline-danger btn-sm"
-                        hx-put="/gui/users/{{.ID}}/unlock"
+                        hx-put="{{basePath}}/users/{{.ID}}/unlock"
                         hx-target="#unlock-btn-{{.ID}}"
                         hx-swap="innerHTML"
                         hx-confirm="Unlock this user account? They will be able to log in again."
@@ -183,7 +183,7 @@
                         <td><small class="text-muted" title="{{formatDateTimeFull .CreatedAt}}">{{timeAgo .CreatedAt}}</small></td>
                         <td class="text-center">
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/users/social-accounts/{{.ID}}/unlink"
+                                    hx-get="{{basePath}}/users/social-accounts/{{.ID}}/unlink"
                                     hx-target="#unlink-social-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -254,7 +254,7 @@
                         <td><small class="text-muted" title="{{formatDateTimeFull .CreatedAt}}">{{timeAgo .CreatedAt}}</small></td>
                         <td class="text-center">
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/users/passkeys/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/users/passkeys/{{.ID}}/delete"
                                     hx-target="#delete-passkey-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -280,7 +280,7 @@
         <!-- Active Sessions (loaded via HTMX) -->
         <div class="mt-3 pt-3 border-top">
             <div id="user-sessions-container"
-                 hx-get="/gui/users/{{.ID}}/sessions"
+                 hx-get="{{basePath}}/users/{{.ID}}/sessions"
                  hx-trigger="load"
                  hx-swap="innerHTML">
                 <div class="text-center py-3">
@@ -339,7 +339,7 @@
                 </h6>
                 {{if .TrustedDevices}}
                 <button class="btn btn-sm btn-outline-danger"
-                        hx-delete="/gui/users/{{.ID}}/trusted-devices"
+                        hx-delete="{{basePath}}/users/{{.ID}}/trusted-devices"
                         hx-target="#trusted-devices-list-{{.ID}}"
                         hx-swap="outerHTML"
                         hx-confirm="Revoke all trusted devices for this user? They will need to pass 2FA on their next login from each device."
@@ -375,7 +375,7 @@
                             </td>
                             <td class="text-center">
                                 <button class="btn btn-outline-danger btn-sm"
-                                        hx-delete="/gui/users/{{$.ID}}/trusted-devices/{{.ID}}"
+                                        hx-delete="{{basePath}}/users/{{$.ID}}/trusted-devices/{{.ID}}"
                                         hx-target="#trusted-device-row-{{.ID}}"
                                         hx-swap="outerHTML"
                                         hx-confirm="Revoke this trusted device? The user will need to pass 2FA on their next login from this device."

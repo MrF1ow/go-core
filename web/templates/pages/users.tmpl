@@ -28,12 +28,12 @@
         </div>
         <!-- Export buttons -->
         <a id="exportCsvBtn"
-           href="/gui/users/export?format=csv"
+           href="{{basePath}}/users/export?format=csv"
            class="btn btn-outline-secondary btn-sm text-nowrap">
             <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
         </a>
         <a id="exportJsonBtn"
-           href="/gui/users/export?format=json"
+           href="{{basePath}}/users/export?format=json"
            class="btn btn-outline-secondary btn-sm text-nowrap">
             <i class="bi bi-file-earmark-code me-1"></i>Export JSON
         </a>
@@ -51,7 +51,7 @@
 
 <!-- User table (loaded via HTMX) -->
 <div id="user-table"
-     hx-get="/gui/users/list?page=1"
+     hx-get="{{basePath}}/users/list?page=1"
      hx-trigger="load, userListRefresh from:body"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->
@@ -104,7 +104,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div id="import-modal-body"
-                 hx-get="/gui/users/import/modal"
+                 hx-get="{{basePath}}/users/import/modal"
                  hx-trigger="show.bs.modal from:#importUsersModal"
                  hx-swap="innerHTML">
                 <!-- Populated by HTMX on modal open -->
@@ -118,7 +118,7 @@
 <script>
     // Build the list URL with current filter/search state
     function getUserListURL(page) {
-        var url = '/gui/users/list?page=' + (page || 1);
+        var url = '{{basePath}}/users/list?page=' + (page || 1);
         var appID = document.getElementById('appFilter').value;
         var search = document.getElementById('userSearch').value.trim();
         if (appID) url += '&app_id=' + appID;
@@ -134,7 +134,7 @@
             var el = document.getElementById(id);
             if (!el) return;
             var fmt = el.href.indexOf('format=json') !== -1 ? 'json' : 'csv';
-            var url = '/gui/users/export?format=' + fmt;
+            var url = '{{basePath}}/users/export?format=' + fmt;
             if (appID)  url += '&app_id=' + appID;
             if (search) url += '&search=' + encodeURIComponent(search);
             el.href = url;
@@ -182,7 +182,7 @@
     // Open the import modal with the current app_id injected into the HTMX URL
     function openImportModal() {
         var appID = document.getElementById('appFilter').value;
-        var url = '/gui/users/import/modal';
+        var url = '{{basePath}}/users/import/modal';
         if (appID) url += '?app_id=' + encodeURIComponent(appID);
         var body = document.getElementById('import-modal-body');
         body.setAttribute('hx-get', url);

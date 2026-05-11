@@ -44,7 +44,7 @@
                         <td class="pe-3 text-end">
                             <!-- Toggle active state -->
                             <button class="btn btn-outline-secondary btn-sm me-1"
-                                    hx-put="/gui/webhooks/{{.ID}}/toggle"
+                                    hx-put="{{basePath}}/webhooks/{{.ID}}/toggle"
                                     hx-vals='{"active":"{{if .IsActive}}false{{else}}true{{end}}"}'
                                     hx-target="#webhook-status-{{.ID}}"
                                     hx-swap="innerHTML"
@@ -57,7 +57,7 @@
                             </button>
                             <!-- Delivery history -->
                             <button class="btn btn-outline-info btn-sm me-1"
-                                    hx-get="/gui/webhooks/{{.ID}}/deliveries"
+                                    hx-get="{{basePath}}/webhooks/{{.ID}}/deliveries"
                                     hx-target="#webhook-deliveries-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -67,7 +67,7 @@
                             </button>
                             <!-- Delete -->
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/webhooks/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/webhooks/{{.ID}}/delete"
                                     hx-target="#delete-webhook-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -92,13 +92,13 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {{if le .Page 1}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/webhooks/list?page={{sub .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}"
+                           hx-get="{{basePath}}/webhooks/list?page={{sub .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}"
                            hx-target="#webhook-table"
                            hx-swap="innerHTML">Previous</a>
                     </li>
                     <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/webhooks/list?page={{add .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}"
+                           hx-get="{{basePath}}/webhooks/list?page={{add .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}"
                            hx-target="#webhook-table"
                            hx-swap="innerHTML">Next</a>
                     </li>

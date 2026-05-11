@@ -47,7 +47,7 @@
                 </div>
             {{else}}
                 <!-- Editable: inline input + save/reset -->
-                <form hx-put="/gui/settings/{{.Definition.Key}}"
+                <form hx-put="{{basePath}}/settings/{{.Definition.Key}}"
                       hx-target="#setting-row-{{.Definition.Key}}"
                       hx-swap="outerHTML"
                       class="d-flex align-items-start gap-2 flex-wrap">
@@ -103,7 +103,7 @@
                         </button>
                         {{if eq (printf "%s" .Source) "db"}}
                         <button type="button" class="btn btn-outline-secondary btn-sm"
-                                hx-delete="/gui/settings/{{.Definition.Key}}"
+                                hx-delete="{{basePath}}/settings/{{.Definition.Key}}"
                                 hx-target="#setting-row-{{.Definition.Key}}"
                                 hx-swap="outerHTML"
                                 hx-confirm="Reset this setting to its default value?"

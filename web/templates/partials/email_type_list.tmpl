@@ -54,7 +54,7 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-primary btn-sm me-1"
-                                    hx-get="/gui/email-types/{{.ID}}/edit"
+                                    hx-get="{{basePath}}/email-types/{{.ID}}/edit"
                                     hx-target="#email-type-form-container"
                                     hx-swap="innerHTML"
                                     title="Edit">
@@ -62,7 +62,7 @@
                             </button>
                             {{if not .IsSystem}}
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/email-types/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/email-types/{{.ID}}/delete"
                                     hx-target="#delete-email-type-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"

@@ -78,7 +78,7 @@
             <small class="text-muted font-monospace">Session ID: {{.SessionID}}</small>
             <div>
                 <button class="btn btn-outline-danger btn-sm me-1"
-                        hx-delete="/gui/sessions/{{.AppID}}/{{.SessionID}}?user_id={{.UserID}}"
+                        hx-delete="{{basePath}}/sessions/{{.AppID}}/{{.SessionID}}?user_id={{.UserID}}"
                         hx-target="#session-table"
                         hx-swap="innerHTML"
                         hx-confirm="Revoke this session?"
@@ -86,7 +86,7 @@
                     <i class="bi bi-x-circle me-1"></i>Revoke Session
                 </button>
                 <button class="btn btn-outline-warning btn-sm"
-                        hx-delete="/gui/sessions/revoke-all-user?app_id={{.AppID}}&user_id={{.UserID}}"
+                        hx-delete="{{basePath}}/sessions/revoke-all-user?app_id={{.AppID}}&user_id={{.UserID}}"
                         hx-target="#session-table"
                         hx-swap="innerHTML"
                         hx-confirm="Revoke ALL sessions for this user across this application?"

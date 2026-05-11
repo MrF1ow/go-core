@@ -14,7 +14,7 @@
 
 <!-- Health checks (auto-refresh every 30s) -->
 <div id="monitoring-health"
-     hx-get="/gui/monitoring/health"
+     hx-get="{{basePath}}/monitoring/health"
      hx-trigger="load, every 30s"
      hx-swap="innerHTML"
      hx-on::after-settle="document.getElementById('monitoring-last-updated').textContent = 'Last updated: ' + new Date().toLocaleTimeString()">
@@ -36,7 +36,7 @@
 
 <!-- Metrics (auto-refresh every 30s) -->
 <div id="monitoring-metrics"
-     hx-get="/gui/monitoring/metrics"
+     hx-get="{{basePath}}/monitoring/metrics"
      hx-trigger="load, every 30s"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->

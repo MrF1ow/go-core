@@ -21,7 +21,7 @@
             </select>
         </div>
         <button class="btn btn-primary btn-sm" id="btnCreateRule" disabled
-                hx-get="/gui/ip-rules/new"
+                hx-get="{{basePath}}/ip-rules/new"
                 hx-target="#iprule-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Create Rule
@@ -36,7 +36,7 @@
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
         <form id="ipCheckForm" class="d-flex align-items-center gap-3"
-              hx-post="/gui/ip-rules/check"
+              hx-post="{{basePath}}/ip-rules/check"
               hx-target="#ip-check-result"
               hx-swap="innerHTML">
             <input type="hidden" name="app_id" id="checkAppId" value="">
@@ -53,7 +53,7 @@
 
 <!-- IP rules table (loaded via HTMX) -->
 <div id="iprule-table"
-     hx-get="/gui/ip-rules/list"
+     hx-get="{{basePath}}/ip-rules/list"
      hx-trigger="load, ipRuleListRefresh from:body"
      hx-swap="innerHTML"
      hx-include="#appFilter">
@@ -104,12 +104,12 @@
 
         // Update the create button to include the app_id
         if (appId) {
-            btnCreate.setAttribute('hx-get', '/gui/ip-rules/new?app_id=' + appId);
+            btnCreate.setAttribute('hx-get', '{{basePath}}/ip-rules/new?app_id=' + appId);
         }
         htmx.process(btnCreate);
 
         // Reload the list
-        var url = '/gui/ip-rules/list';
+        var url = '{{basePath}}/ip-rules/list';
         if (appId) {
             url += '?app_id=' + appId;
         }

@@ -54,7 +54,7 @@
 
 <!-- Session table (loaded via HTMX) -->
 <div id="session-table"
-     hx-get="/gui/sessions/list?page=1"
+     hx-get="{{basePath}}/sessions/list?page=1"
      hx-trigger="load, sessionListRefresh from:body"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->
@@ -88,7 +88,7 @@
 <script>
     // Build the list URL with current filter/search state
     function getSessionListURL(page) {
-        var url = '/gui/sessions/list?page=' + (page || 1);
+        var url = '{{basePath}}/sessions/list?page=' + (page || 1);
         var search = document.getElementById('sessionSearch').value.trim();
         var ip = document.getElementById('ipSearch').value.trim();
         var appID = document.getElementById('sessionAppFilter').value;

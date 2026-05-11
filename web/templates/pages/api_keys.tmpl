@@ -20,7 +20,7 @@
             </select>
         </div>
         <button class="btn btn-primary btn-sm"
-                hx-get="/gui/api-keys/new"
+                hx-get="{{basePath}}/api-keys/new"
                 hx-target="#apikey-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Create API Key
@@ -36,7 +36,7 @@
 
 <!-- API key table (loaded via HTMX) -->
 <div id="apikey-table"
-     hx-get="/gui/api-keys/list?page=1"
+     hx-get="{{basePath}}/api-keys/list?page=1"
      hx-trigger="load, apiKeyListRefresh from:body"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->
@@ -102,7 +102,7 @@
     // When key type filter changes, reload the list with filter
     document.getElementById('keyTypeFilter').addEventListener('change', function() {
         var keyType = this.value;
-        var url = '/gui/api-keys/list?page=1';
+        var url = '{{basePath}}/api-keys/list?page=1';
         if (keyType) {
             url += '&key_type=' + keyType;
         }

@@ -10,7 +10,7 @@
         <i class="bi bi-envelope-at me-2"></i>Email Server Config
     </h4>
     <button class="btn btn-primary btn-sm"
-            hx-get="/gui/email-servers/new"
+            hx-get="{{basePath}}/email-servers/new"
             hx-target="#email-server-form-container"
             hx-swap="innerHTML">
         <i class="bi bi-plus-lg me-1"></i>Add SMTP Config
@@ -30,7 +30,7 @@
 
 <!-- Server config table (loaded via HTMX) -->
 <div id="email-server-table"
-     hx-get="/gui/email-servers/list"
+     hx-get="{{basePath}}/email-servers/list"
      hx-trigger="load, emailServerListRefresh from:body"
      hx-swap="innerHTML">
     <div class="card border-0 shadow-sm">
@@ -111,7 +111,7 @@
         // Reset modal state
         document.getElementById('testEmailTo').value = '';
         document.getElementById('test-email-modal-result').innerHTML = '';
-        document.getElementById('testEmailForm').setAttribute('hx-post', '/gui/email-servers/' + configID + '/test');
+        document.getElementById('testEmailForm').setAttribute('hx-post', '{{basePath}}/email-servers/' + configID + '/test');
         htmx.process(document.getElementById('testEmailForm'));
         var modal = new bootstrap.Modal(document.getElementById('testEmailModal'));
         modal.show();

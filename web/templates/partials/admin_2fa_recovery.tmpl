@@ -60,7 +60,7 @@
         <hr>
 
         <button type="button" class="btn btn-primary btn-sm w-100"
-                hx-get="/gui/my-account/2fa/status" hx-target="#twofa-section" hx-swap="innerHTML"
+                hx-get="{{basePath}}/my-account/2fa/status" hx-target="#twofa-section" hx-swap="innerHTML"
                 onclick="document.getElementById('twofa-setup-area').innerHTML = '';">
             <i class="bi bi-check-lg me-1"></i>Done — I've Saved My Codes
         </button>

@@ -114,7 +114,7 @@
 
 <!-- System Info Card (lazy-loaded via HTMX) -->
 <div id="system-info-container"
-     hx-get="/gui/settings/info"
+     hx-get="{{basePath}}/settings/info"
      hx-trigger="load"
      hx-swap="innerHTML">
     <div class="card border-0 shadow-sm mb-4">
@@ -144,7 +144,7 @@
              aria-labelledby="heading-{{$cat.Slug}}" data-bs-parent="#settingsAccordion">
             <div class="accordion-body p-0"
                  id="section-{{$cat.Slug}}"
-                 hx-get="/gui/settings/section/{{$cat.Slug}}"
+                 hx-get="{{basePath}}/settings/section/{{$cat.Slug}}"
                  hx-trigger="shown.bs.collapse from:closest .accordion-item"
                  hx-swap="innerHTML">
                 <!-- Loaded on accordion expand -->

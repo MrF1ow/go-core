@@ -60,14 +60,14 @@
                         </td>
                         <td class="pe-3 text-end text-nowrap">
                             <button class="btn btn-outline-primary btn-sm me-1"
-                                    hx-get="/gui/sessions/{{.AppID}}/{{.SessionID}}/detail"
+                                    hx-get="{{basePath}}/sessions/{{.AppID}}/{{.SessionID}}/detail"
                                     hx-target="#session-detail-container"
                                     hx-swap="innerHTML"
                                     title="View details">
                                 <i class="bi bi-eye"></i>
                             </button>
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-delete="/gui/sessions/{{.AppID}}/{{.SessionID}}?user_id={{.UserID}}"
+                                    hx-delete="{{basePath}}/sessions/{{.AppID}}/{{.SessionID}}?user_id={{.UserID}}"
                                     hx-target="#session-table"
                                     hx-swap="innerHTML"
                                     hx-confirm="Revoke this session for {{if .UserEmail}}{{.UserEmail}}{{else}}this user{{end}}?"
@@ -91,13 +91,13 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {{if le .Page 1}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/sessions/list?page={{sub .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}{{if .IP}}&ip={{.IP}}{{end}}"
+                           hx-get="{{basePath}}/sessions/list?page={{sub .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}{{if .IP}}&ip={{.IP}}{{end}}"
                            hx-target="#session-table"
                            hx-swap="innerHTML">Previous</a>
                     </li>
                     <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/sessions/list?page={{add .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}{{if .IP}}&ip={{.IP}}{{end}}"
+                           hx-get="{{basePath}}/sessions/list?page={{add .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}{{if .IP}}&ip={{.IP}}{{end}}"
                            hx-target="#session-table"
                            hx-swap="innerHTML">Next</a>
                     </li>

@@ -76,7 +76,7 @@ All routes from the auth module: registration, login, token refresh, password re
 | `OIDC` | Disabled | OpenID Connect provider |
 | `WebAuthn` | Disabled | Passkey/biometric auth — needs RPID, RPName, RPOrigins |
 | `SMS` | Disabled | 2FA via Twilio |
-| `Admin` | Disabled | Set APIKey to enable admin endpoints and GUI |
+| `Admin` | Disabled | Set APIKey to enable admin endpoints and GUI. `AdminBasePath` changes GUI URL prefix (default `/gui`) |
 | `Social` | Disabled | OAuth2 (Google, Facebook, GitHub) |
 | `GeoIP` | Disabled | Needs MaxMind DB file path |
 | `Session` | Single-app mode | Cross-app SSO, trusted devices |
@@ -97,7 +97,17 @@ cfg.Admin.Branding = core.AdminBrandingConfig{
 }
 ```
 
-All fields optional. Zero-value = default Bootstrap appearance. `LogoURL` accepts URLs or file paths (files served from memory at `/gui/branding/logo`). See [`web/README.md`](../../../web/README.md) for full field reference.
+All fields optional. Zero-value = default Bootstrap appearance. `LogoURL` accepts URLs or file paths (files served from memory at `<basePath>/branding/logo`). See [`web/README.md`](../../../web/README.md) for full field reference.
+
+### Custom Admin Path
+
+Change the admin dashboard URL prefix (default `/gui`):
+
+```go
+cfg.Admin.AdminBasePath = "/admin"  // dashboard at /admin/login instead of /gui/login
+```
+
+Env var: `ADMIN_BASE_PATH`. Must start with `/` and must not end with `/`.
 
 ## Database Migrations
 
@@ -175,7 +185,7 @@ make setup-admin
 DB_HOST=localhost DB_PORT=5433 DB_USER=postgres DB_PASSWORD=root DB_NAME=myapp DB_SSLMODE=disable go run ./cmd/setup
 ```
 
-Then access the admin dashboard at `/gui/login`.
+Then access the admin dashboard at `<basePath>/login` (default `/gui/login`).
 
 ## Consumer Foreign Keys
 
@@ -200,7 +210,7 @@ CREATE TABLE orders (
 - `/profile`, `/profile/*`
 - `/auth/*` (OAuth callbacks)
 - `/2fa/*`, `/passkey/*`, `/passkeys/*`
-- `/gui/*` (admin dashboard)
+- `<AdminBasePath>/*` (admin dashboard, default `/gui`)
 - `/admin/*` (admin API)
 - `/oidc/*` (OpenID Connect)
 - `/health`, `/metrics`
@@ -219,7 +229,7 @@ Consumer routes should use a distinct prefix (e.g., `/api/v1/*`).
 - **Redis nil in production** — works but token blacklisting uses in-memory store. Tokens won't be invalidated across restarts or multiple instances.
 - **Email nil** — magic links, email 2FA, and verification emails silently fail. Set it up if you need any of those features.
 - **X-App-ID header** — all API requests need this header. Default app ID: `00000000-0000-0000-0000-000000000001`.
-- **Admin GUI** — available at `/gui/login`. Admin accounts are separate from user accounts.
+- **Admin GUI** — available at `<AdminBasePath>/login` (default `/gui/login`). Admin accounts are separate from user accounts. Set `AdminBasePath` to change the prefix.
 - **`.env` formatting** — `godotenv` silently fails on leading spaces or stray characters. Lines must start at column 0. Use `DB_SSLMODE` (not `DB_SSL_MODE`).
 - **Docker dev port** — Postgres is exposed on port `5433` (not `5432`) in docker-compose.
 - **Docker network** — `shared-api-network` must exist before `docker-compose up`. `dev.sh` auto-creates it.

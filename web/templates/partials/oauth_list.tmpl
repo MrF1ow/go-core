@@ -42,7 +42,7 @@
                         </td>
                         <td class="text-center">
                             <div id="toggle-{{.ID}}"
-                                 hx-put="/gui/oauth/{{.ID}}/toggle"
+                                 hx-put="{{basePath}}/oauth/{{.ID}}/toggle"
                                  hx-target="#toggle-{{.ID}}"
                                  hx-swap="outerHTML"
                                  style="cursor: pointer;">
@@ -58,14 +58,14 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-primary btn-sm me-1"
-                                    hx-get="/gui/oauth/{{.ID}}/edit"
+                                    hx-get="{{basePath}}/oauth/{{.ID}}/edit"
                                     hx-target="#oauth-form-container"
                                     hx-swap="innerHTML"
                                     title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/oauth/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/oauth/{{.ID}}/delete"
                                     hx-target="#delete-oauth-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -90,13 +90,13 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {{if le .Page 1}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/oauth/list?page={{sub .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}"
+                           hx-get="{{basePath}}/oauth/list?page={{sub .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}"
                            hx-target="#oauth-table"
                            hx-swap="innerHTML">Previous</a>
                     </li>
                     <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/oauth/list?page={{add .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}"
+                           hx-get="{{basePath}}/oauth/list?page={{add .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}"
                            hx-target="#oauth-table"
                            hx-swap="innerHTML">Next</a>
                     </li>

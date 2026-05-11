@@ -1,5 +1,5 @@
 {{define "role_permissions"}}
-<form hx-put="/gui/roles/{{.RoleID}}/permissions"
+<form hx-put="{{basePath}}/roles/{{.RoleID}}/permissions"
       hx-target="#permissions-modal-body"
       hx-swap="innerHTML">
     <div class="modal-body">

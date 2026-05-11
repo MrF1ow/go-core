@@ -7,7 +7,7 @@
 {{define "content"}}
 <div class="d-flex align-items-center justify-content-between mb-4">
     <div>
-        <a href="/gui/api-keys" class="btn btn-outline-secondary btn-sm mb-2">
+        <a href="{{basePath}}/api-keys" class="btn btn-outline-secondary btn-sm mb-2">
             <i class="bi bi-arrow-left me-1"></i>Back to API Keys
         </a>
         <h4 class="mb-0 fw-bold">
@@ -98,7 +98,7 @@
         drawChart();
     } else {
         var s = document.createElement('script');
-        s.src = '/gui/static/js/chart.umd.min.js';
+        s.src = '{{basePath}}/static/js/chart.umd.min.js';
         s.onload = drawChart;
         document.head.appendChild(s);
     }

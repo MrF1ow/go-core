@@ -64,7 +64,7 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-primary btn-sm"
-                                    hx-get="/gui/logs/{{.ID}}"
+                                    hx-get="{{basePath}}/logs/{{.ID}}"
                                     hx-target="#log-detail-container"
                                     hx-swap="innerHTML"
                                     title="View details">
@@ -87,13 +87,13 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {{if le .Page 1}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/logs/list?page={{sub .Page 1}}{{if .EventType}}&event_type={{.EventType}}{{end}}{{if .Severity}}&severity={{.Severity}}{{end}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}{{if .StartDate}}&start_date={{.StartDate}}{{end}}{{if .EndDate}}&end_date={{.EndDate}}{{end}}"
+                           hx-get="{{basePath}}/logs/list?page={{sub .Page 1}}{{if .EventType}}&event_type={{.EventType}}{{end}}{{if .Severity}}&severity={{.Severity}}{{end}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}{{if .StartDate}}&start_date={{.StartDate}}{{end}}{{if .EndDate}}&end_date={{.EndDate}}{{end}}"
                            hx-target="#log-table"
                            hx-swap="innerHTML">Previous</a>
                     </li>
                     <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/logs/list?page={{add .Page 1}}{{if .EventType}}&event_type={{.EventType}}{{end}}{{if .Severity}}&severity={{.Severity}}{{end}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}{{if .StartDate}}&start_date={{.StartDate}}{{end}}{{if .EndDate}}&end_date={{.EndDate}}{{end}}"
+                           hx-get="{{basePath}}/logs/list?page={{add .Page 1}}{{if .EventType}}&event_type={{.EventType}}{{end}}{{if .Severity}}&severity={{.Severity}}{{end}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}{{if .StartDate}}&start_date={{.StartDate}}{{end}}{{if .EndDate}}&end_date={{.EndDate}}{{end}}"
                            hx-target="#log-table"
                            hx-swap="innerHTML">Next</a>
                     </li>

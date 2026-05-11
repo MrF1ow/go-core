@@ -9,9 +9,9 @@
             {{end}}
         </h6>
         <form {{if .IsEdit}}
-                hx-put="/gui/email-templates/{{.ID}}"
+                hx-put="{{basePath}}/email-templates/{{.ID}}"
               {{else}}
-                hx-post="/gui/email-templates"
+                hx-post="{{basePath}}/email-templates"
               {{end}}
               hx-target="#email-template-form-container"
               hx-swap="innerHTML">
@@ -173,14 +173,14 @@
                     <i class="bi bi-check-lg me-1"></i>{{if .IsEdit}}Update{{else}}Create{{end}}
                 </button>
                 <button type="button" class="btn btn-outline-info"
-                        hx-post="/gui/email-templates/preview"
+                        hx-post="{{basePath}}/email-templates/preview"
                         hx-include="closest form"
                         hx-target="#email-template-preview-container"
                         hx-swap="innerHTML">
                     <i class="bi bi-eye me-1"></i>Inline Preview
                 </button>
                 <button type="button" class="btn btn-outline-secondary"
-                        hx-get="/gui/email-templates/form-cancel"
+                        hx-get="{{basePath}}/email-templates/form-cancel"
                         hx-target="#email-template-form-container"
                         hx-swap="innerHTML">
                     Cancel

@@ -23,7 +23,7 @@
                 <p class="text-muted small mb-3">
                     Your email is used for email-based two-factor authentication and account recovery notifications.
                 </p>
-                <form hx-post="/gui/my-account/email" hx-target="#email-result" hx-swap="innerHTML">
+                <form hx-post="{{basePath}}/my-account/email" hx-target="#email-result" hx-swap="innerHTML">
                     <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
                     <div class="mb-3">
                         <label for="email" class="form-label small">Email Address</label>
@@ -44,7 +44,7 @@
                 <h6 class="mb-0 fw-semibold"><i class="bi bi-lock me-2"></i>Change Password</h6>
             </div>
             <div class="card-body">
-                <form hx-post="/gui/my-account/password" hx-target="#password-result" hx-swap="innerHTML">
+                <form hx-post="{{basePath}}/my-account/password" hx-target="#password-result" hx-swap="innerHTML">
                     <input type="hidden" name="_csrf" value="{{.CSRFToken}}">
                     <div class="mb-3">
                         <label for="current_password" class="form-label small">Current Password</label>
@@ -72,7 +72,7 @@
 
         <!-- Backup Email Section (HTMX-driven) -->
         <div id="backup-email-section"
-             hx-get="/gui/my-account/backup-email/status"
+             hx-get="{{basePath}}/my-account/backup-email/status"
              hx-trigger="load, backupEmailChanged from:body"
              hx-swap="innerHTML">
             <div class="card border-0 shadow-sm mb-4">
@@ -90,7 +90,7 @@
     <div class="col-lg-6">
         <!-- 2FA Status Section (HTMX-driven) -->
         <div id="twofa-section"
-             hx-get="/gui/my-account/2fa/status"
+             hx-get="{{basePath}}/my-account/2fa/status"
              hx-trigger="load"
              hx-swap="innerHTML">
             <div class="card border-0 shadow-sm">
@@ -108,7 +108,7 @@
 
         <!-- Passkey Section (HTMX-driven) -->
         <div id="passkey-section" class="mt-4"
-             hx-get="/gui/my-account/passkeys/status"
+             hx-get="{{basePath}}/my-account/passkeys/status"
              hx-trigger="load"
              hx-swap="innerHTML">
             <div class="card border-0 shadow-sm">
@@ -123,7 +123,7 @@
 
         <!-- Magic Link Section (HTMX-driven) -->
         <div id="magic-link-section" class="mt-4"
-             hx-get="/gui/my-account/magic-link/status"
+             hx-get="{{basePath}}/my-account/magic-link/status"
              hx-trigger="load"
              hx-swap="innerHTML">
             <div class="card border-0 shadow-sm">
@@ -138,7 +138,7 @@
 
         <!-- Trusted Devices Section (HTMX-driven) -->
         <div id="trusted-devices-section" class="mt-4"
-             hx-get="/gui/my-account/trusted-devices"
+             hx-get="{{basePath}}/my-account/trusted-devices"
              hx-trigger="load, trustedDeviceRevoked from:body"
              hx-swap="innerHTML">
             <div class="card border-0 shadow-sm">
@@ -211,7 +211,7 @@
 
         try {
             // Step 1: Begin registration — get options from server
-            var beginResp = await fetch('/gui/my-account/passkeys/register/begin', {
+            var beginResp = await fetch('{{basePath}}/my-account/passkeys/register/begin', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: '_csrf={{.CSRFToken}}'
@@ -251,7 +251,7 @@
             }
 
             // Step 5: Finish registration on server
-            var finishResp = await fetch('/gui/my-account/passkeys/register/finish', {
+            var finishResp = await fetch('{{basePath}}/my-account/passkeys/register/finish', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: '_csrf={{.CSRFToken}}&name=' + encodeURIComponent(passkeyName) + '&credential=' + encodeURIComponent(JSON.stringify(attestationResponse))
@@ -264,7 +264,7 @@
             showPasskeyMsg('Passkey registered successfully!', 'success');
 
             // Refresh the passkey list
-            htmx.ajax('GET', '/gui/my-account/passkeys/status', {target: '#passkey-section', swap: 'innerHTML'});
+            htmx.ajax('GET', '{{basePath}}/my-account/passkeys/status', {target: '#passkey-section', swap: 'innerHTML'});
 
         } catch (err) {
             if (err.name === 'NotAllowedError') {
@@ -282,7 +282,7 @@
         if (newName === null || newName.trim() === '') return;
 
         try {
-            var resp = await fetch('/gui/my-account/passkeys/' + passkeyId + '/rename', {
+            var resp = await fetch('{{basePath}}/my-account/passkeys/' + passkeyId + '/rename', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: '_csrf={{.CSRFToken}}&name=' + encodeURIComponent(newName.trim())
@@ -292,7 +292,7 @@
                 throw new Error(errText || 'Failed to rename passkey');
             }
             // Refresh the passkey list
-            htmx.ajax('GET', '/gui/my-account/passkeys/status', {target: '#passkey-section', swap: 'innerHTML'});
+            htmx.ajax('GET', '{{basePath}}/my-account/passkeys/status', {target: '#passkey-section', swap: 'innerHTML'});
         } catch (err) {
             alert('Failed to rename passkey: ' + err.message);
         }

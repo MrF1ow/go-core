@@ -159,10 +159,11 @@ func main() {
 			TwilioFromNumber: os.Getenv("SMS_TWILIO_FROM_NUMBER"),
 		},
 		Admin: core.AdminConfig{
-			APIKey:     os.Getenv("ADMIN_API_KEY"),
-			Email:      os.Getenv("ADMIN_EMAIL"),
-			SessionTTL: time.Duration(envInt("ADMIN_SESSION_EXPIRATION_HOURS", 8)) * time.Hour,
-			BaseURL:    os.Getenv("ADMIN_BASE_URL"),
+			APIKey:        os.Getenv("ADMIN_API_KEY"),
+			Email:         os.Getenv("ADMIN_EMAIL"),
+			SessionTTL:    time.Duration(envInt("ADMIN_SESSION_EXPIRATION_HOURS", 8)) * time.Hour,
+			BaseURL:       os.Getenv("ADMIN_BASE_URL"),
+			AdminBasePath: envStr("ADMIN_BASE_PATH", "/gui"),
 			Branding: core.AdminBrandingConfig{
 				OrgName:          os.Getenv("ADMIN_BRANDING_ORG_NAME"),
 				LogoURL:          os.Getenv("ADMIN_BRANDING_LOGO_URL"),

@@ -5,7 +5,7 @@
     </h5>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
-<form hx-post="/gui/users/import"
+<form hx-post="{{basePath}}/users/import"
       hx-encoding="multipart/form-data"
       hx-target="#import-result-container"
       hx-swap="innerHTML"

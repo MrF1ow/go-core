@@ -84,13 +84,13 @@
             <ul class="pagination pagination-sm mb-0">
                 <li class="page-item {{if le .Page 1}}disabled{{end}}">
                     <a class="page-link" href="#"
-                       hx-get="/gui/webhooks/{{if .Endpoint}}{{.Endpoint.ID}}{{end}}/deliveries?page={{sub .Page 1}}"
+                       hx-get="{{basePath}}/webhooks/{{if .Endpoint}}{{.Endpoint.ID}}{{end}}/deliveries?page={{sub .Page 1}}"
                        hx-target="#webhook-deliveries-modal-body"
                        hx-swap="innerHTML">Previous</a>
                 </li>
                 <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                     <a class="page-link" href="#"
-                       hx-get="/gui/webhooks/{{if .Endpoint}}{{.Endpoint.ID}}{{end}}/deliveries?page={{add .Page 1}}"
+                       hx-get="{{basePath}}/webhooks/{{if .Endpoint}}{{.Endpoint.ID}}{{end}}/deliveries?page={{add .Page 1}}"
                        hx-target="#webhook-deliveries-modal-body"
                        hx-swap="innerHTML">Next</a>
                 </li>

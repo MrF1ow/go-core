@@ -72,7 +72,7 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-primary btn-sm me-1"
-                                    hx-get="/gui/email-templates/{{.ID}}/edit"
+                                    hx-get="{{basePath}}/email-templates/{{.ID}}/edit"
                                     hx-target="#email-template-form-container"
                                     hx-swap="innerHTML"
                                     title="Edit">
@@ -80,7 +80,7 @@
                             </button>
                             {{if .HasDefault}}
                             <button class="btn btn-outline-warning btn-sm me-1"
-                                    hx-get="/gui/email-templates/{{.ID}}/reset"
+                                    hx-get="{{basePath}}/email-templates/{{.ID}}/reset"
                                     hx-target="#reset-email-template-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -90,7 +90,7 @@
                             </button>
                             {{end}}
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/email-templates/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/email-templates/{{.ID}}/delete"
                                     hx-target="#delete-email-template-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"

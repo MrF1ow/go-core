@@ -30,6 +30,9 @@ func main() {
 	// Required: JWT signing secret (min 32 characters)
 	cfg.JWT.Secret = "change-me-to-a-real-secret-at-least-32-chars"
 
+	// Optional: change the admin dashboard URL prefix (default "/gui")
+	// cfg.Admin.AdminBasePath = "/admin"  // dashboard at /admin/login instead of /gui/login
+
 	// Optional: customize admin dashboard branding (see web/README.md)
 	// cfg.Admin.Branding = core.AdminBrandingConfig{
 	// 	OrgName:      "Acme Corp",

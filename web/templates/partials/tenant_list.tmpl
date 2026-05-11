@@ -32,14 +32,14 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-primary btn-sm me-1"
-                                    hx-get="/gui/tenants/{{.ID}}/edit"
+                                    hx-get="{{basePath}}/tenants/{{.ID}}/edit"
                                     hx-target="#tenant-form-container"
                                     hx-swap="innerHTML"
                                     title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/tenants/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/tenants/{{.ID}}/delete"
                                     hx-target="#delete-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -64,13 +64,13 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {{if le .Page 1}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/tenants/list?page={{sub .Page 1}}"
+                           hx-get="{{basePath}}/tenants/list?page={{sub .Page 1}}"
                            hx-target="#tenant-table"
                            hx-swap="innerHTML">Previous</a>
                     </li>
                     <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/tenants/list?page={{add .Page 1}}"
+                           hx-get="{{basePath}}/tenants/list?page={{add .Page 1}}"
                            hx-target="#tenant-table"
                            hx-swap="innerHTML">Next</a>
                     </li>

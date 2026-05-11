@@ -10,7 +10,7 @@
         <i class="bi bi-building me-2"></i>Tenants
     </h4>
     <button class="btn btn-primary btn-sm"
-            hx-get="/gui/tenants/new"
+            hx-get="{{basePath}}/tenants/new"
             hx-target="#tenant-form-container"
             hx-swap="innerHTML">
         <i class="bi bi-plus-lg me-1"></i>Create Tenant
@@ -22,7 +22,7 @@
 
 <!-- Tenant table (loaded via HTMX) -->
 <div id="tenant-table"
-     hx-get="/gui/tenants/list?page=1"
+     hx-get="{{basePath}}/tenants/list?page=1"
      hx-trigger="load, tenantListRefresh from:body"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->

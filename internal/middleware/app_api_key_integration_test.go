@@ -103,7 +103,7 @@ func buildAppRouter(store *mockKeyStore) *gin.Engine {
 	r := gin.New()
 
 	// Global middleware (same as main.go)
-	r.Use(AppIDMiddleware())
+	r.Use(AppIDMiddleware(false, "/gui"))
 
 	// App API key route group (mirrors main.go)
 	appRoutes := r.Group("/app/:id")

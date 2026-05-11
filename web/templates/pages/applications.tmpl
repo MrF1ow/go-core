@@ -14,7 +14,7 @@
         <div class="d-flex align-items-center gap-2">
             <label for="tenantFilter" class="form-label mb-0 small text-muted text-nowrap">Filter by Tenant:</label>
             <select class="form-select form-select-sm" id="tenantFilter" style="min-width: 200px;"
-                    hx-get="/gui/applications/list"
+                    hx-get="{{basePath}}/applications/list"
                     hx-target="#app-table"
                     hx-swap="innerHTML"
                     hx-include="[name='tenant_id']"
@@ -26,7 +26,7 @@
             </select>
         </div>
         <button class="btn btn-primary btn-sm"
-                hx-get="/gui/applications/new"
+                hx-get="{{basePath}}/applications/new"
                 hx-target="#app-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Create Application
@@ -39,7 +39,7 @@
 
 <!-- Application table (loaded via HTMX) -->
 <div id="app-table"
-     hx-get="/gui/applications/list?page=1"
+     hx-get="{{basePath}}/applications/list?page=1"
      hx-trigger="load, appListRefresh from:body"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->
@@ -82,7 +82,7 @@
     // When tenant filter changes, also pass page=1
     document.getElementById('tenantFilter').addEventListener('change', function() {
         var tenantID = this.value;
-        var url = '/gui/applications/list?page=1';
+        var url = '{{basePath}}/applications/list?page=1';
         if (tenantID) {
             url += '&tenant_id=' + tenantID;
         }

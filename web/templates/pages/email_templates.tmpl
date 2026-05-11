@@ -179,7 +179,7 @@
             </select>
         </div>
         <button class="btn btn-primary btn-sm"
-                hx-get="/gui/email-templates/new"
+                hx-get="{{basePath}}/email-templates/new"
                 hx-target="#email-template-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Create Template
@@ -199,7 +199,7 @@
 
 <!-- Template list (loaded via HTMX) -->
 <div id="email-template-table"
-     hx-get="/gui/email-templates/list?scope=global"
+     hx-get="{{basePath}}/email-templates/list?scope=global"
      hx-trigger="load, emailTemplateListRefresh from:body"
      hx-swap="innerHTML">
     <div class="card border-0 shadow-sm">
@@ -271,12 +271,12 @@
             }
             
             try {
-                console.log('Fetching variables from /gui/email-variables');
+                console.log('Fetching variables from {{basePath}}/email-variables');
                     // Add timeout to fetch request
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
                     
-                    const response = await fetch('/gui/email-variables', {
+                    const response = await fetch('{{basePath}}/email-variables', {
                         credentials: 'same-origin', // Include cookies for authentication
                         headers: {
                             'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
@@ -876,7 +876,7 @@
 
         previewBody.innerHTML = '<div class="et-preview-placeholder"><div class="spinner-border spinner-border-sm text-primary mb-2"></div><span>Rendering...</span></div>';
 
-        fetch('/gui/email-templates/preview', {
+        fetch('{{basePath}}/email-templates/preview', {
             method: 'POST',
             headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content },
             body: formData
@@ -921,7 +921,7 @@
         var params = new URLSearchParams();
         formData.forEach(function(v, k) { params.append(k, v); });
         
-        fetch('/gui/email-templates/preview?full=1', {
+        fetch('{{basePath}}/email-templates/preview?full=1', {
             method: 'POST',
             headers: {
                 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
@@ -956,7 +956,7 @@
         var params = new URLSearchParams();
         formData.forEach(function(v, k) { params.append(k, v); });
 
-        fetch('/gui/email-templates/preview?full=1', {
+        fetch('{{basePath}}/email-templates/preview?full=1', {
             method: 'POST',
             headers: {
                 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
@@ -991,7 +991,7 @@
         var params = new URLSearchParams();
         formData.forEach(function(v, k) { params.append(k, v); });
 
-        fetch('/gui/email-templates/editor-window', {
+        fetch('{{basePath}}/email-templates/editor-window', {
             method: 'POST',
             headers: {
                 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
@@ -1057,13 +1057,13 @@
             appFilterContainer.style.display = 'none';
             appFilterContainer.classList.remove('d-flex');
             appFilter.value = '';
-            htmx.ajax('GET', '/gui/email-templates/list?scope=global', {target: '#email-template-table', swap: 'innerHTML'});
+            htmx.ajax('GET', '{{basePath}}/email-templates/list?scope=global', {target: '#email-template-table', swap: 'innerHTML'});
         }
     });
     document.getElementById('templateAppFilter').addEventListener('change', function() {
         var appID = this.value;
         if (appID) {
-            htmx.ajax('GET', '/gui/email-templates/list?scope=app&app_id=' + appID, {target: '#email-template-table', swap: 'innerHTML'});
+            htmx.ajax('GET', '{{basePath}}/email-templates/list?scope=app&app_id=' + appID, {target: '#email-template-table', swap: 'innerHTML'});
         }
     });
     

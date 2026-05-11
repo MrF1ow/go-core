@@ -7,9 +7,9 @@ license: MIT
 ## Route Architecture
 
 All routes are defined in `cmd/api/main.go`. The server uses Gin with these global middleware applied to all routes:
-1. `middleware.SecurityHeadersMiddleware()` -- CSP, HSTS, X-Frame-Options
+1. `middleware.SecurityHeadersMiddleware(adminBasePath)` -- CSP, HSTS, X-Frame-Options
 2. `middleware.CORSMiddleware()` -- CORS headers
-3. `middleware.AppIDMiddleware()` -- Extracts `X-App-ID` header (skips `/swagger`, `/admin`, `/gui`)
+3. `middleware.AppIDMiddleware(multiTenant, adminBasePath)` -- Extracts `X-App-ID` header (skips `/swagger`, `/admin`, and the configured admin base path)
 
 ## Authentication Layers (4 systems)
 
@@ -18,7 +18,7 @@ All routes are defined in `cmd/api/main.go`. The server uses Gin with these glob
 | User Auth | JWT Bearer | `Authorization: Bearer <token>` | `AuthMiddleware()` | End-user API routes |
 | Admin API Key | API key | `X-Admin-API-Key` | `AdminAuthMiddleware(adminRepo)` | `/admin/*` JSON API |
 | App API Key | API key | `X-App-API-Key` + `X-App-ID` | `AppApiKeyMiddleware(adminRepo)` | `/app/:id/*` routes |
-| Admin GUI Session | HTTP-only cookie | `admin_session` cookie | `GUIAuthMiddleware(accountService)` | `/gui/*` HTML interface |
+| Admin GUI Session | HTTP-only cookie | `admin_session` cookie | `GUIAuthMiddleware(accountService, basePath)` | `<basePath>/*` HTML interface (default `/gui`) |
 
 ## Public Routes (no auth, rate limited)
 
@@ -279,6 +279,8 @@ POST /oidc/:app_id/end_session           -> oidcHandler.EndSession
 ```
 
 ## GUI Routes (Admin Web Interface)
+
+The GUI path prefix defaults to `/gui` but is configurable via `Config.Admin.AdminBasePath`. All paths below use the default; replace `/gui` with your configured prefix.
 
 Static assets and login pages are public. Authenticated routes use `GUIAuthMiddleware` + `CSRFMiddleware`.
 

@@ -27,8 +27,8 @@
         })();
     </script>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 1L3 7v8c0 8 5 14 13 16 8-2 13-8 13-16V7Z' fill='%23212529'/%3E%3Crect x='12' y='14' width='8' height='7' rx='1.5' fill='%23fff'/%3E%3Cpath d='M13.5 14v-2.5a2.5 2.5 0 0 1 5 0V14' fill='none' stroke='%23fff' stroke-width='1.8'/%3E%3C/svg%3E">
-    <link rel="stylesheet" href="/gui/static/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/gui/static/css/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{basePath}}/static/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{basePath}}/static/css/bootstrap-icons.min.css">
     {{block "head" .}}{{end}}
     <style>
         :root {
@@ -151,9 +151,9 @@
     <!-- Sidebar -->
     <nav class="sidebar bg-dark d-flex flex-column" id="sidebar-nav">
         <div class="p-3">
-            <a href="/gui/" class="text-white text-decoration-none d-flex align-items-center sidebar-link"
+            <a href="{{basePath}}/" class="text-white text-decoration-none d-flex align-items-center sidebar-link"
                data-page="dashboard"
-               hx-get="/gui/" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+               hx-get="{{basePath}}/" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                 {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}}" style="height:28px;width:28px;object-fit:contain;" class="me-2">{{else}}<i class="bi bi-shield-lock fs-4 me-2"></i>{{end}}
                 <span class="fs-5 fw-semibold">{{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}}</span>
             </a>
@@ -164,9 +164,9 @@
         <div class="sidebar-nav-scroll">
             <ul class="nav flex-column mt-2">
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "dashboard"}} active{{end}}" href="/gui/"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "dashboard"}} active{{end}}" href="{{basePath}}/"
                        data-page="dashboard"
-                       hx-get="/gui/" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-speedometer2"></i> Dashboard
                     </a>
                 </li>
@@ -175,44 +175,44 @@
             <div class="sidebar-heading">Management</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "tenants"}} active{{end}}" href="/gui/tenants"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "tenants"}} active{{end}}" href="{{basePath}}/tenants"
                        data-page="tenants"
-                       hx-get="/gui/tenants" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/tenants" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-building"></i> Tenants
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "applications"}} active{{end}}" href="/gui/applications"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "applications"}} active{{end}}" href="{{basePath}}/applications"
                        data-page="applications"
-                       hx-get="/gui/applications" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/applications" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-app-indicator"></i> Applications
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "users"}} active{{end}}" href="/gui/users"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "users"}} active{{end}}" href="{{basePath}}/users"
                        data-page="users"
-                       hx-get="/gui/users" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/users" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-people"></i> Users
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "oauth"}} active{{end}}" href="/gui/oauth"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "oauth"}} active{{end}}" href="{{basePath}}/oauth"
                        data-page="oauth"
-                       hx-get="/gui/oauth" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/oauth" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-key"></i> OAuth Config
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "oidc-clients"}} active{{end}}" href="/gui/oidc-clients"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "oidc-clients"}} active{{end}}" href="{{basePath}}/oidc-clients"
                        data-page="oidc-clients"
-                       hx-get="/gui/oidc-clients" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/oidc-clients" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-fingerprint"></i> OIDC Clients
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "session-groups"}} active{{end}}" href="/gui/session-groups"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "session-groups"}} active{{end}}" href="{{basePath}}/session-groups"
                        data-page="session-groups"
-                       hx-get="/gui/session-groups" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/session-groups" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-link-45deg"></i> Session Groups
                     </a>
                 </li>
@@ -221,37 +221,37 @@
             <div class="sidebar-heading">Security</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "sessions"}} active{{end}}" href="/gui/sessions"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "sessions"}} active{{end}}" href="{{basePath}}/sessions"
                        data-page="sessions"
-                       hx-get="/gui/sessions" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/sessions" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-broadcast"></i> Sessions
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "ip-rules"}} active{{end}}" href="/gui/ip-rules"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "ip-rules"}} active{{end}}" href="{{basePath}}/ip-rules"
                        data-page="ip-rules"
-                       hx-get="/gui/ip-rules" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/ip-rules" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-shield-lock"></i> IP Rules
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "roles"}} active{{end}}" href="/gui/roles"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "roles"}} active{{end}}" href="{{basePath}}/roles"
                        data-page="roles"
-                       hx-get="/gui/roles" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/roles" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-shield-check"></i> Roles
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "permissions"}} active{{end}}" href="/gui/permissions"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "permissions"}} active{{end}}" href="{{basePath}}/permissions"
                        data-page="permissions"
-                       hx-get="/gui/permissions" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/permissions" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-lock"></i> Permissions
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "user-roles"}} active{{end}}" href="/gui/user-roles"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "user-roles"}} active{{end}}" href="{{basePath}}/user-roles"
                        data-page="user-roles"
-                       hx-get="/gui/user-roles" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/user-roles" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-person-badge"></i> User Roles
                     </a>
                 </li>
@@ -260,23 +260,23 @@
             <div class="sidebar-heading">Email</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "email-servers"}} active{{end}}" href="/gui/email-servers"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "email-servers"}} active{{end}}" href="{{basePath}}/email-servers"
                        data-page="email-servers"
-                       hx-get="/gui/email-servers" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/email-servers" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-hdd-network"></i> Email Servers
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "email-templates"}} active{{end}}" href="/gui/email-templates"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "email-templates"}} active{{end}}" href="{{basePath}}/email-templates"
                        data-page="email-templates"
-                       hx-get="/gui/email-templates" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/email-templates" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-envelope-paper"></i> Email Templates
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "email-types"}} active{{end}}" href="/gui/email-types"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "email-types"}} active{{end}}" href="{{basePath}}/email-types"
                        data-page="email-types"
-                       hx-get="/gui/email-types" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/email-types" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-tags"></i> Email Types
                     </a>
                 </li>
@@ -285,37 +285,37 @@
             <div class="sidebar-heading">System</div>
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "logs"}} active{{end}}" href="/gui/logs"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "logs"}} active{{end}}" href="{{basePath}}/logs"
                        data-page="logs"
-                       hx-get="/gui/logs" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/logs" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-journal-text"></i> Activity Logs
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "api-keys"}} active{{end}}" href="/gui/api-keys"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "api-keys"}} active{{end}}" href="{{basePath}}/api-keys"
                        data-page="api-keys"
-                       hx-get="/gui/api-keys" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/api-keys" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-key-fill"></i> API Keys
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "webhooks"}} active{{end}}" href="/gui/webhooks"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "webhooks"}} active{{end}}" href="{{basePath}}/webhooks"
                        data-page="webhooks"
-                       hx-get="/gui/webhooks" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/webhooks" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-broadcast"></i> Webhooks
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "monitoring"}} active{{end}}" href="/gui/monitoring"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "monitoring"}} active{{end}}" href="{{basePath}}/monitoring"
                        data-page="monitoring"
-                       hx-get="/gui/monitoring" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/monitoring" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-heart-pulse"></i> System Health
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "settings"}} active{{end}}" href="/gui/settings"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "settings"}} active{{end}}" href="{{basePath}}/settings"
                        data-page="settings"
-                       hx-get="/gui/settings" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/settings" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-gear"></i> Settings
                     </a>
                 </li>
@@ -327,9 +327,9 @@
             <hr class="text-secondary mx-3 my-0">
             <ul class="nav flex-column my-1">
                 <li class="nav-item">
-                    <a class="nav-link sidebar-link{{if eq .ActivePage "my-account"}} active{{end}}" href="/gui/my-account"
+                    <a class="nav-link sidebar-link{{if eq .ActivePage "my-account"}} active{{end}}" href="{{basePath}}/my-account"
                        data-page="my-account"
-                       hx-get="/gui/my-account" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
+                       hx-get="{{basePath}}/my-account" hx-target="#page-content" hx-select="#page-content" hx-swap="outerHTML show:no-scroll" hx-push-url="true">
                         <i class="bi bi-person-gear"></i> My Account
                     </a>
                 </li>
@@ -348,7 +348,7 @@
                 <div class="d-flex align-items-center text-white-50">
                     <i class="bi bi-person-circle me-2"></i>
                     <small>{{.AdminUsername}}</small>
-                    <a href="/gui/logout" class="ms-auto text-white-50" title="Logout">
+                    <a href="{{basePath}}/logout" class="ms-auto text-white-50" title="Logout">
                         <i class="bi bi-box-arrow-right"></i>
                     </a>
                 </div>
@@ -393,8 +393,8 @@
         </div>
     </div>
 
-    <script src="/gui/static/js/bootstrap.bundle.min.js"></script>
-    <script src="/gui/static/js/htmx.min.js"></script>
+    <script src="{{basePath}}/static/js/bootstrap.bundle.min.js"></script>
+    <script src="{{basePath}}/static/js/htmx.min.js"></script>
     <script>
         // Set CSRF token for all HTMX requests
         document.body.addEventListener('htmx:configRequest', function(event) {

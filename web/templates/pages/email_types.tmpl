@@ -10,7 +10,7 @@
         <i class="bi bi-list-check me-2"></i>Email Types
     </h4>
     <button class="btn btn-primary btn-sm"
-            hx-get="/gui/email-types/new"
+            hx-get="{{basePath}}/email-types/new"
             hx-target="#email-type-form-container"
             hx-swap="innerHTML">
         <i class="bi bi-plus-lg me-1"></i>Add Email Type
@@ -27,7 +27,7 @@
 
 <!-- Email type list (loaded via HTMX) -->
 <div id="email-type-table"
-     hx-get="/gui/email-types/list"
+     hx-get="{{basePath}}/email-types/list"
      hx-trigger="load, emailTypeListRefresh from:body"
      hx-swap="innerHTML">
     <div class="card border-0 shadow-sm">

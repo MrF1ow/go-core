@@ -17,7 +17,7 @@ import (
 // with SecurityHeadersMiddleware installed and returns the response recorder.
 func doSecurityRequest(path string) *httptest.ResponseRecorder {
 	r := gin.New()
-	r.Use(SecurityHeadersMiddleware())
+	r.Use(SecurityHeadersMiddleware("/gui"))
 	r.GET("/*any", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
 	})
@@ -98,7 +98,7 @@ func TestSecurityHeadersCSPGUI(t *testing.T) {
 
 func TestSecurityHeadersHSTSWithTLS(t *testing.T) {
 	r := gin.New()
-	r.Use(SecurityHeadersMiddleware())
+	r.Use(SecurityHeadersMiddleware("/gui"))
 	r.GET("/test", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
 	})

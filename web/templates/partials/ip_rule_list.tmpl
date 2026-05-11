@@ -56,14 +56,14 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-primary btn-sm me-1"
-                                    hx-get="/gui/ip-rules/{{.ID}}/edit"
+                                    hx-get="{{basePath}}/ip-rules/{{.ID}}/edit"
                                     hx-target="#iprule-form-container"
                                     hx-swap="innerHTML"
                                     title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/ip-rules/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/ip-rules/{{.ID}}/delete"
                                     hx-target="#delete-iprule-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"

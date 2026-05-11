@@ -82,12 +82,12 @@
                         </td>
                         <td class="pe-3 text-end">
                             <a class="btn btn-outline-secondary btn-sm me-1"
-                               href="/gui/api-keys/{{.ID}}/usage"
+                               href="{{basePath}}/api-keys/{{.ID}}/usage"
                                title="View Usage">
                                 <i class="bi bi-bar-chart-line"></i>
                             </a>
                             <button class="btn btn-outline-primary btn-sm me-1"
-                                    hx-get="/gui/api-keys/{{.ID}}/edit"
+                                    hx-get="{{basePath}}/api-keys/{{.ID}}/edit"
                                     hx-target="#apikey-form-container"
                                     hx-swap="innerHTML"
                                     title="Edit">
@@ -95,7 +95,7 @@
                             </button>
                             {{if not .IsRevoked}}
                             <button class="btn btn-outline-warning btn-sm me-1"
-                                    hx-get="/gui/api-keys/{{.ID}}/revoke"
+                                    hx-get="{{basePath}}/api-keys/{{.ID}}/revoke"
                                     hx-target="#revoke-apikey-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -105,7 +105,7 @@
                             </button>
                             {{end}}
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/api-keys/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/api-keys/{{.ID}}/delete"
                                     hx-target="#delete-apikey-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -130,13 +130,13 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {{if le .Page 1}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/api-keys/list?page={{sub .Page 1}}{{if .KeyType}}&key_type={{.KeyType}}{{end}}"
+                           hx-get="{{basePath}}/api-keys/list?page={{sub .Page 1}}{{if .KeyType}}&key_type={{.KeyType}}{{end}}"
                            hx-target="#apikey-table"
                            hx-swap="innerHTML">Previous</a>
                     </li>
                     <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/api-keys/list?page={{add .Page 1}}{{if .KeyType}}&key_type={{.KeyType}}{{end}}"
+                           hx-get="{{basePath}}/api-keys/list?page={{add .Page 1}}{{if .KeyType}}&key_type={{.KeyType}}{{end}}"
                            hx-target="#apikey-table"
                            hx-swap="innerHTML">Next</a>
                     </li>

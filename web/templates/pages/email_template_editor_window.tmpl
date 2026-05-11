@@ -341,7 +341,7 @@
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
                     
-                    const response = await fetch('/gui/email-variables', {
+                    const response = await fetch('{{basePath}}/email-variables', {
                         credentials: 'same-origin', // Include cookies for authentication
                         headers: {
                             'X-CSRF-Token': window.templateData?.csrfToken || ''
@@ -817,7 +817,7 @@
             
             previewBody.innerHTML = '<div class="preview-placeholder"><div class="spinner-border spinner-border-sm text-primary mb-2"></div><span>Rendering...</span></div>';
             
-            fetch('/gui/email-templates/preview', {
+            fetch('{{basePath}}/email-templates/preview', {
                 method: 'POST',
                 headers: { 'X-CSRF-Token': window.templateData.csrfToken },
                 body: formData
@@ -917,7 +917,7 @@
             var params = new URLSearchParams();
             formData.forEach(function(v, k) { params.append(k, v); });
             
-            fetch('/gui/email-templates/preview?full=1', {
+            fetch('{{basePath}}/email-templates/preview?full=1', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-Token': window.templateData.csrfToken,

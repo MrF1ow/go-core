@@ -112,11 +112,12 @@ type AdminBrandingConfig struct {
 
 // AdminConfig holds admin GUI / API settings.
 type AdminConfig struct {
-	APIKey     string
-	Email      string
-	SessionTTL time.Duration
-	BaseURL    string
-	Branding   AdminBrandingConfig
+	APIKey        string
+	Email         string
+	SessionTTL    time.Duration
+	BaseURL       string
+	AdminBasePath string // URL path prefix for admin GUI (default "/gui")
+	Branding      AdminBrandingConfig
 }
 
 // SocialConfig holds OAuth2 social-login settings.
@@ -212,10 +213,11 @@ func DefaultConfig() Config {
 			TwilioFromNumber: "",
 		},
 		Admin: AdminConfig{
-			APIKey:     "",
-			Email:      "",
-			SessionTTL: 24 * time.Hour,
-			BaseURL:    "",
+			APIKey:        "",
+			Email:         "",
+			SessionTTL:    24 * time.Hour,
+			BaseURL:       "",
+			AdminBasePath: "/gui",
 		},
 		Social: SocialConfig{
 			AllowedRedirectDomains: []string{},

@@ -1,6 +1,8 @@
 ## Overview
 
-The admin GUI is an HTMX-powered web interface at `/gui/*`. It provides a complete management dashboard for the Auth API platform. The main handler is `internal/admin/gui_handler.go` (4976 lines, the largest file in the project).
+The admin GUI is an HTMX-powered web interface mounted at the path configured by `Config.Admin.AdminBasePath` (default `/gui`). It provides a complete management dashboard for the Auth API platform. The main handler is `internal/admin/gui_handler.go` (the largest file in the project).
+
+All paths below use the default `/gui` prefix. Replace with your configured `AdminBasePath` value if changed.
 
 ## Architecture
 
@@ -58,7 +60,8 @@ type TemplateData struct {
 
 Branding fields are auto-populated by `Renderer.applyBranding()` on every `Instance()` call — handlers never set them manually.
 
-**Template functions available (`web.defaultFuncMap`):**
+**Template functions available (`Renderer.defaultFuncMap`):**
+- `basePath` -- returns the configured admin GUI path prefix (e.g. "/gui"). Used in templates as `{{basePath}}/login`
 - `formatDate`, `formatDateTime`, `formatDateTimeFull` -- date formatting
 - `timeAgo` -- human-readable relative time
 - `upper`, `lower`, `title` -- string transforms
@@ -104,9 +107,9 @@ GET  /gui/magic-link-login/verify  -> MagicLinkLoginVerify
 
 ### Session Cookie
 - Name: `admin_session` (constant: `web.AdminSessionCookie`)
-- Path: `/gui`
+- Path: configured `AdminBasePath` (default `/gui`)
 - Flags: HttpOnly, SameSite=Strict, Secure (auto-detected)
-- Set via `web.SetSessionCookie()`, cleared via `web.ClearSessionCookie()`
+- Set via `web.SetSessionCookie(c, id, maxAge, basePath)`, cleared via `web.ClearSessionCookie(c, basePath)`
 
 ## HTMX CRUD Pattern
 
@@ -179,7 +182,7 @@ GUI rate limiting sets `web.RateLimitErrorKey` in context (doesn't abort), letti
 
 ## Static Assets
 
-Embedded via `web/static/embed.go` using `//go:embed`. Served at `/gui/static/*`.
+Embedded via `web/static/embed.go` using `//go:embed`. Served at `<basePath>/static/*` (default `/gui/static/*`).
 
 ## Key Dependencies
 

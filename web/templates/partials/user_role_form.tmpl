@@ -4,7 +4,7 @@
         <h6 class="fw-bold mb-3">
             <i class="bi bi-plus-lg me-2"></i>Assign Role to User
         </h6>
-        <form hx-post="/gui/user-roles"
+        <form hx-post="{{basePath}}/user-roles"
               hx-target="#user-role-form-container"
               hx-swap="innerHTML">
             <input type="hidden" id="urUserID" name="user_id" value="">
@@ -12,7 +12,7 @@
                 <div class="col-md-3">
                     <label for="urAppID" class="form-label small text-muted">Application</label>
                     <select class="form-select" id="urAppID" name="app_id" required
-                            hx-get="/gui/user-roles/roles-for-app"
+                            hx-get="{{basePath}}/user-roles/roles-for-app"
                             hx-target="#urRoleSelect"
                             hx-swap="innerHTML"
                             hx-trigger="change"
@@ -35,7 +35,7 @@
                         <input type="text" class="form-control" id="urUserSearch"
                                placeholder="Search by email or name..."
                                autocomplete="off"
-                               hx-get="/gui/user-roles/search-users"
+                               hx-get="{{basePath}}/user-roles/search-users"
                                hx-target="#urUserResults"
                                hx-swap="innerHTML"
                                hx-trigger="keyup changed delay:300ms"
@@ -56,7 +56,7 @@
                         <i class="bi bi-check-lg me-1"></i>Assign
                     </button>
                     <button type="button" class="btn btn-outline-secondary"
-                            hx-get="/gui/user-roles/form-cancel"
+                            hx-get="{{basePath}}/user-roles/form-cancel"
                             hx-target="#user-role-form-container"
                             hx-swap="innerHTML">
                         Cancel

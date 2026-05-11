@@ -9,9 +9,9 @@
             {{end}}
         </h6>
         <form {{if .IsEdit}}
-                hx-put="/gui/ip-rules/{{.ID}}"
+                hx-put="{{basePath}}/ip-rules/{{.ID}}"
               {{else}}
-                hx-post="/gui/ip-rules"
+                hx-post="{{basePath}}/ip-rules"
               {{end}}
               hx-target="#iprule-form-container"
               hx-swap="innerHTML">
@@ -61,7 +61,7 @@
                     <i class="bi bi-check-lg me-1"></i>{{if .IsEdit}}Update Rule{{else}}Create Rule{{end}}
                 </button>
                 <button type="button" class="btn btn-outline-secondary"
-                        hx-get="/gui/ip-rules/form-cancel"
+                        hx-get="{{basePath}}/ip-rules/form-cancel"
                         hx-target="#iprule-form-container"
                         hx-swap="innerHTML">
                     Cancel

@@ -9,9 +9,9 @@
             {{end}}
         </h6>
         <form {{if .IsEdit}}
-                hx-put="/gui/email-servers/{{.ID}}"
+                hx-put="{{basePath}}/email-servers/{{.ID}}"
               {{else}}
-                hx-post="/gui/email-servers"
+                hx-post="{{basePath}}/email-servers"
               {{end}}
               hx-target="#email-server-form-container"
               hx-swap="innerHTML">
@@ -96,7 +96,7 @@
                     <i class="bi bi-check-lg me-1"></i>{{if .IsEdit}}Update{{else}}Create{{end}}
                 </button>
                 <button type="button" class="btn btn-outline-secondary"
-                        hx-get="/gui/email-servers/form-cancel"
+                        hx-get="{{basePath}}/email-servers/form-cancel"
                         hx-target="#email-server-form-container"
                         hx-swap="innerHTML">
                     Cancel

@@ -17,7 +17,7 @@ const (
 // AppIDMiddleware extracts X-App-ID from the request header.
 // When multiTenant is false (single-tenant mode), the default app ID is injected
 // automatically if the header is missing, so callers don't need to provide it.
-func AppIDMiddleware(multiTenant bool) gin.HandlerFunc {
+func AppIDMiddleware(multiTenant bool, adminBasePath string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
@@ -25,7 +25,7 @@ func AppIDMiddleware(multiTenant bool) gin.HandlerFunc {
 		// and OIDC routes (OIDC routes carry app_id in URL path, not X-App-ID header)
 		if (len(path) >= 8 && path[:8] == "/swagger") ||
 			(len(path) >= 6 && path[:6] == "/admin") ||
-			(len(path) >= 4 && path[:4] == "/gui") ||
+			strings.HasPrefix(path, adminBasePath) ||
 			(len(path) >= 5 && path[:5] == "/oidc") {
 			c.Next()
 			return

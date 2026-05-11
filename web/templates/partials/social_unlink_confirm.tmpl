@@ -24,7 +24,7 @@
     </button>
     {{else}}
     <button type="button" class="btn btn-danger btn-sm"
-            hx-delete="/gui/users/social-accounts/{{.SocialAccountID}}"
+            hx-delete="{{basePath}}/users/social-accounts/{{.SocialAccountID}}"
             hx-target="#user-detail-container"
             hx-swap="innerHTML">
         <i class="bi bi-x-circle me-1"></i>Unlink Account

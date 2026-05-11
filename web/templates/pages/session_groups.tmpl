@@ -10,7 +10,7 @@
         <i class="bi bi-link-45deg me-2"></i>Session Groups
     </h4>
     <button class="btn btn-primary btn-sm"
-            hx-get="/gui/session-groups/new"
+            hx-get="{{basePath}}/session-groups/new"
             hx-target="#session-group-form-container"
             hx-swap="innerHTML">
         <i class="bi bi-plus-lg me-1"></i>Create Session Group
@@ -29,7 +29,7 @@
 
 <!-- Session group table (loaded via HTMX) -->
 <div id="session-group-table"
-     hx-get="/gui/session-groups/list?page=1"
+     hx-get="{{basePath}}/session-groups/list?page=1"
      hx-trigger="load, sessionGroupListRefresh from:body"
      hx-swap="innerHTML">
     <!-- Loading placeholder -->

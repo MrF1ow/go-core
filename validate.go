@@ -34,6 +34,14 @@ func ValidateConfig(cfg Config) error {
 	if len(cfg.JWT.Secret) < 32 {
 		return fmt.Errorf("core: Config.JWT.Secret must be at least 32 characters")
 	}
+	if p := cfg.Admin.AdminBasePath; p != "" {
+		if !strings.HasPrefix(p, "/") {
+			return fmt.Errorf("core: Config.Admin.AdminBasePath must start with /")
+		}
+		if strings.HasSuffix(p, "/") {
+			return fmt.Errorf("core: Config.Admin.AdminBasePath must not end with /")
+		}
+	}
 	return validateBranding(cfg.Admin.Branding)
 }
 

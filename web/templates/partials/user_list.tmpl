@@ -33,7 +33,7 @@
                         </td>
                         <td class="text-center">
                             <div id="user-toggle-{{.ID}}"
-                                 hx-put="/gui/users/{{.ID}}/toggle"
+                                 hx-put="{{basePath}}/users/{{.ID}}/toggle"
                                  hx-target="this"
                                  hx-swap="outerHTML"
                                  hx-confirm="{{if .IsActive}}Deactivate this user? Their sessions will be revoked immediately.{{else}}Reactivate this user?{{end}}"
@@ -72,7 +72,7 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-primary btn-sm"
-                                    hx-get="/gui/users/{{.ID}}"
+                                    hx-get="{{basePath}}/users/{{.ID}}"
                                     hx-target="#user-detail-container"
                                     hx-swap="innerHTML"
                                     title="View details">
@@ -95,13 +95,13 @@
                 <ul class="pagination pagination-sm mb-0">
                     <li class="page-item {{if le .Page 1}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/users/list?page={{sub .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}"
+                           hx-get="{{basePath}}/users/list?page={{sub .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}"
                            hx-target="#user-table"
                            hx-swap="innerHTML">Previous</a>
                     </li>
                     <li class="page-item {{if ge .Page .TotalPages}}disabled{{end}}">
                         <a class="page-link" href="#"
-                           hx-get="/gui/users/list?page={{add .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}"
+                           hx-get="{{basePath}}/users/list?page={{add .Page 1}}{{if .AppID}}&app_id={{.AppID}}{{end}}{{if .Search}}&search={{.Search}}{{end}}"
                            hx-target="#user-table"
                            hx-swap="innerHTML">Next</a>
                     </li>

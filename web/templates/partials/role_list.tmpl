@@ -40,7 +40,7 @@
                         </td>
                         <td class="pe-3 text-end">
                             <button class="btn btn-outline-info btn-sm me-1"
-                                    hx-get="/gui/roles/{{.ID}}/permissions"
+                                    hx-get="{{basePath}}/roles/{{.ID}}/permissions"
                                     hx-target="#permissions-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
@@ -50,14 +50,14 @@
                             </button>
                             {{if not .IsSystem}}
                             <button class="btn btn-outline-primary btn-sm me-1"
-                                    hx-get="/gui/roles/{{.ID}}/edit"
+                                    hx-get="{{basePath}}/roles/{{.ID}}/edit"
                                     hx-target="#role-form-container"
                                     hx-swap="innerHTML"
                                     title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="/gui/roles/{{.ID}}/delete"
+                                    hx-get="{{basePath}}/roles/{{.ID}}/delete"
                                     hx-target="#delete-modal-body"
                                     hx-swap="innerHTML"
                                     data-bs-toggle="modal"
