@@ -163,6 +163,15 @@ func main() {
 			Email:      os.Getenv("ADMIN_EMAIL"),
 			SessionTTL: time.Duration(envInt("ADMIN_SESSION_EXPIRATION_HOURS", 8)) * time.Hour,
 			BaseURL:    os.Getenv("ADMIN_BASE_URL"),
+			Branding: core.AdminBrandingConfig{
+				OrgName:          os.Getenv("ADMIN_BRANDING_ORG_NAME"),
+				LogoURL:          os.Getenv("ADMIN_BRANDING_LOGO_URL"),
+				PrimaryColor:     os.Getenv("ADMIN_BRANDING_PRIMARY_COLOR"),
+				SecondaryColor:   os.Getenv("ADMIN_BRANDING_SECONDARY_COLOR"),
+				BorderRadius:     os.Getenv("ADMIN_BRANDING_BORDER_RADIUS"),
+				SidebarColor:     os.Getenv("ADMIN_BRANDING_SIDEBAR_COLOR"),
+				SidebarTextColor: os.Getenv("ADMIN_BRANDING_SIDEBAR_TEXT_COLOR"),
+			},
 		},
 		Social: core.SocialConfig{
 			AllowedRedirectDomains: splitTrimmed(os.Getenv("ALLOWED_REDIRECT_DOMAINS")),

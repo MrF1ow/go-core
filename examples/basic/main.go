@@ -30,6 +30,15 @@ func main() {
 	// Required: JWT signing secret (min 32 characters)
 	cfg.JWT.Secret = "change-me-to-a-real-secret-at-least-32-chars"
 
+	// Optional: customize admin dashboard branding (see web/README.md)
+	// cfg.Admin.Branding = core.AdminBrandingConfig{
+	// 	OrgName:      "Acme Corp",
+	// 	LogoURL:      "https://acme.com/logo.svg", // or local file path
+	// 	PrimaryColor: "#4f46e5",
+	// 	BorderRadius: "0.75rem",
+	// 	SidebarColor: "#1a1a2e",
+	// }
+
 	// Optional: set nil to use in-memory cache (fine for dev)
 	// cfg.Redis = nil
 
