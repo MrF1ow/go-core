@@ -44,11 +44,32 @@
             font-family: monospace;
         }
     </style>
+    {{if or .PrimaryColor .BorderRadius}}
+    <style>
+        {{if .PrimaryColor}}
+        :root {
+            --bs-primary: {{.PrimaryColor}};
+        }
+        .btn-primary {
+            --bs-btn-bg: {{.PrimaryColor}};
+            --bs-btn-border-color: {{.PrimaryColor}};
+            --bs-btn-hover-bg: color-mix(in srgb, {{.PrimaryColor}} 85%, black);
+            --bs-btn-hover-border-color: color-mix(in srgb, {{.PrimaryColor}} 75%, black);
+            --bs-btn-active-bg: color-mix(in srgb, {{.PrimaryColor}} 75%, black);
+            --bs-btn-active-border-color: color-mix(in srgb, {{.PrimaryColor}} 75%, black);
+        }
+        .text-primary { color: {{.PrimaryColor}} !important; }
+        {{end}}
+        {{if .BorderRadius}}
+        :root { --bs-border-radius: {{.BorderRadius}}; }
+        {{end}}
+    </style>
+    {{end}}
 </head>
 <body>
     <div class="verify-card">
         <div class="text-center mb-4">
-            <i class="bi bi-shield-check text-primary" style="font-size: 3rem;"></i>
+            {{if .LogoURL}}<img src="{{.LogoURL}}" alt="{{if .OrgName}}{{.OrgName}}{{else}}Auth API{{end}}" style="height:64px;width:64px;object-fit:contain;">{{else}}<i class="bi bi-shield-check text-primary" style="font-size: 3rem;"></i>{{end}}
             <h3 class="mt-2 fw-bold">Two-Factor Verification</h3>
             <p class="text-muted">
                 {{if eq .TwoFAMethod "email"}}
