@@ -74,7 +74,7 @@ Everything below is off or defaulted until you configure it. `DefaultConfig()` g
 | `OIDC` | OpenID Connect provider config | Disabled. |
 | `WebAuthn` | Passkey and biometric authentication | Disabled. |
 | `SMS` | 2FA via Twilio | Disabled. |
-| `Admin` | Admin GUI settings and API key for admin endpoints | Disabled. |
+| `Admin` | Admin GUI settings, API key, and [branding](web/README.md) | Disabled. |
 | `Social` | OAuth2 social login (Google, Facebook, GitHub) | Disabled. |
 | `GeoIP` | IP-based access rules, requires a MaxMind database file | Disabled. |
 | `Session` | Session groups, trusted devices, cross-app SSO settings | Defaults to single-app mode. |

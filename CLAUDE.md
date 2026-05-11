@@ -77,7 +77,7 @@ Each domain module in `internal/` follows this pattern:
 - `pkg/dto/` — API request/response DTOs
 - `pkg/jwt/` — JWT token creation and validation utilities
 - `pkg/errors/` — custom error types (`NewAppError` with HTTP status codes)
-- `web/` — embedded HTMX templates and static assets for admin GUI
+- `web/` — embedded HTMX templates, static assets, and [branding](web/README.md) for admin GUI
 - `migrations/` — SQL migration files (applied via shell scripts in `scripts/`)
 - `examples/basic/` — minimal consumer example
 
