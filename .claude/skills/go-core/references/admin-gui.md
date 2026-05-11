@@ -34,20 +34,29 @@ web/templates/
 **Template data struct (`web.TemplateData`):**
 ```go
 type TemplateData struct {
-    ActivePage    string      // Current page identifier for nav highlighting
-    AdminUsername string      // From auth context
-    AdminID       string      // From auth context
-    CSRFToken     string      // From CSRF middleware
-    FlashSuccess  string      // Flash messages
-    FlashError    string
-    Error         string      // Login-specific error
-    Username      string      // Pre-filled username on login error
-    Redirect      string      // Post-login redirect URL
-    TempToken     string      // 2FA temp token
-    TwoFAMethod   string      // "totp" or "email"
-    Data          interface{} // Page-specific arbitrary data
+    ActivePage       string      // Current page identifier for nav highlighting
+    AdminUsername    string      // From auth context
+    AdminID          string      // From auth context
+    CSRFToken        string      // From CSRF middleware
+    FlashSuccess     string      // Flash messages
+    FlashError       string
+    Error            string      // Login-specific error
+    Username         string      // Pre-filled username on login error
+    Redirect         string      // Post-login redirect URL
+    TempToken        string      // 2FA temp token
+    TwoFAMethod      string      // "totp" or "email"
+    Data             interface{} // Page-specific arbitrary data
+    OrgName          string      // Branding: org name (default "Auth API")
+    LogoURL          string      // Branding: resolved logo URL
+    PrimaryColor     string      // Branding: hex color for --bs-primary
+    SecondaryColor   string      // Branding: hex color for --bs-secondary
+    BorderRadius     string      // Branding: CSS length for --bs-border-radius
+    SidebarColor     string      // Branding: hex sidebar background
+    SidebarTextColor string      // Branding: hex sidebar text (auto-derived or explicit)
 }
 ```
+
+Branding fields are auto-populated by `Renderer.applyBranding()` on every `Instance()` call — handlers never set them manually.
 
 **Template functions available (`web.defaultFuncMap`):**
 - `formatDate`, `formatDateTime`, `formatDateTimeFull` -- date formatting
@@ -178,6 +187,40 @@ Embedded via `web/static/embed.go` using `//go:embed`. Served at `/gui/static/*`
 - `admin.Repository` implements `web.ApiKeyValidator` (for admin/app API key middleware)
 - Both interfaces defined in `web/context_keys.go` to avoid import cycles
 
+## Branding / Theming
+
+Consumers customize admin dashboard appearance via `AdminBrandingConfig` in `core.Config`. Config-only, no DB migration. See [`web/README.md`](../../../web/README.md) for full docs.
+
+**How it works:**
+1. Consumer sets `cfg.Admin.Branding` fields (org name, logo, colors, border radius)
+2. `ResolveBranding()` in `web/branding.go` resolves logo URL and auto-derives sidebar text color
+3. `Renderer.SetBranding()` stores resolved branding once at init
+4. `Renderer.applyBranding()` injects branding fields into every `TemplateData` via `Instance()`
+5. Templates use conditional `{{if .PrimaryColor}}` blocks to inject CSS variable overrides
+
+**CSS injection pattern** (in `base.tmpl` and `login.tmpl`):
+- Overrides `--bs-primary`, `--bs-secondary`, `--bs-border-radius` via inline `<style>` blocks
+- `.btn-primary` hover/active states derived via `color-mix(in srgb, color 85%, black)`
+- Sidebar colors applied via `.sidebar` class overrides with `!important`
+
+**Logo resolution** (`LogoURL`):
+- URL (`http://` or `https://`): used as-is in `<img src>`
+- File path: file read once at startup, served from memory at `/gui/branding/logo`
+- Content-Type detected via `http.DetectContentType`
+
+**Sidebar text auto-derivation** (`web/branding.go`):
+- When `SidebarColor` set but `SidebarTextColor` empty: compute WCAG relative luminance
+- Luminance > 0.5 → dark text `#212529`, else → light text `#ffffff`
+
+**Key files:**
+- `web/branding.go` — `ParseHexColor`, `RelativeLuminance`, `AutoSidebarTextColor`, `ResolveBranding`
+- `web/branding_test.go` — unit tests for luminance, hex parsing, auto-derive
+- `web/templates/layouts/base.tmpl` — CSS injection block + sidebar logo/name
+- `web/templates/pages/login.tmpl` — CSS injection + logo/name on login page
+- `web/templates/pages/2fa_verify.tmpl` — CSS injection + logo on 2FA page
+
+**Route:** `GET /gui/branding/logo` — registered only when `LogoURL` is a file path.
+
 ## When To Use This Skill
 
-Load this skill when working on the admin web interface, HTMX templates, GUI authentication, or any `/gui/*` route.
+Load this skill when working on the admin web interface, HTMX templates, GUI authentication, branding/theming, or any `/gui/*` route.

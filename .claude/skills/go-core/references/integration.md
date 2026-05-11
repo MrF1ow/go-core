@@ -82,6 +82,23 @@ All routes from the auth module: registration, login, token refresh, password re
 | `Session` | Single-app mode | Cross-app SSO, trusted devices |
 | `MultiTenant` | false | Enables X-App-ID header routing |
 
+## Admin Dashboard Branding
+
+Customize admin GUI appearance via `cfg.Admin.Branding`:
+
+```go
+cfg.Admin.Branding = core.AdminBrandingConfig{
+    OrgName:      "Acme Corp",                    // Replaces "Auth API" text
+    LogoURL:      "https://acme.com/logo.svg",    // URL or file path
+    PrimaryColor: "#4f46e5",                       // Overrides --bs-primary
+    BorderRadius: "0.75rem",                       // Overrides --bs-border-radius
+    SidebarColor: "#1a1a2e",                       // Sidebar background
+    // SidebarTextColor auto-derived from SidebarColor luminance
+}
+```
+
+All fields optional. Zero-value = default Bootstrap appearance. `LogoURL` accepts URLs or file paths (files served from memory at `/gui/branding/logo`). See [`web/README.md`](../../../web/README.md) for full field reference.
+
 ## Database Migrations
 
 go-core embeds its migrations. Consumers apply them programmatically before starting the app:
