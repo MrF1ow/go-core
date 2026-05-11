@@ -68,7 +68,7 @@ func AutoSidebarTextColor(sidebarHex string) string {
 }
 
 // ResolvedBranding holds the fully resolved branding values ready for template
-// rendering. All fields are guaranteed to be non-empty strings once resolved.
+// rendering. Fields remain empty when the consumer does not configure them.
 type ResolvedBranding struct {
 	OrgName          string
 	LogoURL          string

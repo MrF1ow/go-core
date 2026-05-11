@@ -56,8 +56,13 @@ func validateBranding(b AdminBrandingConfig) error {
 	if b.LogoURL != "" {
 		isURL := strings.HasPrefix(b.LogoURL, "http://") || strings.HasPrefix(b.LogoURL, "https://")
 		if !isURL {
-			if _, err := os.Stat(b.LogoURL); err != nil {
+			info, err := os.Stat(b.LogoURL)
+			if err != nil {
 				return fmt.Errorf("core: Config.Admin.Branding.LogoURL file not found: %s", b.LogoURL)
+			}
+			const maxLogoSize = 1 << 20 // 1 MB
+			if info.Size() > maxLogoSize {
+				return fmt.Errorf("core: Config.Admin.Branding.LogoURL file too large (%d bytes, max %d)", info.Size(), maxLogoSize)
 			}
 		}
 	}

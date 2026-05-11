@@ -6,6 +6,7 @@
 package coreapp
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -77,6 +78,10 @@ type App struct {
 	cleanupService        *logService.CleanupService
 	apiKeyNotificationSvc *admin.ApiKeyNotificationService
 	expiryService         *sessiongroup.ExpiryService
+
+	// Branding logo (read once at startup, served from memory)
+	logoData        []byte
+	logoContentType string
 }
 
 // New creates a new App by connecting to the database (pgx) and initializing
@@ -370,6 +375,21 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 	apiKeyNotificationSvc := admin.NewApiKeyNotificationService(adminRepo, emailService, cfg.Admin.Email)
 	apiKeyNotificationSvc.Start()
 
+	var logoData []byte
+	var logoContentType string
+	b := cfg.Admin.Branding
+	if b.LogoURL != "" && !strings.HasPrefix(b.LogoURL, "http://") && !strings.HasPrefix(b.LogoURL, "https://") {
+		var err error
+		logoData, err = os.ReadFile(b.LogoURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read branding logo file: %w", err)
+		}
+		logoContentType = http.DetectContentType(logoData)
+		if strings.HasSuffix(strings.ToLower(b.LogoURL), ".svg") {
+			logoContentType = "image/svg+xml"
+		}
+	}
+
 	return &App{
 		pool:                  pool,
 		config:                cfg,
@@ -394,6 +414,8 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 		webhookService:        webhookService,
 		cleanupService:        cleanupService,
 		apiKeyNotificationSvc: apiKeyNotificationSvc,
+		logoData:              logoData,
+		logoContentType:       logoContentType,
 	}, nil
 }
 
@@ -692,15 +714,11 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 		// Static assets (no auth required)
 		gui.StaticFS("/static", static.HTTPFileSystem())
 
-		// Serve branding logo from local file (if configured)
+		// Serve branding logo from local file (if configured, read at startup)
 		if isFileURL {
-			logoData, err := os.ReadFile(b.LogoURL)
-			if err != nil {
-				log.Fatalf("Failed to read branding logo file: %v", err)
-			}
-			logoContentType := http.DetectContentType(logoData)
 			gui.GET("/branding/logo", func(c *gin.Context) {
-				c.Data(http.StatusOK, logoContentType, logoData)
+				c.Header("Cache-Control", "public, max-age=86400, immutable")
+				c.Data(http.StatusOK, a.logoContentType, a.logoData)
 			})
 		}
 
