@@ -50,6 +50,15 @@ type TemplateData struct {
 	// Read from the gui_theme cookie via web.GetTheme(c).
 	Theme string
 
+	// Branding (auto-populated by Renderer from resolved config)
+	OrgName          string
+	LogoURL          string
+	PrimaryColor     string
+	SecondaryColor   string
+	BorderRadius     string
+	SidebarColor     string
+	SidebarTextColor string
+
 	// Page-specific data (each page can put arbitrary data here)
 	Data interface{}
 }
@@ -58,6 +67,7 @@ type TemplateData struct {
 type Renderer struct {
 	templates map[string]*template.Template
 	funcMap   template.FuncMap
+	branding  ResolvedBranding
 }
 
 // NewRenderer creates a Renderer by parsing all embedded templates.
@@ -76,22 +86,52 @@ func NewRenderer() (*Renderer, error) {
 	return r, nil
 }
 
+// SetBranding stores the resolved branding config. Call once during initialization.
+func (r *Renderer) SetBranding(b ResolvedBranding) {
+	r.branding = b
+}
+
 // Instance returns a render.Render for a specific template name and data.
 // This satisfies the render.HTMLRender interface.
 func (r *Renderer) Instance(name string, data interface{}) render.Render {
 	tmpl, ok := r.templates[name]
 	if !ok {
-		// Fallback: return an error render
 		return &HTMLRender{
 			Template: nil,
 			Name:     name,
 			Data:     data,
 		}
 	}
+
+	data = r.applyBranding(data)
+
 	return &HTMLRender{
 		Template: tmpl,
 		Name:     name,
 		Data:     data,
+	}
+}
+
+func (r *Renderer) applyBranding(data interface{}) interface{} {
+	inject := func(td *TemplateData) {
+		td.OrgName = r.branding.OrgName
+		td.LogoURL = r.branding.LogoURL
+		td.PrimaryColor = r.branding.PrimaryColor
+		td.SecondaryColor = r.branding.SecondaryColor
+		td.BorderRadius = r.branding.BorderRadius
+		td.SidebarColor = r.branding.SidebarColor
+		td.SidebarTextColor = r.branding.SidebarTextColor
+	}
+
+	switch td := data.(type) {
+	case TemplateData:
+		inject(&td)
+		return td
+	case *TemplateData:
+		inject(td)
+		return td
+	default:
+		return data
 	}
 }
 
