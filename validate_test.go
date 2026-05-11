@@ -48,6 +48,75 @@ func TestValidateConfig_ShortJWTSecret(t *testing.T) {
 	assertValidationError(t, cfg, "Config.JWT.Secret must be at least 32 characters")
 }
 
+func TestValidateConfig_InvalidPrimaryColor(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.PrimaryColor = "not-a-color"
+	assertValidationError(t, cfg, "PrimaryColor")
+}
+
+func TestValidateConfig_ValidPrimaryColor(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.PrimaryColor = "#4f46e5"
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestValidateConfig_ValidShortHexColor(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.PrimaryColor = "#f00"
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestValidateConfig_InvalidSecondaryColor(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.SecondaryColor = "rgb(0,0,0)"
+	assertValidationError(t, cfg, "SecondaryColor")
+}
+
+func TestValidateConfig_InvalidSidebarColor(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.SidebarColor = "#GGHHII"
+	assertValidationError(t, cfg, "SidebarColor")
+}
+
+func TestValidateConfig_InvalidSidebarTextColor(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.SidebarTextColor = "white"
+	assertValidationError(t, cfg, "SidebarTextColor")
+}
+
+func TestValidateConfig_InvalidBorderRadius(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.BorderRadius = "abc"
+	assertValidationError(t, cfg, "BorderRadius")
+}
+
+func TestValidateConfig_ValidBorderRadius(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.BorderRadius = "0.5rem"
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestValidateConfig_ZeroBorderRadius(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.BorderRadius = "0"
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+}
+
+func TestValidateConfig_EmptyBrandingIsValid(t *testing.T) {
+	cfg := validTestConfig()
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error with empty branding, got: %v", err)
+	}
+}
+
 func validTestConfig() Config {
 	cfg := DefaultConfig()
 	cfg.Database.Host = "localhost"

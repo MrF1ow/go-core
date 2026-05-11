@@ -98,12 +98,25 @@ type SMSConfig struct {
 	TwilioFromNumber string
 }
 
+// AdminBrandingConfig customizes the admin dashboard appearance.
+// All fields are optional — zero values produce the default Bootstrap look.
+type AdminBrandingConfig struct {
+	OrgName          string
+	LogoURL          string
+	PrimaryColor     string
+	SecondaryColor   string
+	BorderRadius     string
+	SidebarColor     string
+	SidebarTextColor string
+}
+
 // AdminConfig holds admin GUI / API settings.
 type AdminConfig struct {
 	APIKey     string
 	Email      string
 	SessionTTL time.Duration
 	BaseURL    string
+	Branding   AdminBrandingConfig
 }
 
 // SocialConfig holds OAuth2 social-login settings.
