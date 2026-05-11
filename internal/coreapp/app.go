@@ -7,6 +7,9 @@ package coreapp
 
 import (
 	"log"
+	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -407,6 +410,26 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	}
 	r.HTMLRender = renderer
 
+	// Apply admin branding to renderer
+	b := cfg.Admin.Branding
+	isFileURL := b.LogoURL != "" &&
+		!strings.HasPrefix(b.LogoURL, "http://") &&
+		!strings.HasPrefix(b.LogoURL, "https://")
+	logoServeURL := ""
+	if isFileURL {
+		logoServeURL = "/gui/branding/logo"
+	}
+	renderer.SetBranding(web.ResolveBranding(
+		b.OrgName,
+		b.LogoURL,
+		b.PrimaryColor,
+		b.SecondaryColor,
+		b.BorderRadius,
+		b.SidebarColor,
+		b.SidebarTextColor,
+		logoServeURL,
+	))
+
 	// Add security headers middleware (before CORS so headers are always set)
 	r.Use(middleware.SecurityHeadersMiddleware())
 
@@ -668,6 +691,18 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	{
 		// Static assets (no auth required)
 		gui.StaticFS("/static", static.HTTPFileSystem())
+
+		// Serve branding logo from local file (if configured)
+		if isFileURL {
+			logoData, err := os.ReadFile(b.LogoURL)
+			if err != nil {
+				log.Fatalf("Failed to read branding logo file: %v", err)
+			}
+			logoContentType := http.DetectContentType(logoData)
+			gui.GET("/branding/logo", func(c *gin.Context) {
+				c.Data(http.StatusOK, logoContentType, logoData)
+			})
+		}
 
 		// Login page and form submission (no auth required)
 		gui.GET("/login", a.guiHandler.LoginPage)
