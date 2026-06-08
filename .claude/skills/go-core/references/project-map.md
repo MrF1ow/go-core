@@ -1,6 +1,6 @@
 ## What This Project Is
 
-A **multi-tenant authentication and authorization REST API** in Go 1.23+, using Gin, PostgreSQL (pgx/SQLC), and Redis. It provides user registration, login, OAuth2 social login, TOTP/email/SMS/backup-email 2FA, WebAuthn/passkeys, magic links, RBAC, session management, OIDC provider, webhooks, brute-force protection, GeoIP IP rules, health/metrics, and a full admin interface (JSON API + HTMX GUI).
+A **multi-tenant authentication and authorization REST API** in Go 1.25+, using Gin, PostgreSQL (pgx/SQLC), and Redis. It provides user registration, login, OAuth2 social login, TOTP/email/SMS/backup-email 2FA, WebAuthn/passkeys, magic links, RBAC, session management, OIDC provider, webhooks, brute-force protection, GeoIP IP rules, health/metrics, and a full admin interface (JSON API + HTMX GUI).
 
 ## Architecture
 

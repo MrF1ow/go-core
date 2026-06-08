@@ -7,7 +7,7 @@ Step-by-step guide to set up and run the Authentication API.
 ## Prerequisites
 
 - **Docker & Docker Compose** (recommended)
-- Or install locally: Go 1.23+, PostgreSQL 13+, Redis 6+
+- Or install locally: Go 1.25+, PostgreSQL 13+, Redis 6+
 
 ---
 
