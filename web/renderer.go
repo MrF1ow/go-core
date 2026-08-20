@@ -125,7 +125,7 @@ func (r *Renderer) applyBranding(data interface{}) interface{} {
 		td.BorderRadius = r.branding.BorderRadius
 		td.SidebarColor = r.branding.SidebarColor
 		td.SidebarTextColor = r.branding.SidebarTextColor
-		td.CustomCSS = template.CSS(r.branding.CustomCSS)
+		td.CustomCSS = template.CSS(r.branding.CustomCSS) // #nosec G203 -- validated in validateBranding before SetBranding.
 	}
 
 	switch td := data.(type) {
