@@ -1,148 +1,77 @@
-# Multi-Tenancy
+# Multi-tenancy
 
-The API supports multi-tenancy, allowing you to serve multiple organizations (tenants) and applications from a single deployment. Each application has isolated users, OAuth configurations, and activity logs.
-
----
-
-## Hierarchy
+A tenant owns applications. Each application has its own users, OAuth providers, logs, and settings.
 
 ```
-Tenant (Organization)
- └── Application (Mobile App, Web App, etc.)
-      ├── Users (isolated per app)
-      ├── OAuth Providers (per-app credentials)
-      └── Activity Logs (per-app audit trail)
+Tenant
+ └── Application
+      ├── Users
+      ├── OAuth providers
+      └── Activity logs
 ```
 
----
+`Config.MultiTenant` defaults to `false`. In that mode a missing `X-App-ID` is filled with the default app. Set it to `true` when more than one app shares the process.
 
-## Default Setup
+## Default IDs
 
-On first installation, a default tenant and application are created automatically:
+Created by `migrations/001_tenants_and_apps.sql`:
 
-- **Default Tenant ID:** `00000000-0000-0000-0000-000000000001`
-- **Default Application ID:** `00000000-0000-0000-0000-000000000001`
+- Tenant `00000000-0000-0000-0000-000000000001`
+- Application `00000000-0000-0000-0000-000000000001`
 
----
+## `X-App-ID`
 
-## Required Header
-
-All API requests must include the `X-App-ID` header:
+Required when `MultiTenant` is true. Accepted on the header or `?app_id=`. Not required for `/swagger`, `/admin`, the admin GUI path, `/oidc`, or OAuth callbacks (app ID is in OAuth state).
 
 ```bash
-curl -X POST http://localhost:8080/auth/register \
+curl -X POST http://localhost:8080/register \
   -H "X-App-ID: 00000000-0000-0000-0000-000000000001" \
   -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "SecurePass123!@#"
-  }'
+  -d '{"email":"user@example.com","password":"SecurePass123!@#"}'
 ```
 
-**Exceptions (no header required):**
-- `/swagger/*` - Swagger documentation
-- `/admin/*` - Admin API endpoints
-- OAuth callbacks (app_id passed in state parameter)
+## Admin API
 
----
+Admin JSON routes use `X-Admin-API-Key` (`Config.Admin.APIKey` or a key created in the GUI). They do not take a user JWT.
 
-## Creating Tenants and Applications
-
-### 1. Create a Tenant
+Create a tenant and app:
 
 ```bash
 curl -X POST http://localhost:8080/admin/tenants \
+  -H "X-Admin-API-Key: $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <admin-token>" \
   -d '{"name": "Acme Corporation"}'
-```
 
-Response:
-
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "name": "Acme Corporation",
-  "created_at": "2026-01-19T12:00:00Z",
-  "updated_at": "2026-01-19T12:00:00Z"
-}
-```
-
-### 2. Create an Application
-
-```bash
 curl -X POST http://localhost:8080/admin/apps \
+  -H "X-Admin-API-Key: $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <admin-token>" \
   -d '{
     "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "Mobile App",
-    "description": "iOS and Android application"
+    "name": "Mobile App"
   }'
 ```
 
-### 3. Configure OAuth for an Application
+OAuth client credentials are per app:
 
 ```bash
 curl -X POST http://localhost:8080/admin/oauth-providers \
+  -H "X-Admin-API-Key: $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <admin-token>" \
   -d '{
     "app_id": "660e8400-e29b-41d4-a716-446655440000",
     "provider": "google",
-    "client_id": "your-google-client-id.apps.googleusercontent.com",
-    "client_secret": "your-google-client-secret",
-    "redirect_url": "https://mobile-app.example.com/auth/google/callback",
+    "client_id": "....apps.googleusercontent.com",
+    "client_secret": "...",
+    "redirect_url": "https://mobile.example.com/auth/google/callback",
     "is_enabled": true
   }'
 ```
 
----
+If you still have provider secrets in an old `.env`, `go run ./cmd/migrate_oauth` copies them into the database for the default app.
 
-## OAuth Configuration
+## Isolation
 
-OAuth credentials are stored in the database per-application:
-
-- Different OAuth credentials per application
-- Runtime configuration changes (no restart needed)
-- Centralized management via Admin API
-- Fallback to environment variables for the default app
-
-To migrate existing credentials from `.env` to the database:
-
-```bash
-go run cmd/migrate_oauth/main.go
-```
-
----
-
-## Data Isolation
-
-Complete isolation between applications:
-
-- Users are scoped to `app_id` (same email can exist in different apps)
-- Social accounts linked per application
-- Activity logs segmented by application
-- JWT tokens include `app_id` claim (prevents cross-app token reuse)
-- 2FA secrets and recovery codes isolated per app
-
-Database-level enforcement:
-
-```sql
--- Email uniqueness is per-application (not global)
-CREATE UNIQUE INDEX idx_email_app_id ON users(email, app_id);
-
--- All user data has foreign key to applications
-ALTER TABLE users ADD CONSTRAINT fk_users_app
-  FOREIGN KEY (app_id) REFERENCES applications(id) ON DELETE CASCADE;
-```
-
----
-
-## Use Cases
-
-**SaaS Providers** - Serve multiple clients from a single deployment with isolated data and per-client OAuth branding.
-
-**Multiple Applications** - Same company running different apps (mobile, web, desktop) with separate user bases and analytics.
-
-**White-Label Solutions** - Deploy once, serve many brands with customized OAuth and complete data separation.
+- Unique email is `(email, app_id)`, not global
+- JWTs carry `app_id`; a token from app A is rejected on app B
+- Social accounts, 2FA secrets, and logs are per app
+- Deleting an application cascades its users

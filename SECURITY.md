@@ -78,7 +78,7 @@ All responses include the following security headers:
 Run the following before each release:
 
 ```bash
-make security          # gosec static analysis + nancy dependency audit
+make security          # gosec static analysis + govulncheck
 make lint              # golangci-lint
 go test -race ./...    # Race condition detection
 ```

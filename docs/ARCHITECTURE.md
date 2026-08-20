@@ -1,78 +1,68 @@
-# Architecture Overview
-
-## High-Level Diagram
+# Architecture
 
 ```
-+-----------+      +-----------+      +-----------+
-|  Client   |<---> |  API      |<---> | Database  |
-| (Frontend)|      | (Gin)     |      | (Postgres)|
-+-----------+      +-----------+      +-----------+
-                         |
-                         v
-                   +-----------+
-                   |  Redis    |
-                   +-----------+
+ Client  <-->  Gin routes  <-->  PostgreSQL
+                    |
+                    v
+                  Redis (optional; in-memory fallback)
 ```
 
-- **API**: Go (Gin), handles authentication, authorization, and business logic
-- **Database**: PostgreSQL, stores users, tokens, etc.
-- **Redis**: Session/token management, caching, rate limiting
-- **Email**: SMTP for verification and password reset
-- **Social Auth**: OAuth2 with Google, Facebook, GitHub
-- **OIDC**: Built-in OpenID Connect provider (RS256, PKCE, JWKS) — per application, opt-in
-- **Webhooks**: Async HMAC-signed event delivery with retry queue
-- **GeoIP**: MaxMind GeoLite2 for IP access rules (CIDR/country per application)
-- **SMS**: Twilio integration for SMS-based 2FA
-- **Metrics**: Prometheus endpoint for system and request observability
+go-core is a library. A consumer builds `core.Config`, calls `app.New(cfg)`, and mounts routes on its own Gin engine. `cmd/api` is a reference binary that does that from environment variables.
 
 ## Public API
 
-The module exposes a minimal public surface via the `app/` package:
+Package `app/`:
 
-- `app.New(cfg)` — validates config, creates connection pool, initializes all services
-- `app.RegisterRoutes(r)` — mounts all auth routes onto a Gin engine
-- `app.Close()` — shuts down the connection pool and background workers
+- `New(cfg)`: validate config, open a pgx pool, wire services
+- `NewWithDB(cfg, pool)`: same, reuse an existing pool
+- `RegisterRoutes(r)`: mount auth, admin GUI, OIDC, webhooks, health
+- `AuthMiddleware()`: JWT middleware for the consumer's own routes
+- `Close()`: stop background work and close the pool
 
-Config types live in the root `core` package (`Config`, `DefaultConfig()`, `ValidateConfig()`). This split avoids a circular dependency between the public API and internal wiring.
+Config types live in the root `core` package so `app` and `internal/coreapp` do not import each other in a cycle.
 
-## Data Access
+## Layers
 
-All database access uses **pgx** (connection pool) and **SQLC** (generated type-safe queries). There is no ORM — SQL lives in `.sql` files under each domain module, and `sqlc generate` produces the Go query functions.
+Each domain under `internal/` is repository → service → handler.
 
-## Key Components
-- `app/` — Public entry point (New, RegisterRoutes, Close)
-- `internal/coreapp/` — Internal wiring (not accessible to consumers)
-- `internal/auth` — Core authentication logic
-- `internal/user` — User management, magic link login, resend verification, import/export
-- `internal/social` — Social login + social account linking/unlinking
-- `internal/email` — Email verification/reset
-- `internal/webauthn` — WebAuthn/passkey registration, 2FA, and passwordless login
-- `internal/rbac` — Role-based access control (roles, permissions, user-role assignments)
-- `internal/session` — Session management (list/revoke active sessions)
-- `internal/twofa` — 2FA: TOTP, email, SMS, backup email, trusted devices, recovery codes
-- `internal/oidc` — OIDC provider (discovery, authorize, token, userinfo, introspect, revoke, end_session, JWKS)
-- `internal/webhook` — Webhook endpoint registry + async delivery dispatcher with retries
-- `internal/bruteforce` — Account lockout, progressive delays, CAPTCHA threshold
-- `internal/geoip` — MaxMind GeoLite2 lookup + IP rule evaluation (CIDR/country per app)
-- `internal/health` — `GET /health` liveness check, `GET /metrics` Prometheus, `PrometheusMiddleware`
-- `internal/sms` — SMS sender interface + Twilio implementation
-- `internal/middleware` — JWT, RBAC, rate limiting, session validation (Redis)
-- `internal/admin` — Admin API + Admin GUI (HTMX-based)
-- `pkg/jwt` — JWT helpers (tokens include `roles` claim)
+- **Repository**: pgx + SQLC
+- **Service**: business rules
+- **Handler**: Gin binding and JSON/HTML
 
-## Flow Example
-1. User registers or logs in (email/password, social, passkey, or magic link)
-2. API validates credentials, issues JWT (includes `roles` claim)
-3. JWT used for protected endpoints; session validated against Redis on every request
-4. Redis manages sessions/tokens
-5. Social login handled via OAuth2 callback; accounts can be linked/unlinked
-6. Passkey 2FA or passwordless login via WebAuthn (FIDO2)
-7. Magic link login sends a one-time link via email
-8. RBAC enforces per-application role and permission checks
-9. Brute-force protection applies lockout and progressive delays on failed logins
-10. GeoIP evaluates IP access rules (CIDR/country allow/block lists) per application
-11. Webhooks fire async HMAC-signed POST requests on auth events
-12. OIDC relying-party clients can use each application as an OAuth2/OIDC issuer
+SQL lives in `internal/queries/`. `sqlc generate` writes `internal/sqlcgen/`. Do not edit generated files.
 
----
-For more details, see the code and comments in each package.
+Cross-domain calls use function fields (`LookupRoles`, `GroupLogoutFunc`, `WebhookService`) set in `internal/coreapp/app.go`, not direct imports between domains.
+
+## Packages
+
+| Path | Role |
+|------|------|
+| `app/` | Public wrapper |
+| `internal/coreapp/` | Composition root |
+| `internal/user/` | Register, login, profile, magic link |
+| `internal/social/` | OAuth2 + account linking |
+| `internal/twofa/` | TOTP, email, SMS, backup email, trusted devices |
+| `internal/webauthn/` | Passkeys |
+| `internal/rbac/` | Roles and permissions |
+| `internal/session/` | List/revoke sessions |
+| `internal/sessiongroup/` | Cross-app SSO and expiry revocation |
+| `internal/oidc/` | OIDC provider |
+| `internal/webhook/` | Signed event delivery |
+| `internal/bruteforce/` | Lockout and delays |
+| `internal/geoip/` | MaxMind + IP rules |
+| `internal/health/` | `/health`, `/metrics` |
+| `internal/sms/` | Twilio |
+| `internal/log/` | Activity logs |
+| `internal/email/` | Templates and SMTP |
+| `internal/middleware/` | JWT, CORS, rate limit, API keys, CSRF |
+| `internal/admin/` | JSON admin API + HTMX GUI |
+| `pkg/jwt`, `pkg/dto`, `pkg/models`, `pkg/errors` | Shared types |
+
+## Request path
+
+1. Client registers or logs in (password, social, passkey, or magic link).
+2. Service issues JWTs with `user_id`, `app_id`, `session_id`, `type`, and `roles`.
+3. Protected routes use `Authorization: Bearer`. Redis (or memory) checks the session and blacklist.
+4. RBAC, GeoIP rules, and brute-force limits run in the service or middleware.
+5. Webhooks fire asynchronously with HMAC signatures.
+6. OIDC clients talk to `/oidc/:app_id/...` when `OIDC.Enabled` is set.

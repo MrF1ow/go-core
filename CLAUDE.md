@@ -78,7 +78,7 @@ Each domain module in `internal/` follows this pattern:
 - `pkg/jwt/` — JWT token creation and validation utilities
 - `pkg/errors/` — custom error types (`NewAppError` with HTTP status codes)
 - `web/` — embedded HTMX templates, static assets, and [branding](web/README.md) for admin GUI
-- `migrations/` — SQL migration files (applied via shell scripts in `scripts/`)
+- `migrations/` — SQL migration files (embedded; `core.RunCoreMigrations` or `make migrate-up`)
 - `examples/basic/` — minimal consumer example
 
 ### Data access
@@ -88,7 +88,7 @@ All database access uses **pgx** (connection pool) and **SQLC** (generated type-
 ### Cross-cutting patterns
 
 - **Callback wiring**: Services expose function fields (e.g., `LookupRoles`, `GroupLogoutFunc`, `WebhookService`) set in `internal/coreapp/` to avoid circular imports between domain packages.
-- **Multi-tenancy**: App-scoped via `X-App-ID` header, validated in middleware. Models reference `AppID` (UUID).
+- **Multi-tenancy**: App-scoped via `X-App-ID` when `Config.MultiTenant` is true. Single-tenant mode injects the default app ID if the header is missing. Models reference `AppID` (UUID).
 - **Configuration**: Consumers build a `core.Config` struct and pass it to `app.New()`. Some settings have a 3-tier resolution: config value > DB (admin GUI) > default.
 - **Token lifecycle**: 15-min access tokens, 720-hour refresh tokens (configurable). Blacklisted via Redis on logout.
 - **Email templates**: 3-tier resolution chain (DB custom > file override > embedded default). CodeMirror editor in admin GUI.

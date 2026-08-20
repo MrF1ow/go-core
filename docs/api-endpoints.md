@@ -1,10 +1,10 @@
-# API Endpoints
+# API endpoints
 
-All endpoints (except `/swagger/*`, `/admin/*`, and OAuth callbacks) require the `X-App-ID` header.
+When `Config.MultiTenant` is true, every route except `/swagger/*`, `/admin/*`, the admin GUI path, `/oidc/*`, and OAuth callbacks needs `X-App-ID`. In single-tenant mode the default app ID is filled in if the header is missing.
 
-Interactive documentation is available at [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html) when the server is running.
+Admin JSON routes use `X-Admin-API-Key`. User routes use `Authorization: Bearer <access_token>`. Per-app webhook routes use `X-App-API-Key`.
 
-For detailed request/response schemas, see [API.md](API.md).
+The reference app serves Swagger at `/swagger/index.html`. Request and response bodies are defined on the handlers and regenerated with `make swag-init`.
 
 ---
 
@@ -12,7 +12,7 @@ For detailed request/response schemas, see [API.md](API.md).
 
 | Endpoint | Method | Description | Auth |
 |----------|--------|-------------|------|
-| `/health` | GET | Liveness check — database, Redis, and SMTP reachability | No |
+| `/health` | GET | Liveness check: database, Redis, and SMTP reachability | No |
 | `/metrics` | GET | Prometheus metrics (request counters, system info) | Admin API Key |
 
 ---
@@ -261,7 +261,7 @@ For detailed request/response schemas, see [API.md](API.md).
 
 ## OIDC Provider
 
-> **Requires `OIDC_ENABLED=true`** on the application. Routes are mounted under `/oidc/:app_id/`.
+> Requires `Config.OIDC.Enabled`. Routes are mounted under `/oidc/:app_id/`.
 
 | Endpoint | Method | Description | Auth |
 |----------|--------|-------------|------|

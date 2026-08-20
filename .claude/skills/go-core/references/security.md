@@ -93,7 +93,7 @@ Before merging any auth-related change:
 - [ ] Sensitive fields use `json:"-"` in model structs
 - [ ] Rate limiting applied to new auth endpoints
 - [ ] Activity logging added for security-relevant events
-- [ ] `make security` passes (gosec + nancy)
+- [ ] `make security` passes (gosec + govulncheck)
 - [ ] No secrets in code or logs (check for hardcoded keys, tokens, passwords)
 - [ ] CORS not widened beyond what's needed
 - [ ] Timing-safe comparison used for token/code verification
@@ -101,9 +101,9 @@ Before merging any auth-related change:
 ## Running Security Scans
 
 ```bash
-make security          # gosec + nancy (run before every commit)
+make security          # gosec + govulncheck (run before every commit)
 make security-scan     # gosec only
-make vulnerability-scan # nancy dependency audit only
+make vulnerability-scan # govulncheck only
 ```
 
 Configuration in `.gosec.json` — medium severity threshold, includes test files.
