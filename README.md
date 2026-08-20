@@ -116,7 +116,7 @@ make migrate-up
 go run ./examples/basic
 ```
 
-`make docker-dev` spins up PostgreSQL and Redis in Docker. `make migrate-up` applies the database schema.
+`make docker-dev` starts PostgreSQL and Redis. `make migrate-up` applies the embedded schema. `make dev` or `go run ./examples/basic` runs the API on the host.
 
 ## Documentation
 

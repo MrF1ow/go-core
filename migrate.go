@@ -69,17 +69,9 @@ func runMigrationsFS(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS, dir st
 
 	var files []string
 	for _, e := range entries {
-		name := e.Name()
-		if !strings.HasSuffix(name, ".sql") {
-			continue
+		if isForwardMigration(e.Name()) {
+			files = append(files, e.Name())
 		}
-		if strings.HasSuffix(name, "_rollback.sql") {
-			continue
-		}
-		if strings.HasSuffix(name, ".down.sql") {
-			continue
-		}
-		files = append(files, name)
 	}
 	sort.Strings(files)
 
@@ -131,4 +123,14 @@ func runMigrationsFS(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS, dir st
 
 	log.Println("Migration check completed!")
 	return nil
+}
+
+func isForwardMigration(name string) bool {
+	if !strings.HasSuffix(name, ".sql") {
+		return false
+	}
+	if strings.HasSuffix(name, "_rollback.sql") || strings.HasSuffix(name, ".down.sql") {
+		return false
+	}
+	return true
 }

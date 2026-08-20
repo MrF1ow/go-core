@@ -107,4 +107,4 @@ docs/superpowers/
 # Compiled binaries (from cmd/ and examples/)
 /basic
 /setup
-/migrate_oauth
+/migrate

@@ -13,8 +13,8 @@ All API requests require the `X-App-ID` header for multi-tenant context. Default
 ## Commands
 
 ```bash
-make dev                # Hot reload dev server (Air)
-make run                # Run once
+make dev                # Hot reload cmd/api (Air); needs Postgres/Redis
+make run                # Run cmd/api once
 make test               # Run all tests
 make fmt                # Format code
 make lint               # golangci-lint (5m timeout)
@@ -23,8 +23,9 @@ make ci                 # Run full CI pipeline (fmt, lint, test, security, build
 make swag-init          # Regenerate Swagger docs (after API changes)
 make build-prod         # Cross-compile for Linux (CGO_ENABLED=0)
 make docker-dev         # Start PostgreSQL + Redis via Docker
-make migrate-up         # Apply pending migrations (Docker)
-make migrate-down       # Rollback last migration (Docker)
+make docker-down        # Stop compose services
+make migrate-up         # Apply embedded schema (cmd/migrate)
+make migrate-status     # List applied migrations
 make setup-admin        # Create admin account (cmd/setup)
 sqlc generate           # Regenerate type-safe query code from SQL
 ```
