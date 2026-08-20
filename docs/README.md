@@ -37,7 +37,7 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | [Database migrations](database-migrations.md) | Schema files and how they run |
 | [Testing](testing.md) | How to run tests |
 | [Makefile](makefile-reference.md) | `make` targets |
-| [Custom CSS spec](specs/2026-08-20-admin-custom-css-design.md) | Admin GUI extra stylesheet (not implemented yet) |
+| [Custom CSS spec](specs/2026-08-20-admin-custom-css-design.md) | Admin GUI extra stylesheet |
 | [Changelog](../CHANGELOG.md) | Release history |
 | [Security policy](../SECURITY.md) | Vulnerability reporting |
 
