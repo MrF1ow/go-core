@@ -1,78 +1,47 @@
-# Activity Logging
+# Activity logging
 
-A smart activity logging system that balances security auditing with database performance. Uses intelligent categorization, anomaly detection, and automatic cleanup to reduce database bloat by 80-95% while maintaining critical security data.
+Security events go to `activity_logs`. Critical and important events are always written. High-frequency informational events (token refresh, profile GET) are off unless you enable them or anomaly detection fires.
 
-Configurable via environment variables or the Admin GUI.
+This is not part of `core.Config`. Defaults come from `internal/config/logging.go` (environment), then the admin Settings page can override the same keys in the database.
 
----
+## Severity
 
-## Event Categories
+| Severity | Examples | Default retention |
+|----------|----------|-------------------|
+| Critical | LOGIN, LOGOUT, PASSWORD_CHANGE, 2FA enable/disable, ACCOUNT_LOCKED / UNLOCKED, ACCOUNT_DELETION | 365 days |
+| Important | EMAIL_VERIFY, SOCIAL_LOGIN, PROFILE_UPDATE, trusted-device changes | 180 days |
+| Informational | TOKEN_REFRESH, PROFILE_ACCESS, passkey and magic-link noise, BRUTE_FORCE_ATTEMPT | 90 days |
 
-| Severity | Events | Retention | Always Logged |
-|----------|--------|-----------|---------------|
-| **Critical** | LOGIN, LOGOUT, PASSWORD_CHANGE, 2FA_ENABLE/DISABLE, ACCOUNT_LOCKED, ACCOUNT_UNLOCKED, OIDC_LOGIN | 1 year | Yes |
-| **Important** | REGISTER, EMAIL_VERIFY, SOCIAL_LOGIN, PROFILE_UPDATE, SMS_2FA_ENABLE/DISABLE, BACKUP_EMAIL_2FA_ENABLE/DISABLE, TRUSTED_DEVICE_ADDED, TRUSTED_DEVICE_REVOKED | 6 months | Yes |
-| **Informational** | TOKEN_REFRESH, PROFILE_ACCESS, PASSKEY_REGISTER, PASSKEY_DELETE, PASSKEY_LOGIN, MAGIC_LINK_REQUESTED, MAGIC_LINK_LOGIN, MAGIC_LINK_FAILED, EMAIL_VERIFY_RESEND, SOCIAL_ACCOUNT_LINKED, SOCIAL_ACCOUNT_UNLINKED, BRUTE_FORCE_ATTEMPT | 3 months | Only on anomalies |
+REGISTER is treated as critical in code. Informational events still get written when anomaly detection sees a new IP or user agent (default on, 30-day window).
 
-> **Note:** New event types (SMS 2FA, backup email 2FA, trusted devices, OIDC login, account lock/unlock, brute-force attempts) follow the same severity rules. Critical and Important events are always logged; Informational events follow anomaly detection rules.
+## Defaults
 
----
+- Token refresh and profile access: not logged
+- Anomaly detection: on (new IP, new user agent)
+- Cleanup: on, every 24 hours, 1000-row batches
 
-## Anomaly Detection
+## Settings keys
 
-Informational events are automatically logged when unusual activity is detected:
-
-- New IP address detected
-- New device or browser (user agent) detected
-- Configurable analysis window (default: 30 days)
-
----
-
-## Default Behavior
-
-- All critical and important security events are logged
-- Token refreshes and profile access are **not** logged by default (high frequency)
-- Both are logged if an anomaly is detected (new IP or device)
-- Automatic cleanup runs based on retention policies
-
----
-
-## Configuration
+These work as env vars for the reference process and as GUI settings:
 
 ```bash
-# High-frequency events (default: disabled)
 LOG_TOKEN_REFRESH=false
 LOG_PROFILE_ACCESS=false
-
-# Anomaly detection (default: enabled)
 LOG_ANOMALY_DETECTION_ENABLED=true
 LOG_ANOMALY_NEW_IP=true
 LOG_ANOMALY_NEW_USER_AGENT=true
-
-# Retention policies (days)
-LOG_RETENTION_CRITICAL=365      # 1 year
-LOG_RETENTION_IMPORTANT=180     # 6 months
-LOG_RETENTION_INFORMATIONAL=90  # 3 months
-
-# Automatic cleanup
+LOG_RETENTION_CRITICAL=365
+LOG_RETENTION_IMPORTANT=180
+LOG_RETENTION_INFORMATIONAL=90
 LOG_CLEANUP_ENABLED=true
 LOG_CLEANUP_INTERVAL=24h
 ```
 
----
-
-## Related Documentation
-
-- [Configuration](configuration.md) — Environment variables for logging
-- [API Endpoints](api-endpoints.md) — Activity log query and export endpoints
-
----
+Sampling (`LOG_SAMPLE_TOKEN_REFRESH`, `LOG_SAMPLE_PROFILE_ACCESS`) only applies when those events are enabled. Full list: [Environment variables](guides/ENV_VARIABLES.md).
 
 ## Export
 
-Activity logs can be exported as CSV:
+- `GET /activity-logs/export`: the caller's logs (JWT)
+- `GET /admin/activity-logs/export`: all logs (`X-Admin-API-Key`)
 
-- `GET /activity-logs/export` — Export the authenticated user's own logs (JWT auth)
-- `GET /admin/activity-logs/export` — Export all users' logs (Admin API Key)
-
-Both endpoints support the same query filters as the paginated list endpoints (date range, event type, severity, etc.).
+Query filters match the list endpoints (dates, event type, severity).

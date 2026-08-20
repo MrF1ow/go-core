@@ -1,6 +1,6 @@
 ## What This Project Is
 
-A **multi-tenant authentication and authorization REST API** in Go 1.25+, using Gin, PostgreSQL (pgx/SQLC), and Redis. It provides user registration, login, OAuth2 social login, TOTP/email/SMS/backup-email 2FA, WebAuthn/passkeys, magic links, RBAC, session management, OIDC provider, webhooks, brute-force protection, GeoIP IP rules, health/metrics, and a full admin interface (JSON API + HTMX GUI).
+A **multi-tenant authentication and authorization Go module** (Go 1.25+), using Gin, PostgreSQL (pgx/SQLC), and Redis. Consumers call `app.New(cfg)`. It provides user registration, login, OAuth2 social login, TOTP/email/SMS/backup-email 2FA, WebAuthn/passkeys, magic links, RBAC, session management, OIDC provider, webhooks, brute-force protection, GeoIP IP rules, health/metrics, and a full admin interface (JSON API + HTMX GUI).
 
 ## Architecture
 
@@ -165,7 +165,7 @@ Async channel-based logging with anomaly detection.
 | `internal/geoip/` | 3 files | MaxMind GeoLite2 service, IP rule repository, IP rule evaluator (CIDR/country per app) |
 | `internal/health/` | 1 file | `GET /health` liveness, `GET /metrics` Prometheus, `PrometheusMiddleware`, `MetricsSummary` |
 | `internal/sms/` | 3 files | SMS sender interface, Twilio implementation, config loader |
-| `internal/database/` | `db.go` | PostgreSQL connection + pgx/SQLC auto-migration |
+| `internal/database/` | `pgx.go` | PostgreSQL connection pool |
 | `internal/redis/` | `redis.go` | Redis connection + token blacklisting + session helpers |
 | `internal/config/` | `logging.go` | Logging configuration |
 | `internal/util/` | `client_info.go`, `frontend_url.go` | Client info extraction, frontend URL resolution |

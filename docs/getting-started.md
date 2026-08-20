@@ -1,93 +1,59 @@
-# Getting Started
+# Getting started
 
-Step-by-step guide to set up and run the Authentication API.
+Two ways in: import the module into your own app, or run the reference server in this repo.
 
----
+## Use it as a module
 
-## Prerequisites
+See the [project README](../README.md). You need PostgreSQL, a `core.Config`, and `app.New(cfg)`. Redis is optional (in-memory fallback). Apply the schema with `core.RunCoreMigrations` or `make migrate-up` against your database.
 
-- **Docker & Docker Compose** (recommended)
-- Or install locally: Go 1.25+, PostgreSQL 13+, Redis 6+
+A working consumer lives in `examples/basic/main.go`.
 
----
+## Run the reference app
 
-## Installation
+This is `cmd/api`. It loads `.env` and calls `app.New()`.
+
+### Prerequisites
+
+- Docker and Docker Compose, or Go 1.25+, PostgreSQL 13+, Redis 6+
+- Copy `.env.example` to `.env` and set at least `DB_PASSWORD` and `JWT_SECRET` (32+ characters)
+
+### Start it
 
 ```bash
-# 1. Clone the repository
-git clone <repository-url>
-cd <project-directory>
-
-# 2. Copy environment configuration
 cp .env.example .env
-# Edit .env with your database, Redis, and JWT settings
+# edit JWT_SECRET and DB_PASSWORD
 
-# 3. Create shared Docker network (first time only)
-./setup-network.sh create
-
-# 4. Start with Docker (recommended)
-make docker-dev
-# Windows: dev.bat | Linux/Mac: ./dev.sh
-
-# 5. Apply database migrations
-make migrate-up
-
-# 6. (Optional) Migrate OAuth credentials to database
-go run cmd/migrate_oauth/main.go
+make docker-dev   # Postgres, Redis, and the API with hot reload
+make migrate-up   # apply schema
+make setup-admin  # optional: create an admin GUI account
 ```
 
-Your API is now running at `http://localhost:8080`.
+`make docker-dev` creates the Docker network it needs. The API listens on `http://localhost:8080`. Swagger is at `http://localhost:8080/swagger/index.html`. The admin GUI is at `http://localhost:8080/gui/login` unless you change `ADMIN_BASE_PATH`.
 
----
+Postgres from the compose file is on host port 5433.
 
-## What Gets Created
+### App ID
 
-After starting for the first time:
+Default tenant and app IDs are both `00000000-0000-0000-0000-000000000001`. They are created by the first migration.
 
-- PostgreSQL and Redis containers running via Docker
-- Database tables created (multi-tenant architecture)
-- Default tenant and application created (`00000000-0000-0000-0000-000000000001`)
-- Hot reload enabled for development
-- Swagger docs available at [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)
-
----
-
-## Required Header
-
-All API requests (except Swagger, Admin, and OAuth callbacks) require the `X-App-ID` header:
+With `MULTI_TENANT=false` (the default), callers can omit `X-App-ID` and the default app is used. With `MULTI_TENANT=true`, every non-admin request needs that header:
 
 ```bash
-curl -X POST http://localhost:8080/auth/register \
+curl -X POST http://localhost:8080/register \
   -H "X-App-ID: 00000000-0000-0000-0000-000000000001" \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"Pass123!@#"}'
 ```
 
-The default Application ID `00000000-0000-0000-0000-000000000001` is created automatically on first run.
+Admin JSON routes use `X-Admin-API-Key`, not `X-App-ID`. OAuth callbacks carry the app ID in the OAuth state parameter.
 
----
-
-## Next Steps
-
-| Topic | Link |
-|-------|------|
-| Configure environment variables | [Configuration](configuration.md) |
-| Set up social OAuth providers | [Configuration - OAuth](configuration.md#social-authentication) |
-| Multi-tenancy guide | [Multi-Tenancy](multi-tenancy.md) |
-| Admin GUI setup | [Admin GUI](admin-gui.md) |
-| Activity logging | [Activity Logging](activity-logging.md) |
-| Database migrations | [Database Migrations](database-migrations.md) |
-| API endpoints reference | [API Endpoints](api-endpoints.md) |
-
----
-
-## Development Workflow
+## Day-to-day commands
 
 ```bash
-make dev              # Start with hot reload
-make test             # Run tests
-make fmt && make lint # Format and lint code
-make security         # Security checks before committing
+make dev              # hot reload (Air), expects Postgres/Redis already up
+make test             # all tests
+make fmt && make lint
+make security         # gosec + govulncheck
 ```
 
-For the full list of available commands, see the [Makefile Reference](makefile-reference.md).
+See the [Makefile reference](makefile-reference.md) for the rest.

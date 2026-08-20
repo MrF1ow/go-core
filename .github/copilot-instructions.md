@@ -37,7 +37,7 @@
 
 ## Important Implementation Details
 
-- **Multi-tenancy**: All API requests require `X-App-ID` header. Models reference `AppID` (UUID).
+- **Multi-tenancy**: When `Config.MultiTenant` is true, API requests need `X-App-ID`. In single-tenant mode the default app ID is used if the header is missing. Models reference `AppID` (UUID).
 - **Social Auth**: `internal/social/` manages OAuth flows (Google, GitHub, Facebook).
 - **2FA**: `internal/twofa/` handles TOTP, SMS, email, and backup email 2FA.
 - **Passkeys**: `internal/webauthn/` handles WebAuthn registration and login.

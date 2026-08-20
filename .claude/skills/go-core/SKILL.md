@@ -44,7 +44,7 @@ Read the reference that matches your task. Multiple may apply.
 - `pkg/dto/` — request/response DTOs
 - `pkg/jwt/` — JWT utilities
 - `pkg/errors/` — custom error types
-- `web/` — embedded HTMX templates and static assets
+- `web/` — embedded HTMX templates, static assets, and [branding](web/README.md) for admin GUI
 - `migrations/` — SQL migration files (embedded at build time via `core.RunCoreMigrations`)
 
 **Config:** All in root package `core` — `Config`, `DefaultConfig()`, `ValidateConfig()`

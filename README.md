@@ -118,6 +118,10 @@ go run ./examples/basic
 
 `make docker-dev` spins up PostgreSQL and Redis in Docker. `make migrate-up` applies the database schema.
 
+## Documentation
+
+Human-facing docs live in [`docs/`](docs/README.md). Config fields are in [`docs/configuration.md`](docs/configuration.md). The `cmd/api` env mapping is [`docs/guides/ENV_VARIABLES.md`](docs/guides/ENV_VARIABLES.md).
+
 ## Development
 
 ```bash

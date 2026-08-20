@@ -76,6 +76,6 @@ docs(api): update Swagger for brute-force config endpoints
 make fmt       # format
 make test      # tests pass
 make lint      # linter clean
-make security  # gosec + nancy
+make security  # gosec + govulncheck
 make swag-init # if API routes changed
 ```

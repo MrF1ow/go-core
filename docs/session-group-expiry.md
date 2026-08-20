@@ -1,175 +1,55 @@
-# Session Group Expiry Detection
+# Session group expiry
 
-## Overview
+When a refresh-token session hits its Redis TTL, the expiry service can revoke that user's sessions in every other app in the same session group. Explicit logout already did this. Expiry is the same path, triggered by Redis instead of `POST /logout`.
 
-This feature extends the existing session group functionality to automatically revoke a user's sessions in all applications within the same session group when a session expires (due to refresh token TTL). Previously, only explicit logout triggered group-wide revocation.
+It only runs if the group has `GlobalLogout` enabled and `Config.Session.GroupExpiryEnabled` is true.
 
-## Architecture
+## Config
 
-### Key Components
+```go
+cfg.Session = core.SessionConfig{
+    GroupExpiryEnabled:        true,
+    GroupExpiryScanInterval:   5 * time.Minute,
+    GroupKeyspaceNotifEnabled: true,
+    RedisNotifyKeyspaceEvents: "Ex",
+}
+```
 
-1. **Session Metadata Keys** (`session_meta:{appID}:{userID}:{sessionID}`)
-   - Created alongside each session in Redis with the same TTL
-   - Used to detect which app/user/session expired
-   - Deleted when session is manually revoked
-
-2. **Session Group Revoker** (`internal/sessiongroup/revoke.go`)
-   - Shared utility for group-wide session revocation
-   - Used by both logout flow and expiry detection
-   - Implements `ExpiryHandlerInterface`
-
-3. **Expiry Detection Service** (`internal/sessiongroup/expiry.go`)
-   - Real-time detection via Redis keyspace notifications
-   - Fallback periodic scanning (5-minute interval)
-   - Configurable via environment variables
-
-## Configuration
-
-### Environment Variables
+Reference app env:
 
 ```bash
-# Enable Redis keyspace notifications for real-time session expiry detection
-# Set to "Ex" for expired key events (recommended)
-REDIS_NOTIFY_KEYSPACE_EVENTS=Ex
-
-# Enable session group expiry-triggered revocation (default: true)
 SESSION_GROUP_EXPIRY_REVOCATION_ENABLED=true
-
-# Fallback scan interval for expired sessions when keyspace notifications are disabled
-# Format: 5m, 10m, 1h, etc.
 SESSION_GROUP_EXPIRY_SCAN_INTERVAL=5m
-
-# Enable keyspace notification listener (default: true if REDIS_NOTIFY_KEYSPACE_EVENTS is set)
-SESSION_GROUP_KEYSYSPACE_NOTIF_ENABLED=true
+SESSION_GROUP_KEYSPACE_NOTIF_ENABLED=true
+REDIS_NOTIFY_KEYSPACE_EVENTS=Ex
 ```
 
-### Docker Compose Configuration
+The bundled Redis containers already start with `--notify-keyspace-events Ex`. For an external Redis, set that in `redis.conf`.
 
-The Redis service in `docker-compose.yml` is configured with:
-```yaml
-command: redis-server --notify-keyspace-events Ex
-```
+Wired in `internal/coreapp` via `sessiongroup.NewExpiryService`. Logout and OIDC end-session share `sessiongroup.Revoker`.
 
-## How It Works
+## How a session is watched
 
-### Session Creation Flow
-1. User logs into App A (part of Session Group X with `GlobalLogout=true`)
-2. `redis.CreateSession()` stores:
-   - Session hash: `app:{appA}:session:{sessionID}`
-   - Session metadata: `session_meta:{appA}:{userID}:{sessionID}` (same TTL)
+On login, Redis stores:
 
-### Session Expiration Flow
-1. Redis session TTL expires (refresh token lifetime)
-2. Redis emits keyspace notification: `__keyevent@0__:expired` → `session_meta:{appA}:{userID}:{sessionID}`
-3. `ExpiryService.listenForKeyExpirations()` receives notification
-4. Service extracts `appA`, `userID` from key
-5. Checks if App A belongs to a session group with `GlobalLogout=true`
-6. If yes, revokes user's sessions in all other apps in the same group
+- Session hash `app:{appID}:session:{sessionID}`
+- Metadata `session_meta:{appID}:{userID}:{sessionID}` with the same TTL
 
-### Fallback Scanning
-If keyspace notifications are disabled:
-1. `ExpiryService.periodicScanner()` runs every 5 minutes (configurable)
-2. Scans for `session_meta:*` keys with TTL ≤ 0
-3. Processes each expired key same as real-time flow
+When the metadata key expires, Redis publishes `__keyevent@0__:expired`. The listener parses the key, loads the app's session group, and if `GlobalLogout` is set, revokes the user's sessions in the other member apps.
 
-## Integration Points
+If keyspace notifications are off, a SCAN every `GroupExpiryScanInterval` looks for `session_meta:*` keys with TTL ≤ 0.
 
-### Main Application Startup (`cmd/api/main.go`)
-```go
-// Create session group revoker for shared logout/expiry logic
-sessionGroupRevoker := sessiongroup.NewRevoker(adminRepo, userRepo, sessionService)
+Manual revoke deletes the metadata key so expiry does not fire twice.
 
-// Wire into user service logout
-userService.GroupLogoutFunc = func(appID, userEmail string) {
-    sessionGroupRevoker.RevokeAllUserSessionsInGroup(appID, userEmail)
-}
+## What to expect
 
-// Wire into OIDC handler logout  
-oidcHandler.GroupLogoutFunc = func(appID, userEmail string) {
-    sessionGroupRevoker.RevokeAllUserSessionsInGroup(appID, userEmail)
-}
+| Situation | Result |
+|-----------|--------|
+| User in apps A, B, C; group GlobalLogout on; A TTL hits 0 | B and C sessions revoked |
+| User logs out of A | Same revocation (existing logout path) |
+| App not in a group | Only that app's session dies |
+| Group exists, GlobalLogout off | Only the expired app |
 
-// Start expiry detection service
-expiryService := sessiongroup.NewExpiryService(sessionGroupRevoker)
-expiryService.Start()
-defer expiryService.Stop()
-```
+Admin session revoke ignores `GlobalLogout` and always tears everything down.
 
-### Redis Session Management (`internal/redis/redis.go`)
-```go
-// CreateSession stores session metadata alongside session hash
-metaKey := fmt.Sprintf("session_meta:%s:%s:%s", appID, userID, sessionID)
-if err := Rdb.Set(ctx, metaKey, "1", ttl).Err(); err != nil {
-    log.Printf("Warning: Failed to create session metadata key: %v", err)
-}
-
-// DeleteSession removes metadata key when session is manually revoked
-metaKey := fmt.Sprintf("session_meta:%s:%s:%s", appID, userID, sessionID)
-Rdb.Del(ctx, metaKey)
-```
-
-## Testing Scenarios
-
-### Scenario 1: Real-time Expiry Detection
-1. User has active sessions in App A, App B, App C (same session group)
-2. App A session expires (Redis TTL reaches 0)
-3. Within milliseconds: User sessions in App B and App C are revoked
-4. User must re-authenticate in all apps
-
-### Scenario 2: Manual Logout
-1. User logs out of App A
-2. Existing `GroupLogoutFunc` triggers group-wide revocation
-3. Sessions in App B and App C are revoked
-4. Same behavior as before (backward compatible)
-
-### Scenario 3: No Session Group
-1. App is not in any session group
-2. Session expiry only affects that app
-3. Other app sessions remain active
-
-### Scenario 4: GlobalLogout Disabled
-1. Session group exists but `GlobalLogout=false`
-2. Session expiry only affects the expiring app
-3. Other app sessions in group remain active
-
-## Monitoring and Logging
-
-The service logs key events:
-```
-[SessionGroup] Started keyspace notification listener for session expiry
-[SessionGroup] Expiry detection service started (scan interval: 5m0s)
-[SessionGroup] Session expired: app={appID}, user={userID}, session={sessionID}
-[SessionGroup] Revoked sessions for user {email} in app {otherAppID} (session group: {groupName})
-```
-
-## Performance Considerations
-
-1. **Database Queries**: Each expiry triggers DB queries to:
-   - Get session group for app
-   - Get user by ID (for email)
-   - Get user by email in other apps
-   
-   Consider caching group-to-apps mapping if performance becomes an issue.
-
-2. **Redis Subscription**: One persistent connection for keyspace notifications.
-
-3. **Periodic Scanning**: SCAN operations every 5 minutes (configurable).
-
-4. **Concurrent Processing**: Expiry events are processed sequentially to avoid race conditions.
-
-## Security Implications
-
-1. **Immediate Revocation**: Sessions are revoked immediately upon expiry, enhancing security.
-
-2. **No Grace Period**: If a refresh happens before expiry, TTL is reset. No false positives.
-
-3. **Admin Override**: Admin revocation remains unconditional (ignores `GlobalLogout` flag).
-
-4. **Defense in Depth**: Works alongside existing token blacklisting and session validation.
-
-## Migration Notes
-
-1. **Backward Compatible**: Existing logout behavior unchanged.
-2. **Opt-in via Configuration**: Disable with `SESSION_GROUP_EXPIRY_REVOCATION_ENABLED=false`.
-3. **Redis Configuration Required**: For real-time detection, Redis must be configured with `notify-keyspace-events Ex`.
-4. **No Data Migration Required**: Works with existing session groups and `GlobalLogout` flag.
+Refreshing a token resets both TTLs, so a healthy session does not look expired.

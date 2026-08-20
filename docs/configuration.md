@@ -1,232 +1,145 @@
 # Configuration
 
-All configuration is managed through environment variables. Copy `.env.example` to `.env` and update the values for your environment.
+Consumers build a `core.Config` and pass it to `app.New()`. The module does not read environment variables. The reference app in `cmd/api` is the exception: it maps a `.env` file onto this struct. Those keys are listed in [Environment variables](guides/ENV_VARIABLES.md).
 
-For the complete reference with all available options, see [Environment Variables Reference](guides/ENV_VARIABLES.md).
+```go
+cfg := core.DefaultConfig()
+cfg.Database.Host = "localhost"
+cfg.Database.DBName = "myapp"
+cfg.Database.User = "postgres"
+cfg.Database.Password = "secret"
+cfg.JWT.Secret = "your-secret-at-least-32-characters-long"
 
----
+app, err := app.New(cfg)
+```
+
+`DefaultConfig()` fills CORS allowlists and token lifetimes. Required fields that are still empty cause `app.New()` to return an error.
+
+Some runtime values (activity log retention, CORS, OAuth redirect domains) can later be overridden in the admin GUI. Resolution is config value, then database setting, then default.
+
+## Required
+
+| Field | Notes |
+|-------|-------|
+| `Database.Host` | PostgreSQL host |
+| `Database.Port` | Default 5432 |
+| `Database.DBName` | Database name |
+| `Database.User` | Database user |
+| `Database.Password` | Not validated (empty is allowed for local trust auth) |
+| `JWT.Secret` | Signing key, minimum 32 characters |
+
+`JWT.AccessTokenTTL` defaults to 15 minutes. `JWT.RefreshTokenTTL` defaults to 720 hours.
+
+## Optional
+
+| Field | When unset |
+|-------|------------|
+| `Redis` | `nil` uses an in-memory store. Fine for tests. Use Redis in production for sessions and token blacklists. |
+| `Email` | `nil` disables sending. Magic links, verification, and email 2FA will not work until you set SMTP or configure a server in the admin GUI. The reference app does not map SMTP env vars into this field. |
+| `CORS` | Localhost origins and common headers from `DefaultConfig()` |
+| `OIDC` | Disabled. Set `OIDC.Enabled` and `PublicURL` to issue ID tokens. |
+| `WebAuthn` | Empty `RPID` disables passkeys. Set `RPID`, `RPName`, and `RPOrigins`. |
+| `SMS` | Empty `Provider` disables SMS 2FA. Twilio needs account SID, auth token, and from-number. |
+| `Admin` | Empty `APIKey` still allows GUI login after `make setup-admin`. The key is for `/admin` JSON routes (`X-Admin-API-Key`). `AdminBasePath` defaults to `/gui`. Branding is documented in [web/README.md](../web/README.md). |
+| `Social` | `AllowedRedirectDomains` and `DefaultRedirectURI` for OAuth callbacks. Provider client IDs live per-app in the database, not on this struct. |
+| `GeoIP` | Empty `DBPath` skips country lookups. CIDR rules still work. |
+| `Session` | Session-group expiry is off by default. See [session group expiry](session-group-expiry.md). |
+| `MultiTenant` | `false`. Missing `X-App-ID` uses the default app. `true` requires the header. |
+| `PublicURL` | Used in OIDC discovery and some email links. |
+| `FrontendURL` | Redirect target after OAuth when no `redirect_uri` is given. |
+| `AppName` | Shown in emails and the admin GUI when branding `OrgName` is empty. |
+
+`Port` and `GinMode` are only used by `cmd/api`.
 
 ## Database
 
-```bash
-DB_HOST=postgres        # Use 'localhost' for local dev without Docker
-DB_PORT=5432
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-DB_NAME=auth_db
+```go
+cfg.Database = core.DatabaseConfig{
+    Host:     "localhost",
+    Port:     5432,
+    User:     "postgres",
+    Password: "secret",
+    DBName:   "myapp",
+    SSLMode:  "disable",
+}
 ```
-
----
 
 ## Redis
 
-```bash
-REDIS_ADDR=redis:6379   # Use 'localhost:6379' for local dev without Docker
-REDIS_PASSWORD=         # Optional
-REDIS_DB=0
+```go
+cfg.Redis = &core.RedisConfig{
+    Addr:     "localhost:6379",
+    Password: "",
+    DB:       1,
+}
 ```
 
----
-
-## JWT
-
-```bash
-JWT_SECRET=your-strong-secret-key-here-change-in-production
-ACCESS_TOKEN_EXPIRATION_MINUTES=15
-REFRESH_TOKEN_EXPIRATION_HOURS=720  # 30 days
-```
-
----
+Set `cfg.Redis = nil` for the in-memory store.
 
 ## Email
 
-```bash
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USERNAME=your_email@gmail.com
-EMAIL_PASSWORD=your_app_password
-EMAIL_FROM=noreply@yourapp.com
+```go
+cfg.Email = &core.EmailConfig{
+    Host:     "smtp.example.com",
+    Port:     587,
+    Username: "noreply@example.com",
+    Password: "app-password",
+    From:     "noreply@example.com",
+    UseTLS:   true,
+}
 ```
 
----
+Per-app SMTP servers configured in the admin GUI take precedence for that app.
 
-## Social Authentication
+## WebAuthn
 
-OAuth credentials can be configured in two ways:
-
-1. **Environment variables** - Used for the default application
-2. **Database (Admin API)** - Per-application configuration, takes precedence over env vars
-
-### Environment Variables
-
-```bash
-# Google OAuth2
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URL=http://localhost:8080/auth/google/callback
-
-# Facebook OAuth2
-FACEBOOK_CLIENT_ID=your_facebook_app_id
-FACEBOOK_CLIENT_SECRET=your_facebook_app_secret
-FACEBOOK_REDIRECT_URL=http://localhost:8080/auth/facebook/callback
-
-# GitHub OAuth2
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-GITHUB_REDIRECT_URL=http://localhost:8080/auth/github/callback
+```go
+cfg.WebAuthn = core.WebAuthnConfig{
+    RPID:      "example.com",
+    RPName:    "My App",
+    RPOrigins: []string{"https://example.com", "https://app.example.com"},
+}
 ```
 
-### Database Configuration (Recommended for Multi-Tenant)
+Locally, `RPID` is usually `localhost` and origins include `http://localhost:8080`.
 
-Migrate existing env var credentials to the database:
+## OIDC
 
-```bash
-go run cmd/migrate_oauth/main.go
+```go
+cfg.PublicURL = "https://auth.example.com"
+cfg.OIDC = core.OIDCConfig{
+    Enabled:      true,
+    DefaultAppID: "00000000-0000-0000-0000-000000000001",
+    IDTokenTTL:   60 * time.Minute,
+    AuthCodeTTL:  10 * time.Minute,
+}
 ```
 
-Or configure per-application via the Admin API:
+RSA keys for RS256 ID tokens are generated per application and stored in the database.
 
-```bash
-curl -X POST http://localhost:8080/admin/oauth-providers \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <admin-token>" \
-  -d '{
-    "app_id": "your-app-id",
-    "provider": "google",
-    "client_id": "your-google-client-id",
-    "client_secret": "your-google-client-secret",
-    "redirect_url": "https://yourapp.com/auth/google/callback",
-    "is_enabled": true
-  }'
+## SMS
+
+```go
+cfg.SMS = core.SMSConfig{
+    Provider:         "twilio",
+    TwilioAccountSID: "ACxxxxxxxx",
+    TwilioAuthToken:  "token",
+    TwilioFromNumber: "+15551234567",
+}
 ```
 
-For more details, see the [Multi-App OAuth Config Guide](guides/multi-app-oauth-config.md).
+## GeoIP
 
----
-
-## WebAuthn / Passkeys
-
-```bash
-WEBAUTHN_RP_ID=localhost                    # Relying Party ID (your domain)
-WEBAUTHN_RP_NAME=Auth API                   # Display name shown in browser prompts
-WEBAUTHN_RP_ORIGINS=http://localhost:8080   # Comma-separated allowed origins
+```go
+cfg.GeoIP.DBPath = "/data/GeoLite2-City.mmdb"
 ```
 
-> **Production example:**
-> ```bash
-> WEBAUTHN_RP_ID=example.com
-> WEBAUTHN_RP_NAME=My App
-> WEBAUTHN_RP_ORIGINS=https://example.com,https://app.example.com
-> ```
+Country-based IP rules need this file. CIDR rules do not.
 
----
+## Social login
 
-## Server
+Provider credentials (Google, Facebook, GitHub) are stored per application via the admin GUI or `POST /admin/oauth-providers`. `Config.Social` only controls which redirect URIs are accepted after the callback. See [OAuth redirect domains](guides/multi-app-oauth-config.md).
 
-```bash
-PORT=8080
-GIN_MODE=debug          # Use 'release' for production
-ADMIN_URL=http://localhost:8080  # Base URL for admin GUI (used in magic link emails)
-```
+## Activity logging
 
----
-
-## Activity Logging
-
-```bash
-# High-frequency events (default: disabled)
-LOG_TOKEN_REFRESH=false
-LOG_PROFILE_ACCESS=false
-
-# Anomaly detection (default: enabled)
-LOG_ANOMALY_DETECTION_ENABLED=true
-LOG_ANOMALY_NEW_IP=true
-LOG_ANOMALY_NEW_USER_AGENT=true
-
-# Retention policies (days)
-LOG_RETENTION_CRITICAL=365      # 1 year
-LOG_RETENTION_IMPORTANT=180     # 6 months
-LOG_RETENTION_INFORMATIONAL=90  # 3 months
-
-# Automatic cleanup
-LOG_CLEANUP_ENABLED=true
-LOG_CLEANUP_INTERVAL=24h
-```
-
-For the complete logging configuration guide, see [Activity Logging](activity-logging.md).
-
----
-
-## OIDC Provider
-
-Each application can be enabled as a standards-compliant OpenID Connect issuer. Set `OIDC_ENABLED=true` on the application record (via Admin API or GUI) to activate the OIDC endpoints for that app.
-
-```bash
-# Base URL used in OIDC issuer and discovery document
-PUBLIC_URL=https://auth.example.com
-
-# Token TTL overrides (optional — defaults to global JWT settings)
-OIDC_ID_TOKEN_EXPIRATION_MINUTES=60
-OIDC_AUTH_CODE_EXPIRATION_MINUTES=5
-```
-
-RSA key pairs for RS256 ID token signing are generated automatically per-application and stored in the database. No manual key management is required.
-
----
-
-## GeoIP / IP Access Rules
-
-IP-based access rules (CIDR blocks, country allow/block lists) require a MaxMind GeoLite2 database file.
-
-```bash
-# Path to the MaxMind GeoLite2-City or GeoLite2-Country .mmdb file
-GEOIP_DB_PATH=/data/GeoLite2-City.mmdb
-```
-
-If `GEOIP_DB_PATH` is not set or the file does not exist, GeoIP lookups are skipped and country-based rules are ignored. CIDR rules continue to work without GeoIP.
-
----
-
-## SMS / Twilio
-
-SMS-based 2FA requires a Twilio account.
-
-```bash
-SMS_PROVIDER=twilio               # Set to 'twilio' to enable SMS sending
-SMS_TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-SMS_TWILIO_AUTH_TOKEN=your_auth_token
-SMS_TWILIO_FROM_NUMBER=+15551234567   # Your Twilio phone number
-```
-
-If `SMS_PROVIDER` is empty or not set, SMS sending is disabled and the SMS 2FA option is unavailable.
-
----
-
-## Session Groups
-
-Session groups link multiple applications so that a single login is valid across all apps in the group. The expiry detection service watches for Redis TTL expirations and revokes cross-app sessions automatically when `GlobalLogout=true` on the group.
-
-```bash
-# Enable Redis keyspace notifications for real-time session expiry detection.
-# Set to "Ex" for expired key events. The Docker Compose Redis service is
-# already configured with this value.
-REDIS_NOTIFY_KEYSPACE_EVENTS=Ex
-
-# Enable expiry-triggered group-wide session revocation (default: true).
-# Set to false to disable automatic cross-app revocation on session expiry
-# while keeping manual (logout-triggered) group revocation active.
-SESSION_GROUP_EXPIRY_REVOCATION_ENABLED=true
-
-# Fallback periodic scan interval used when keyspace notifications are not
-# available. Accepts Go duration strings: 5m, 10m, 1h, etc.
-SESSION_GROUP_EXPIRY_SCAN_INTERVAL=5m
-
-# Enable the keyspace notification listener (default: true when
-# REDIS_NOTIFY_KEYSPACE_EVENTS is set). Set to false to rely on the
-# periodic fallback scanner only.
-SESSION_GROUP_KEYSYSPACE_NOTIF_ENABLED=true
-```
-
-> **Redis requirement:** Real-time expiry detection requires the Redis server to be started with `--notify-keyspace-events Ex`. The bundled `docker-compose.yml` and `docker-compose.dev.yml` already include this flag. For externally managed Redis, add `notify-keyspace-events Ex` to your `redis.conf`.
-
-For architecture details and testing scenarios, see [Session Group Expiry Detection](session-group-expiry.md).
+Log retention, sampling, and anomaly flags are not fields on `core.Config`. They are resolved from env vars and the admin settings UI. See [Activity logging](activity-logging.md).
