@@ -172,6 +172,7 @@ func main() {
 				BorderRadius:     os.Getenv("ADMIN_BRANDING_BORDER_RADIUS"),
 				SidebarColor:     os.Getenv("ADMIN_BRANDING_SIDEBAR_COLOR"),
 				SidebarTextColor: os.Getenv("ADMIN_BRANDING_SIDEBAR_TEXT_COLOR"),
+				CustomCSS:        os.Getenv("ADMIN_BRANDING_CUSTOM_CSS"),
 			},
 		},
 		Social: core.SocialConfig{

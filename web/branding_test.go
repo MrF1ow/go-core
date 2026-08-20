@@ -1,6 +1,9 @@
 package web
 
 import (
+	"html/template"
+	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -73,5 +76,44 @@ func TestAutoSidebarTextColor_InvalidFallsBackToWhite(t *testing.T) {
 	color := AutoSidebarTextColor("bad")
 	if color != "#ffffff" {
 		t.Fatalf("expected #ffffff fallback, got %s", color)
+	}
+}
+
+func TestResolveBranding_CopiesCustomCSS(t *testing.T) {
+	css := `[data-bs-theme="dark"] { --bs-body-bg: #121212; }`
+	got := ResolveBranding("", "", "", "", "", "", "", css, "")
+	if got.CustomCSS != css {
+		t.Fatalf("expected CustomCSS %q, got %q", css, got.CustomCSS)
+	}
+}
+
+func TestApplyBranding_SetsCustomCSS(t *testing.T) {
+	css := "body { font-family: system-ui; }"
+	r := &Renderer{
+		branding: ResolvedBranding{CustomCSS: css},
+	}
+	data := r.applyBranding(TemplateData{}).(TemplateData)
+	if data.CustomCSS != template.CSS(css) {
+		t.Fatalf("expected TemplateData.CustomCSS %q, got %q", css, data.CustomCSS)
+	}
+}
+
+func TestLoginTemplate_EmitsUnescapedCustomCSS(t *testing.T) {
+	r, err := NewRenderer("/gui")
+	if err != nil {
+		t.Fatalf("NewRenderer: %v", err)
+	}
+	css := `[data-bs-theme="dark"] .card > .body { color: #fff; }`
+	r.SetBranding(ResolvedBranding{CustomCSS: css})
+	rec := httptest.NewRecorder()
+	if err := r.Instance("login", TemplateData{}).Render(rec); err != nil {
+		t.Fatalf("render login: %v", err)
+	}
+	out := rec.Body.String()
+	if !strings.Contains(out, css) {
+		t.Fatalf("rendered login missing CustomCSS %q", css)
+	}
+	if strings.Contains(out, ".card &gt; .body") {
+		t.Fatal("CustomCSS child combinator was HTML-escaped")
 	}
 }

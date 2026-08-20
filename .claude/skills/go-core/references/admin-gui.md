@@ -55,6 +55,7 @@ type TemplateData struct {
     BorderRadius     string      // Branding: CSS length for --bs-border-radius
     SidebarColor     string      // Branding: hex sidebar background
     SidebarTextColor string      // Branding: hex sidebar text (auto-derived or explicit)
+    CustomCSS        template.CSS // Branding: raw extra stylesheet (empty = off)
 }
 ```
 

@@ -117,6 +117,47 @@ func TestValidateConfig_EmptyBrandingIsValid(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_EmptyCustomCSSIsValid(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.CustomCSS = ""
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error for empty CustomCSS, got: %v", err)
+	}
+}
+
+func TestValidateConfig_ValidCustomCSSWithDarkThemeSelector(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.CustomCSS = `[data-bs-theme="dark"] { --bs-body-bg: #121212; }`
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error for short CustomCSS, got: %v", err)
+	}
+}
+
+func TestValidateConfig_CustomCSSTooLong(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.CustomCSS = strings.Repeat("a", 65537)
+	assertValidationError(t, cfg, "CustomCSS")
+	assertValidationError(t, cfg, "65536")
+}
+
+func TestValidateConfig_CustomCSSRejectsStyleClose(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.CustomCSS = "body{}</Style>"
+	assertValidationError(t, cfg, "CustomCSS")
+}
+
+func TestValidateConfig_CustomCSSRejectsScript(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.CustomCSS = "body{}<SCRIPT src=x>"
+	assertValidationError(t, cfg, "CustomCSS")
+}
+
+func TestValidateConfig_CustomCSSRejectsJavascriptURI(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.CustomCSS = "a { background: url(JavaScript:alert(1)); }"
+	assertValidationError(t, cfg, "CustomCSS")
+}
+
 func validTestConfig() Config {
 	cfg := DefaultConfig()
 	cfg.Database.Host = "localhost"

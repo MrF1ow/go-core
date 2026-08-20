@@ -61,6 +61,17 @@ func validateBranding(b AdminBrandingConfig) error {
 	if b.BorderRadius != "" && !borderRadiusRegex.MatchString(b.BorderRadius) {
 		return fmt.Errorf("core: Config.Admin.Branding.BorderRadius must be a valid CSS length (e.g. \"0.5rem\", \"0\", \"8px\")")
 	}
+	if b.CustomCSS != "" {
+		if len(b.CustomCSS) > 65536 {
+			return fmt.Errorf("core: Config.Admin.Branding.CustomCSS exceeds 65536 bytes")
+		}
+		lower := strings.ToLower(b.CustomCSS)
+		for _, needle := range []string{"</style", "<script", "javascript:"} {
+			if strings.Contains(lower, needle) {
+				return fmt.Errorf("core: Config.Admin.Branding.CustomCSS must not contain %s", needle)
+			}
+		}
+	}
 	if b.LogoURL != "" {
 		isURL := strings.HasPrefix(b.LogoURL, "http://") || strings.HasPrefix(b.LogoURL, "https://")
 		if !isURL {
