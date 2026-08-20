@@ -14,7 +14,7 @@ Copy `.env.example` to `.env` when you run the reference app.
 | Variable | Config field | Default |
 |----------|--------------|---------|
 | `DB_HOST` | `Database.Host` | `localhost` |
-| `DB_PORT` | `Database.Port` | `5432` |
+| `DB_PORT` | `Database.Port` | `5432` (`5433` in `.env.example` for Docker) |
 | `DB_USER` | `Database.User` | `postgres` |
 | `DB_PASSWORD` | `Database.Password` | empty |
 | `DB_NAME` | `Database.DBName` | `go_core` |

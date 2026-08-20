@@ -29,6 +29,10 @@ Each migration file creates its tables in their **final state** using plain `CRE
 
 Migrations are sorted alphabetically and run in order. The numeric prefix (`001_`, `002_`, etc.) ensures correct ordering and respects foreign key dependencies.
 
+## For this repo
+
+`make migrate-up` runs `go run ./cmd/migrate`, which loads `.env` and calls `RunCoreMigrations`. `make migrate-status` lists applied versions.
+
 ## For Consumers
 
 Call `RunCoreMigrations` before your own app migrations:

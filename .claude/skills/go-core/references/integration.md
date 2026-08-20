@@ -228,11 +228,10 @@ Consumer routes should use a distinct prefix (e.g., `/api/v1/*`).
 - **JWT.Secret < 32 chars** — `app.New()` returns an error. This is intentional — short secrets are a security risk.
 - **Redis nil in production** — works but token blacklisting uses in-memory store. Tokens won't be invalidated across restarts or multiple instances.
 - **Email nil** — magic links, email 2FA, and verification emails silently fail. Set it up if you need any of those features.
-- **X-App-ID header** — all API requests need this header. Default app ID: `00000000-0000-0000-0000-000000000001`.
+- **X-App-ID header** — required when `Config.MultiTenant` is true. Single-tenant mode fills in the default app ID.
 - **Admin GUI** — available at `<AdminBasePath>/login` (default `/gui/login`). Admin accounts are separate from user accounts. Set `AdminBasePath` to change the prefix.
 - **`.env` formatting** — `godotenv` silently fails on leading spaces or stray characters. Lines must start at column 0. Use `DB_SSLMODE` (not `DB_SSL_MODE`).
-- **Docker dev port** — Postgres is exposed on port `5433` (not `5432`) in docker-compose.
-- **Docker network** — `shared-api-network` must exist before `docker-compose up`. `dev.sh` auto-creates it.
+- **Docker Postgres port** — `make docker-dev` publishes Postgres on host port `5433`. Set `DB_PORT=5433` in `.env`.
 
 ## See Also
 

@@ -12,7 +12,7 @@ go test -v -tags=integration ./app/...
 
 Tests sit next to the code they cover (`service_test.go` beside `service.go`). Public API lifecycle tests are in `app/app_integration_test.go` and need the `integration` build tag.
 
-A curl helper exists at `scripts/test_api.sh` if you want to hit a running server. Swagger UI on the reference app is usually easier.
+For a running reference server, use Swagger UI at `/swagger/index.html`.
 
 ## Before a commit
 

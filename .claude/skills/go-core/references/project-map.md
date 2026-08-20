@@ -16,6 +16,7 @@ A **multi-tenant authentication and authorization Go module** (Go 1.25+), using 
 
 - `app/app.go` -- Public entry point for consumers (app.New, RegisterRoutes, Close)
 - `cmd/api/main.go` -- Reference implementation using app.New()
+- `cmd/migrate/main.go` -- Applies embedded schema via core.RunCoreMigrations
 
 ## Domain Modules (internal/)
 

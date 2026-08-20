@@ -5,7 +5,7 @@
 ├── app/                        # Public API: New, RegisterRoutes, Close
 ├── cmd/
 │   ├── api/                    # Reference server (loads .env)
-│   ├── migrate_oauth/          # One-shot: env OAuth creds → database
+│   ├── migrate/                # Apply embedded schema
 │   └── setup/                  # Admin GUI account wizard
 ├── examples/basic/             # Minimal consumer
 ├── internal/
@@ -43,7 +43,6 @@
 ├── web/                        # Embedded templates, static files, branding
 ├── docs/
 ├── migrations/                 # Numbered SQL files, embedded at build
-├── scripts/                    # migrate, backup, test helpers
 ├── config.go                   # Config + DefaultConfig
 ├── validate.go
 ├── cache.go                    # CacheStore

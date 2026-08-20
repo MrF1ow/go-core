@@ -67,7 +67,7 @@ curl -X POST http://localhost:8080/admin/oauth-providers \
   }'
 ```
 
-If you still have provider secrets in an old `.env`, `go run ./cmd/migrate_oauth` copies them into the database for the default app.
+If you still have provider secrets in an old `.env`, configure them per app in the admin GUI (OAuth Configs) or `POST /admin/oauth-providers`.
 
 ## Isolation
 

@@ -22,7 +22,7 @@ func main() {
 
 	// Required: database connection
 	cfg.Database.Host = "localhost"
-	cfg.Database.Port = 5432
+	cfg.Database.Port = 5433 // host port from `make docker-dev`; use 5432 for a local Postgres
 	cfg.Database.DBName = "go_core"
 	cfg.Database.User = "postgres"
 	cfg.Database.Password = "postgres"

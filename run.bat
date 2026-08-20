@@ -1,3 +1,0 @@
-@echo off
-echo Starting Auth API with Air (Hot Reload)...
-air

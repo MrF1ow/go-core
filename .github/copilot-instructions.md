@@ -22,7 +22,7 @@
 - **Development**: `make dev` (hot-reload via Air), `make docker-dev` (Postgres + Redis).
 - **Testing**: `make test` for unit tests, `go test -v -tags=integration ./app/...` for integration tests.
 - **Build**: `make build-prod` for Linux cross-compile.
-- **Database**: SQL migrations in `migrations/`, applied via `make migrate-up`. No auto-migration.
+- **Database**: SQL migrations in `migrations/`, applied via `make migrate-up` (`cmd/migrate`). No auto-migration.
 - **SQLC**: After changing SQL queries in `internal/queries/`, run `sqlc generate`.
 - **Swagger**: After changing handler annotations, run `make swag-init`.
 
