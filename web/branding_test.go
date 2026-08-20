@@ -1,6 +1,7 @@
 package web
 
 import (
+	"html/template"
 	"testing"
 )
 
@@ -73,5 +74,24 @@ func TestAutoSidebarTextColor_InvalidFallsBackToWhite(t *testing.T) {
 	color := AutoSidebarTextColor("bad")
 	if color != "#ffffff" {
 		t.Fatalf("expected #ffffff fallback, got %s", color)
+	}
+}
+
+func TestResolveBranding_CopiesCustomCSS(t *testing.T) {
+	css := `[data-bs-theme="dark"] { --bs-body-bg: #121212; }`
+	got := ResolveBranding("", "", "", "", "", "", "", css, "")
+	if got.CustomCSS != css {
+		t.Fatalf("expected CustomCSS %q, got %q", css, got.CustomCSS)
+	}
+}
+
+func TestApplyBranding_SetsCustomCSS(t *testing.T) {
+	css := "body { font-family: system-ui; }"
+	r := &Renderer{
+		branding: ResolvedBranding{CustomCSS: css},
+	}
+	data := r.applyBranding(TemplateData{}).(TemplateData)
+	if data.CustomCSS != template.CSS(css) {
+		t.Fatalf("expected TemplateData.CustomCSS %q, got %q", css, data.CustomCSS)
 	}
 }

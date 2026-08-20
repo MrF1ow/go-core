@@ -75,6 +75,11 @@
         {{end}}
     </style>
     {{end}}
+    {{if .CustomCSS}}
+    <style>
+{{.CustomCSS}}
+    </style>
+    {{end}}
 </head>
 <body>
     <div class="login-card">

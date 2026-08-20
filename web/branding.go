@@ -77,6 +77,7 @@ type ResolvedBranding struct {
 	BorderRadius     string
 	SidebarColor     string
 	SidebarTextColor string
+	CustomCSS        string
 }
 
 // ResolveBranding applies precedence rules to produce a ResolvedBranding:
@@ -84,7 +85,7 @@ type ResolvedBranding struct {
 //   - sidebarTextColor is used as-is when set; otherwise it is auto-derived from
 //     sidebarColor via WCAG luminance; if sidebarColor is also empty the field is
 //     left blank for the template to apply its own default.
-func ResolveBranding(orgName, logoURL, primaryColor, secondaryColor, borderRadius, sidebarColor, sidebarTextColor, logoServeURL string) ResolvedBranding {
+func ResolveBranding(orgName, logoURL, primaryColor, secondaryColor, borderRadius, sidebarColor, sidebarTextColor, customCSS, logoServeURL string) ResolvedBranding {
 	resolved := ResolvedBranding{
 		OrgName:        orgName,
 		LogoURL:        logoURL,
@@ -92,6 +93,7 @@ func ResolveBranding(orgName, logoURL, primaryColor, secondaryColor, borderRadiu
 		SecondaryColor: secondaryColor,
 		BorderRadius:   borderRadius,
 		SidebarColor:   sidebarColor,
+		CustomCSS:      customCSS,
 	}
 
 	if logoServeURL != "" {

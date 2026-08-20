@@ -456,6 +456,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 		b.BorderRadius,
 		b.SidebarColor,
 		b.SidebarTextColor,
+		b.CustomCSS,
 		logoServeURL,
 	))
 

@@ -58,6 +58,7 @@ type TemplateData struct {
 	BorderRadius     string
 	SidebarColor     string
 	SidebarTextColor string
+	CustomCSS        template.CSS
 
 	// Page-specific data (each page can put arbitrary data here)
 	Data interface{}
@@ -124,6 +125,7 @@ func (r *Renderer) applyBranding(data interface{}) interface{} {
 		td.BorderRadius = r.branding.BorderRadius
 		td.SidebarColor = r.branding.SidebarColor
 		td.SidebarTextColor = r.branding.SidebarTextColor
+		td.CustomCSS = template.CSS(r.branding.CustomCSS)
 	}
 
 	switch td := data.(type) {

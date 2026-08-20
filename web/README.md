@@ -31,6 +31,7 @@ All fields are optional. Zero values produce the default Bootstrap look.
 | `BorderRadius` | `string` | Bootstrap default | CSS length (e.g. `"0.5rem"`, `"0"`, `"8px"`). Controls roundness of cards, buttons, inputs. |
 | `SidebarColor` | `string` | `#212529` light / `#101214` dark | Hex color for sidebar background. Applies to both light and dark themes. |
 | `SidebarTextColor` | `string` | Auto-derived | Hex color for sidebar text. When empty, automatically picks `#ffffff` (dark bg) or `#212529` (light bg) based on sidebar background luminance. |
+| `CustomCSS` | `string` | off | Raw CSS injected after the branding `<style>` block. Empty string means no extra tag. |
 
 ## Logo
 
@@ -59,3 +60,34 @@ When branding is configured, these Bootstrap CSS variables are overridden via in
 - `--bs-border-radius` (from `BorderRadius`)
 - `.btn-primary` component variables (hover, active states derived via `color-mix`)
 - `.sidebar` background and nav-link colors (from `SidebarColor` / `SidebarTextColor`)
+
+## Custom CSS
+
+`CustomCSS` is a raw stylesheet string. The module does not read a file. If you keep CSS on disk, read it yourself and assign the string.
+
+Light and dark live in the same blob. The GUI sets `data-bs-theme` on `<html>` from the `gui_theme` cookie (default `light`). Rules under `:root` or with no theme selector apply in both themes. Theme-specific rules use `[data-bs-theme="light"]` and `[data-bs-theme="dark"]`. `@font-face` and `@import` stay at the top of the blob. The library does not wrap the string in a selector.
+
+```go
+cfg.Admin.Branding.CustomCSS = `
+:root { --brand-font: "Source Sans 3", system-ui, sans-serif; }
+body { font-family: var(--brand-font); }
+
+[data-bs-theme="light"] {
+    --bs-body-bg: #f7f5f2;
+}
+
+[data-bs-theme="dark"] {
+    --bs-body-bg: #121212;
+    --bs-primary: #818cf8;
+}
+`
+```
+
+Limits, checked in `ValidateConfig`:
+
+- Maximum 65536 bytes (64KiB).
+- Case-insensitive substrings `</style`, `<script`, and `javascript:` are rejected so the blob cannot break out of the `<style>` tag.
+
+Invalid CSS is not parsed. The browser ignores it.
+
+Content-Security-Policy is unchanged. GUI `style-src` already allows `'unsafe-inline'`. `@font-face` URLs must be `'self'` or `https://cdn.jsdelivr.net` unless a later change widens `font-src`.

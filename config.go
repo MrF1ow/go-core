@@ -108,6 +108,7 @@ type AdminBrandingConfig struct {
 	BorderRadius     string
 	SidebarColor     string
 	SidebarTextColor string
+	CustomCSS        string
 }
 
 // AdminConfig holds admin GUI / API settings.
