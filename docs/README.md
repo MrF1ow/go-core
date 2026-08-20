@@ -38,6 +38,7 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | [Testing](testing.md) | How to run tests |
 | [Makefile](makefile-reference.md) | `make` targets |
 | [Custom CSS spec](specs/2026-08-20-admin-custom-css-design.md) | Admin GUI extra stylesheet |
+| [Favicon spec](specs/2026-08-20-admin-favicon-design.md) | Admin GUI tab icon |
 | [Changelog](../CHANGELOG.md) | Release history |
 | [Security policy](../SECURITY.md) | Vulnerability reporting |
 
