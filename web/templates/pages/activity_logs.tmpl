@@ -43,7 +43,7 @@
                 <label for="eventTypeFilter" class="form-label mb-1 small text-muted">Event Type</label>
                 <select class="form-select form-select-sm" id="eventTypeFilter">
                     <option value="">All Events</option>
-                    {{range .EventTypes}}
+                    {{range .Data.EventTypes}}
                     <option value="{{.}}">{{.}}</option>
                     {{end}}
                 </select>
@@ -53,7 +53,7 @@
                 <label for="severityFilter" class="form-label mb-1 small text-muted">Severity</label>
                 <select class="form-select form-select-sm" id="severityFilter">
                     <option value="">All Severities</option>
-                    {{range .Severities}}
+                    {{range .Data.Severities}}
                     <option value="{{.}}">{{.}}</option>
                     {{end}}
                 </select>
@@ -63,7 +63,7 @@
                 <label for="appFilter" class="form-label mb-1 small text-muted">Application</label>
                 <select class="form-select form-select-sm" id="appFilter">
                     <option value="">All Apps</option>
-                    {{range .Apps}}
+                    {{range .Data.Apps}}
                     <option value="{{.ID}}">{{.Name}} ({{.TenantName}})</option>
                     {{end}}
                 </select>

@@ -234,13 +234,8 @@ func (h *GUIHandler) Logout(c *gin.Context) {
 // Dashboard renders the main dashboard page.
 // GET /gui/
 func (h *GUIHandler) Dashboard(c *gin.Context) {
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "dashboard",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-	}
+	data := h.page(c)
+	data.ActivePage = "dashboard"
 	c.HTML(http.StatusOK, "dashboard", data)
 }
 
@@ -273,13 +268,8 @@ func (h *GUIHandler) DashboardActivity(c *gin.Context) {
 // TenantPage renders the tenant management page.
 // GET /gui/tenants
 func (h *GUIHandler) TenantPage(c *gin.Context) {
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "tenants",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-	}
+	data := h.page(c)
+	data.ActivePage = "tenants"
 	c.HTML(http.StatusOK, "tenants", data)
 }
 
@@ -469,14 +459,9 @@ func (h *GUIHandler) AppPage(c *gin.Context) {
 		tenants = nil // Degrade gracefully; filter just won't have options
 	}
 
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "applications",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-		Data:          tenants,
-	}
+	data := h.page(c)
+	data.ActivePage = "applications"
+	data.Data = tenants
 	c.HTML(http.StatusOK, "applications", data)
 }
 
@@ -1161,14 +1146,9 @@ func (h *GUIHandler) OAuthPage(c *gin.Context) {
 		apps = nil // Degrade gracefully
 	}
 
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "oauth",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-		Data:          apps,
-	}
+	data := h.page(c)
+	data.ActivePage = "oauth"
+	data.Data = apps
 	c.HTML(http.StatusOK, "oauth", data)
 }
 
@@ -1492,23 +1472,16 @@ func getAdminID(c *gin.Context) string {
 
 // UserPage renders the user management page with app filter dropdown
 func (h *GUIHandler) UserPage(c *gin.Context) {
+	data := h.page(c)
+	data.ActivePage = "users"
 	apps, err := h.Repo.ListAllAppsWithTenantName()
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "users", gin.H{
-			"ActivePage": "users",
-			"AdminUser":  getAdminUsername(c),
-			"CSRFToken":  getCSRFToken(c),
-			"Error":      "Failed to load applications",
-		})
+		data.Error = "Failed to load applications"
+		c.HTML(http.StatusInternalServerError, "users", data)
 		return
 	}
-
-	c.HTML(http.StatusOK, "users", gin.H{
-		"ActivePage": "users",
-		"AdminUser":  getAdminUsername(c),
-		"CSRFToken":  getCSRFToken(c),
-		"Data":       apps,
-	})
+	data.Data = apps
+	c.HTML(http.StatusOK, "users", data)
 }
 
 // UserList returns the paginated user list partial (HTMX fragment)
@@ -1726,36 +1699,31 @@ func (h *GUIHandler) UserUnlock(c *gin.Context) {
 // LogsPage renders the activity logs viewer page.
 // GET /gui/logs
 func (h *GUIHandler) LogsPage(c *gin.Context) {
-	// Load filter dropdown data
+	data := h.page(c)
+	data.ActivePage = "logs"
 	apps, err := h.Repo.ListAllAppsWithTenantName()
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "activity_logs", gin.H{
-			"ActivePage": "logs",
-			"AdminUser":  getAdminUsername(c),
-			"CSRFToken":  getCSRFToken(c),
-			"Error":      "Failed to load applications",
-		})
+		data.Error = "Failed to load applications"
+		c.HTML(http.StatusInternalServerError, "activity_logs", data)
 		return
 	}
 
 	eventTypes, err := h.Repo.ListDistinctEventTypes()
 	if err != nil {
-		eventTypes = []string{} // Non-critical, proceed with empty list
+		eventTypes = []string{}
 	}
 
 	severities, err := h.Repo.ListDistinctSeverities()
 	if err != nil {
-		severities = []string{} // Non-critical, proceed with empty list
+		severities = []string{}
 	}
 
-	c.HTML(http.StatusOK, "activity_logs", gin.H{
-		"ActivePage": "logs",
-		"AdminUser":  getAdminUsername(c),
-		"CSRFToken":  getCSRFToken(c),
+	data.Data = gin.H{
 		"Apps":       apps,
 		"EventTypes": eventTypes,
 		"Severities": severities,
-	})
+	}
+	c.HTML(http.StatusOK, "activity_logs", data)
 }
 
 // LogList returns the paginated activity log list partial (HTMX fragment).
@@ -1926,11 +1894,9 @@ func (h *GUIHandler) sessionMaxAgeSeconds() int {
 // ApiKeysPage renders the API Keys management page.
 // GET /gui/api-keys
 func (h *GUIHandler) ApiKeysPage(c *gin.Context) {
-	c.HTML(http.StatusOK, "api_keys", gin.H{
-		"ActivePage":    "api-keys",
-		"AdminUsername": getAdminUsername(c),
-		"CSRFToken":     getCSRFToken(c),
-	})
+	data := h.page(c)
+	data.ActivePage = "api-keys"
+	c.HTML(http.StatusOK, "api_keys", data)
 }
 
 // ApiKeyList returns the paginated API key list partial (HTMX fragment).
@@ -2296,20 +2262,29 @@ func (h *GUIHandler) ApiKeyUsagePage(c *gin.Context) {
 
 	parsedID, err := uuid.Parse(id)
 	if err != nil {
-		c.HTML(http.StatusBadRequest, "error", gin.H{"Error": "Invalid API key ID"})
+		data := h.page(c)
+		data.ActivePage = "api-keys"
+		data.FlashError = "Invalid API key ID"
+		c.HTML(http.StatusBadRequest, "api_keys", data)
 		return
 	}
 
 	apiKey, err := h.Repo.GetApiKeyByID(id)
 	if err != nil {
-		c.HTML(http.StatusNotFound, "error", gin.H{"Error": "API key not found"})
+		data := h.page(c)
+		data.ActivePage = "api-keys"
+		data.FlashError = "API key not found"
+		c.HTML(http.StatusNotFound, "api_keys", data)
 		return
 	}
 
 	const days = 30
 	points, err := h.Repo.GetApiKeyUsageSummary(parsedID, days)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "error", gin.H{"Error": "Failed to load usage data"})
+		data := h.page(c)
+		data.ActivePage = "api-keys"
+		data.FlashError = "Failed to load usage data"
+		c.HTML(http.StatusInternalServerError, "api_keys", data)
 		return
 	}
 
@@ -2326,16 +2301,16 @@ func (h *GUIHandler) ApiKeyUsagePage(c *gin.Context) {
 		counts[i] = p.RequestCount
 	}
 
-	c.HTML(http.StatusOK, "api_key_usage", gin.H{
-		"ActivePage":    "api-keys",
-		"AdminUsername": getAdminUsername(c),
-		"CSRFToken":     getCSRFToken(c),
+	data := h.page(c)
+	data.ActivePage = "api-keys"
+	data.Data = gin.H{
 		"ApiKey":        apiKey,
 		"Days":          days,
 		"Labels":        labels,
 		"Counts":        counts,
 		"TotalRequests": total,
-	})
+	}
+	c.HTML(http.StatusOK, "api_key_usage", data)
 }
 
 // SettingsPage renders the system settings page with accordion categories.
@@ -2343,24 +2318,16 @@ func (h *GUIHandler) ApiKeyUsagePage(c *gin.Context) {
 func (h *GUIHandler) SettingsPage(c *gin.Context) {
 	categories, err := h.SettingsService.ResolveAllByCategory()
 	if err != nil {
-		data := web.TemplateData{
-			Theme:         web.GetTheme(c),
-			ActivePage:    "settings",
-			AdminUsername: c.GetString(web.GUIAdminUsernameKey),
-			CSRFToken:     c.GetString(web.CSRFTokenKey),
-			FlashError:    "Failed to load settings: " + err.Error(),
-		}
+		data := h.page(c)
+		data.ActivePage = "settings"
+		data.FlashError = "Failed to load settings: " + err.Error()
 		c.HTML(http.StatusInternalServerError, "settings", data)
 		return
 	}
 
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "settings",
-		AdminUsername: c.GetString(web.GUIAdminUsernameKey),
-		CSRFToken:     c.GetString(web.CSRFTokenKey),
-		Data:          categories,
-	}
+	data := h.page(c)
+	data.ActivePage = "settings"
+	data.Data = categories
 	c.HTML(http.StatusOK, "settings", data)
 }
 
@@ -2489,14 +2456,9 @@ func (h *GUIHandler) EmailServersPage(c *gin.Context) {
 		apps = nil
 	}
 
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "email-servers",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-		Data:          apps,
-	}
+	data := h.page(c)
+	data.ActivePage = "email-servers"
+	data.Data = apps
 	c.HTML(http.StatusOK, "email_servers", data)
 }
 
@@ -2931,16 +2893,11 @@ func (h *GUIHandler) EmailTemplatesPage(c *gin.Context) {
 		emailTypes = nil
 	}
 
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "email-templates",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-		Data: gin.H{
-			"Apps":       apps,
-			"EmailTypes": emailTypes,
-		},
+	data := h.page(c)
+	data.ActivePage = "email-templates"
+	data.Data = gin.H{
+		"Apps":       apps,
+		"EmailTypes": emailTypes,
 	}
 	c.HTML(http.StatusOK, "email_templates", data)
 }
@@ -3489,21 +3446,12 @@ func (h *GUIHandler) EmailTemplateEditorWindow(c *gin.Context) {
 		templateEngine = "go_template"
 	}
 
-	// Use the same CSRF token as the main GUI
-	csrfToken := getCSRFToken(c)
-
-	// Prepare template data for the standalone editor window
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "email-templates",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     csrfToken,
-		Data: map[string]interface{}{
-			"Subject":        subject,
-			"BodyHTML":       bodyHTML,
-			"TemplateEngine": templateEngine,
-		},
+	data := h.page(c)
+	data.ActivePage = "email-templates"
+	data.Data = map[string]interface{}{
+		"Subject":        subject,
+		"BodyHTML":       bodyHTML,
+		"TemplateEngine": templateEngine,
 	}
 
 	c.HTML(http.StatusOK, "email_template_editor_window", data)
@@ -3516,13 +3464,8 @@ func (h *GUIHandler) EmailTemplateEditorWindow(c *gin.Context) {
 // EmailTypesPage renders the email types management page.
 // GET /gui/email-types
 func (h *GUIHandler) EmailTypesPage(c *gin.Context) {
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "email-types",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-	}
+	data := h.page(c)
+	data.ActivePage = "email-types"
 	c.HTML(http.StatusOK, "email_types", data)
 }
 
@@ -3942,18 +3885,14 @@ func (h *GUIHandler) MyAccountPage(c *gin.Context) {
 		}
 	}
 
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "my-account",
-		AdminUsername: c.GetString(web.GUIAdminUsernameKey),
-		AdminID:       adminID,
-		CSRFToken:     c.GetString(web.CSRFTokenKey),
-		Data: MyAccountData{
-			Email:              account.Email,
-			TwoFAEnabled:       account.TwoFAEnabled,
-			TwoFAMethod:        account.TwoFAMethod,
-			RecoveryCodesCount: recoveryCount,
-		},
+	data := h.page(c)
+	data.ActivePage = "my-account"
+	data.AdminID = adminID
+	data.Data = MyAccountData{
+		Email:              account.Email,
+		TwoFAEnabled:       account.TwoFAEnabled,
+		TwoFAMethod:        account.TwoFAMethod,
+		RecoveryCodesCount: recoveryCount,
 	}
 	c.HTML(http.StatusOK, "my_account", data)
 }
@@ -4360,14 +4299,9 @@ func (h *GUIHandler) RolesPage(c *gin.Context) {
 		apps = nil
 	}
 
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "roles",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-		Data:          apps,
-	}
+	data := h.page(c)
+	data.ActivePage = "roles"
+	data.Data = apps
 	c.HTML(http.StatusOK, "roles", data)
 }
 
@@ -4666,13 +4600,8 @@ func (h *GUIHandler) RolePermissionsUpdate(c *gin.Context) {
 // PermissionsPage renders the permissions management page.
 // GET /gui/permissions
 func (h *GUIHandler) PermissionsPage(c *gin.Context) {
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "permissions",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-	}
+	data := h.page(c)
+	data.ActivePage = "permissions"
 	c.HTML(http.StatusOK, "permissions", data)
 }
 
@@ -4746,14 +4675,9 @@ func (h *GUIHandler) UserRolesPage(c *gin.Context) {
 		apps = nil
 	}
 
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "user-roles",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-		Data:          apps,
-	}
+	data := h.page(c)
+	data.ActivePage = "user-roles"
+	data.Data = apps
 	c.HTML(http.StatusOK, "user_roles", data)
 }
 
@@ -5512,23 +5436,16 @@ func schemeFromRequest(c *gin.Context) string {
 // SessionsPage renders the session management page.
 // GET /gui/sessions
 func (h *GUIHandler) SessionsPage(c *gin.Context) {
+	data := h.page(c)
+	data.ActivePage = "sessions"
 	apps, err := h.Repo.ListAllAppsWithTenantName()
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "sessions", gin.H{
-			"ActivePage": "sessions",
-			"AdminUser":  getAdminUsername(c),
-			"CSRFToken":  getCSRFToken(c),
-			"Error":      "Failed to load applications",
-		})
+		data.Error = "Failed to load applications"
+		c.HTML(http.StatusInternalServerError, "sessions", data)
 		return
 	}
-
-	c.HTML(http.StatusOK, "sessions", gin.H{
-		"ActivePage": "sessions",
-		"AdminUser":  getAdminUsername(c),
-		"CSRFToken":  getCSRFToken(c),
-		"Apps":       apps,
-	})
+	data.Data = gin.H{"Apps": apps}
+	c.HTML(http.StatusOK, "sessions", data)
 }
 
 // sessionItem is a flattened struct for rendering in the session list template.
@@ -6011,14 +5928,10 @@ func formatTimeAgo(t time.Time) string {
 func (h *GUIHandler) IPRulePage(c *gin.Context) {
 	apps, _ := h.Repo.ListAllAppsWithTenantName()
 
-	c.HTML(http.StatusOK, "ip_rules", web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "ip-rules",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-		Data:          apps,
-	})
+	data := h.page(c)
+	data.ActivePage = "ip-rules"
+	data.Data = apps
+	c.HTML(http.StatusOK, "ip_rules", data)
 }
 
 // IPRuleList renders the IP rules list (HTMX partial).
@@ -6358,14 +6271,15 @@ func (h *GUIHandler) IPRuleCheckAccess(c *gin.Context) {
 // GET /gui/webhooks
 func (h *GUIHandler) WebhookPage(c *gin.Context) {
 	if h.WebhookService == nil {
-		c.HTML(http.StatusServiceUnavailable, "error", gin.H{"Error": "Webhook service is not available"})
+		data := h.page(c)
+		data.ActivePage = "webhooks"
+		data.FlashError = "Webhook service is not available"
+		c.HTML(http.StatusServiceUnavailable, "webhooks", data)
 		return
 	}
-	c.HTML(http.StatusOK, "webhooks", gin.H{
-		"ActivePage":    "webhooks",
-		"AdminUsername": getAdminUsername(c),
-		"CSRFToken":     getCSRFToken(c),
-	})
+	data := h.page(c)
+	data.ActivePage = "webhooks"
+	c.HTML(http.StatusOK, "webhooks", data)
 }
 
 // WebhookList returns the paginated webhook endpoints list partial (HTMX fragment).
@@ -6903,13 +6817,8 @@ func writeUserCSVGUI(w io.Writer, items []UserExportItem) {
 // MonitoringPage renders the system health monitoring page.
 // GET /gui/monitoring
 func (h *GUIHandler) MonitoringPage(c *gin.Context) {
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "monitoring",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-	}
+	data := h.page(c)
+	data.ActivePage = "monitoring"
 	c.HTML(http.StatusOK, "monitoring", data)
 }
 
@@ -6942,13 +6851,8 @@ func (h *GUIHandler) MonitoringMetrics(c *gin.Context) {
 // SessionGroupPage renders the session group management page.
 // GET /gui/session-groups
 func (h *GUIHandler) SessionGroupPage(c *gin.Context) {
-	data := web.TemplateData{
-		Theme:         web.GetTheme(c),
-		ActivePage:    "session-groups",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-	}
+	data := h.page(c)
+	data.ActivePage = "session-groups"
 	c.HTML(http.StatusOK, "session_groups", data)
 }
 
