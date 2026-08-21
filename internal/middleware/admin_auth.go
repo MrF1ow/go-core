@@ -4,18 +4,22 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"log"
 	"net/http"
 
-	"github.com/MrF1ow/go-core/internal/admin"
-	"github.com/MrF1ow/go-core/web"
 	"github.com/gin-gonic/gin"
+
+	"github.com/MrF1ow/go-core/internal/admin"
+	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/web"
 )
 
 // AdminAuthMiddleware validates the Admin API Key header.
-// It checks the static ADMIN_API_KEY env var first (fast path, backward compatible),
-// then falls back to looking up hashed admin-type keys in the database.
-// If keyValidator is nil, only the static env var is checked.
-func AdminAuthMiddleware(adminAPIKey string, keyValidator web.ApiKeyValidator) gin.HandlerFunc {
+// The env key is a synthetic superadmin principal. A DB admin key loads its
+// operator role. Expired and revoked keys are 401, same as unknown.
+// If grants is nil, only the env key and legacy null-role DB keys can proceed.
+func AdminAuthMiddleware(adminAPIKey string, keyValidator web.ApiKeyValidator, grants operator.GrantLookup) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-Admin-API-Key")
 
@@ -24,39 +28,86 @@ func AdminAuthMiddleware(adminAPIKey string, keyValidator web.ApiKeyValidator) g
 			return
 		}
 
-		// Fast path: check static key with timing-safe comparison
 		if adminAPIKey != "" {
 			if subtle.ConstantTimeCompare([]byte(apiKey), []byte(adminAPIKey)) == 1 {
+				p := operator.SuperadminPrincipal(operator.KindEnvKey)
+				c.Set(web.OperatorPrincipalKey, &p)
 				c.Set(web.AuthTypeKey, web.AuthTypeAdmin)
 				c.Next()
 				return
 			}
 		}
 
-		// Fallback: check DB-backed admin keys by SHA-256 hash
 		if keyValidator != nil {
 			h := sha256.Sum256([]byte(apiKey))
 			keyHash := hex.EncodeToString(h[:])
 
 			foundKey, err := keyValidator.FindActiveKeyByHash(keyHash)
 			if err == nil && foundKey != nil && foundKey.KeyType == admin.KeyTypeAdmin {
-				// Update last_used_at and increment daily usage asynchronously
+				p, ok := principalForDBKey(c, foundKey, grants)
+				if !ok {
+					return
+				}
 				go keyValidator.UpdateApiKeyLastUsed(foundKey.ID)
 				go keyValidator.IncrementDailyUsage(foundKey.ID)
-				scopes := parseScopes(foundKey.Scopes)
-				c.Set(web.ApiKeyScopesKey, scopes)
+				c.Set(web.OperatorPrincipalKey, p)
 				c.Set(web.AuthTypeKey, web.AuthTypeAdmin)
 				c.Next()
 				return
 			}
 		}
 
-		// If static key is not configured and no DB key matched, give a useful error
 		if adminAPIKey == "" && keyValidator == nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Admin API access not configured"})
 			return
 		}
 
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Admin API Key"})
+	}
+}
+
+func principalForDBKey(c *gin.Context, foundKey *models.ApiKey, grants operator.GrantLookup) (*operator.Principal, bool) {
+	if foundKey.OperatorRoleID == nil {
+		p := operator.SuperadminPrincipal(operator.KindAPIKey)
+		id := foundKey.ID
+		p.KeyID = &id
+		return &p, true
+	}
+	if grants == nil {
+		log.Printf("operator grant lookup is not configured")
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal authentication error"})
+		return nil, false
+	}
+	name, keys, err := grants.RoleGrants(c.Request.Context(), *foundKey.OperatorRoleID)
+	if err != nil {
+		log.Printf("operator grant lookup failed: %v", err)
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal authentication error"})
+		return nil, false
+	}
+	p := operator.NewPrincipal(operator.KindAPIKey, name, keys)
+	id := foundKey.ID
+	p.KeyID = &id
+	return &p, true
+}
+
+// RequireOperatorPermission allows the request when the attached principal has
+// the exact resource:action grant. Missing principal is a server bug (500).
+func RequireOperatorPermission(resource, action string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		val, ok := c.Get(web.OperatorPrincipalKey)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal authentication error"})
+			return
+		}
+		p, ok := val.(*operator.Principal)
+		if !ok || p == nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal authentication error"})
+			return
+		}
+		if !p.Has(resource, action) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+			return
+		}
+		c.Next()
 	}
 }

@@ -9,7 +9,7 @@
                         <th class="ps-3">Name</th>
                         <th>Type</th>
                         <th>Key</th>
-                        <th>Scopes</th>
+                        <th>Role / Scopes</th>
                         <th>Application</th>
                         <th>Status</th>
                         <th>Last Used</th>
@@ -35,14 +35,20 @@
                             <code class="text-muted">{{.KeyPrefix}}...{{.KeySuffix}}</code>
                         </td>
                         <td>
-                            {{if .Scopes}}
+                            {{if eq .KeyType "admin"}}
+                                {{if .OperatorRoleName}}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary">{{.OperatorRoleName}}</span>
+                                {{else}}
+                                <span class="text-muted small">superadmin (legacy)</span>
+                                {{end}}
+                            {{else if .Scopes}}
                             <div class="d-flex flex-wrap gap-1">
                                 {{range (splitScopes .Scopes)}}
                                 <span class="badge bg-secondary bg-opacity-10 text-secondary font-monospace small">{{.}}</span>
                                 {{end}}
                             </div>
                             {{else}}
-                            <span class="text-muted small">unrestricted</span>
+                            <span class="text-muted small">-</span>
                             {{end}}
                         </td>
                         <td>

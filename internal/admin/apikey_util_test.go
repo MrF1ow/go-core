@@ -5,6 +5,11 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/MrF1ow/go-core/internal/operator"
 )
 
 // ---------------------------------------------------------------------------
@@ -120,6 +125,62 @@ func TestHashApiKeyEmpty(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Constants tests
 // ---------------------------------------------------------------------------
+
+func TestParseOptionalExpiresAt_EmptyIsForever(t *testing.T) {
+	got, err := parseOptionalExpiresAt("", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != nil {
+		t.Fatal("empty expiry must be forever")
+	}
+}
+
+func TestParseOptionalExpiresAt_Future(t *testing.T) {
+	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	got, err := parseOptionalExpiresAt("2026-09-01T15:04", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || got.Year() != 2026 || got.Month() != 9 {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestParseOptionalExpiresAt_PastRejected(t *testing.T) {
+	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	_, err := parseOptionalExpiresAt("2026-01-01T00:00", now)
+	if err == nil {
+		t.Fatal("past expiry must fail")
+	}
+}
+
+func TestResolveAdminOperatorRoleID_DefaultsViewer(t *testing.T) {
+	id, err := resolveAdminOperatorRoleID(KeyTypeAdmin, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id == nil || *id != operator.RoleIDViewer {
+		t.Fatalf("got %v", id)
+	}
+}
+
+func TestResolveAdminOperatorRoleID_AppKeyNil(t *testing.T) {
+	id, err := resolveAdminOperatorRoleID(KeyTypeApp, operator.RoleIDSuperadmin.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != nil {
+		t.Fatal("app keys must not carry an operator role")
+	}
+}
+
+func TestResolveAdminOperatorRoleID_UnknownRejected(t *testing.T) {
+	_, err := resolveAdminOperatorRoleID(KeyTypeAdmin, uuid.New().String())
+	if err == nil {
+		t.Fatal("unknown role id must fail")
+	}
+}
 
 func TestKeyTypeConstants(t *testing.T) {
 	if KeyTypeAdmin != "admin" {

@@ -17,7 +17,8 @@ type ApiKey struct {
 	KeyHash         string       `json:"-"`                     // SHA-256 hash of the raw key
 	KeyPrefix       string       `json:"key_prefix"`            // First 8 chars for display (e.g., "ak_a1b2c")
 	KeySuffix       string       `json:"key_suffix"`            // Last 4 chars for identification
-	Scopes          string       `json:"scopes"`                // Comma-separated permission scopes, e.g. "users:read,auth:*"
+	Scopes          string       `json:"scopes"`                // Leftover storage for app keys. Not admin authorization.
+	OperatorRoleID  *uuid.UUID   `json:"operator_role_id"`      // Admin key grant. Null on app keys.
 	AppID           *uuid.UUID   `json:"app_id"`                // Required when key_type = "app"
 	ExpiresAt       *time.Time   `json:"expires_at"`            // Optional expiration
 	LastUsedAt      *time.Time   `json:"last_used_at"`          // Updated on each use

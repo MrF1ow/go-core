@@ -32,12 +32,29 @@
                 </div>
             </div>
             <div class="row g-3 mt-0">
+                <div class="col-md-4">
+                    <label for="editKeyExpiresAt" class="form-label small text-muted">Expires at</label>
+                    <input type="datetime-local" class="form-control" id="editKeyExpiresAt" name="expires_at"
+                           value="{{.ExpiresAtLocal}}">
+                    <div class="form-text">Leave blank for forever.</div>
+                </div>
+                {{if eq .KeyType "admin"}}
+                <div class="col-md-4">
+                    <label for="editKeyOperatorRole" class="form-label small text-muted">Operator role</label>
+                    <select class="form-select" id="editKeyOperatorRole" name="operator_role_id">
+                        {{range .OperatorRoles}}
+                        <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.OperatorRoleID}}selected{{end}}>{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                {{else}}
                 <div class="col-md-8">
                     <label for="editKeyScopes" class="form-label small text-muted">Scopes <span class="text-muted">(optional)</span></label>
                     <input type="text" class="form-control" id="editKeyScopes" name="scopes"
                            value="{{.Scopes}}" placeholder="e.g. users:read,auth:*">
-                    <div class="form-text">Comma-separated <code>resource:action</code> scopes. Leave blank for unrestricted access. Use <code>resource:*</code> for all actions on a resource.</div>
+                    <div class="form-text">App keys only. Unused by admin JSON.</div>
                 </div>
+                {{end}}
             </div>
             <div class="mt-3 d-flex gap-2">
                 <button type="submit" class="btn btn-primary">

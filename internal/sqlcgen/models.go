@@ -53,6 +53,7 @@ type ApiKey struct {
 	KeySuffix       string             `json:"key_suffix"`
 	AppID           pgtype.UUID        `json:"app_id"`
 	Scopes          string             `json:"scopes"`
+	OperatorRoleID  pgtype.UUID        `json:"operator_role_id"`
 	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
 	LastUsedAt      pgtype.Timestamptz `json:"last_used_at"`
 	Notified7DaysAt pgtype.Timestamptz `json:"notified_7_days_at"`
@@ -234,6 +235,28 @@ type OidcClient struct {
 	LoginPrimaryColor string    `json:"login_primary_color"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+type OperatorPermission struct {
+	ID          uuid.UUID `json:"id"`
+	Resource    string    `json:"resource"`
+	Action      string    `json:"action"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type OperatorRole struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IsSystem    bool      `json:"is_system"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type OperatorRolePermission struct {
+	RoleID       uuid.UUID `json:"role_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
 }
 
 type Permission struct {
