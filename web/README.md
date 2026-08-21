@@ -105,3 +105,24 @@ Limits, checked in `ValidateConfig`:
 Invalid CSS is not parsed. The browser ignores it.
 
 Content-Security-Policy is unchanged. GUI `style-src` already allows `'unsafe-inline'`. `@font-face` URLs must be `'self'` or `https://cdn.jsdelivr.net` unless a later change widens `font-src`.
+
+## OIDC pages
+
+OIDC login, consent, logout, and error pages use the same `AdminBrandingConfig` as a fallback. `Renderer.applyBranding` fills empty keys on the `gin.H` those handlers pass.
+
+Filled when the key is missing or empty:
+
+- `FaviconURL`
+- `CustomCSS`
+- `PrimaryColor`
+- `BorderRadius`
+
+A non-empty value already in the map wins. Client `LoginPrimaryColor` and app colors stay the relying party identity.
+
+Not copied onto the map:
+
+- `OrgName`. Page titles stay `{{.AppName}}`.
+- `LogoURL`. The client logo stays `ClientLogo`. The admin logo is the identity provider.
+- `SidebarColor`, `SidebarTextColor`, and `SecondaryColor`. These pages have no sidebar.
+
+Empty admin branding leaves the keys empty. The templates then use the built-in shield data URI and skip the extra `<style>` tags, same as the admin GUI.
