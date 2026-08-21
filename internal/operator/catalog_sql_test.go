@@ -12,12 +12,45 @@ import (
 )
 
 var (
-	permissionInsertPattern = regexp.MustCompile(`(?is)INSERT\s+INTO\s+operator_permissions\s*\([^)]*\)\s*VALUES\s*(.*?)\s*ON\s+CONFLICT`)
-	permissionRowPattern    = regexp.MustCompile(`(?is)\(\s*'[^']+'\s*,\s*'([^']+)'\s*,\s*'([^']+)'\s*,\s*'[^']*'\s*\)`)
-	roleGrantPattern        = regexp.MustCompile(`(?is)INSERT\s+INTO\s+operator_role_permissions\s*\([^)]*\)\s*SELECT\s+'([^']+)'\s*,\s*id\s+FROM\s+operator_permissions\s*(.*?)\s*ON\s+CONFLICT`)
-	excludedResourcePattern = regexp.MustCompile(`(?is)^WHERE\s+resource\s+<>\s+'([^']+)'\s*$`)
-	permissionTuplePattern  = regexp.MustCompile(`(?is)\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)`)
+	permissionInsertPattern         = regexp.MustCompile(`(?is)INSERT\s+INTO\s+operator_permissions\s*\([^)]*\)\s*VALUES\s*(.*?)\s*ON\s+CONFLICT`)
+	permissionRowPattern            = regexp.MustCompile(`(?is)\(\s*'[^']+'\s*,\s*'([^']+)'\s*,\s*'([^']+)'\s*,\s*'[^']*'\s*\)`)
+	roleGrantPattern                = regexp.MustCompile(`(?is)INSERT\s+INTO\s+operator_role_permissions\s*\([^)]*\)\s*SELECT\s+'([^']+)'\s*,\s*id\s+FROM\s+operator_permissions\s*(.*?)\s*ON\s+CONFLICT`)
+	excludedResourcePattern         = regexp.MustCompile(`(?is)^WHERE\s+resource\s+<>\s+'([^']+)'\s*$`)
+	permissionTuplePattern          = regexp.MustCompile(`(?is)\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)`)
+	adminAccountRoleBackfillPattern = regexp.MustCompile(`(?is)UPDATE\s+admin_accounts\s+SET\s+operator_role_id\s+=\s+'([^']+)'`)
 )
+
+func TestAdminAccountRoleBackfillUsesSuperadminID(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/017_admin_account_operator_role.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkAdminAccountRoleBackfill(string(sql), RoleIDSuperadmin); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAdminAccountRoleBackfillRejectsOtherRoleID(t *testing.T) {
+	sql := "UPDATE admin_accounts SET operator_role_id = '" + RoleIDViewer.String() + "' WHERE operator_role_id IS NULL;"
+	if err := checkAdminAccountRoleBackfill(sql, RoleIDSuperadmin); err == nil {
+		t.Fatal("validation passed for a non-superadmin backfill")
+	}
+}
+
+func checkAdminAccountRoleBackfill(sqlText string, want uuid.UUID) error {
+	match := adminAccountRoleBackfillPattern.FindStringSubmatch(sqlText)
+	if len(match) != 2 {
+		return fmt.Errorf("admin_accounts operator_role_id backfill not found")
+	}
+	got, err := uuid.Parse(match[1])
+	if err != nil {
+		return fmt.Errorf("parse backfill role ID %q: %w", match[1], err)
+	}
+	if got != want {
+		return fmt.Errorf("backfill role ID = %s, want %s", got, want)
+	}
+	return nil
+}
 
 func TestOperatorSeedMatchesCatalogAndGrants(t *testing.T) {
 	seed, err := os.ReadFile("../../migrations/016_operator_rbac.sql")
