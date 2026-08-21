@@ -31,6 +31,7 @@ type AdminAccount struct {
 	Username            string             `json:"username"`
 	Email               *string            `json:"email"`
 	PasswordHash        string             `json:"password_hash"`
+	OperatorRoleID      uuid.UUID          `json:"operator_role_id"`
 	TwoFaEnabled        bool               `json:"two_fa_enabled"`
 	TwoFaMethod         *string            `json:"two_fa_method"`
 	TwoFaSecret         *string            `json:"two_fa_secret"`

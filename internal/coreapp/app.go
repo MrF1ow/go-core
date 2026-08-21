@@ -523,9 +523,9 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	}
 
 	// Metrics endpoint (Admin API Key required)
-	metricsGroup := r.Group("", a.adminAuth(), requireOp(operator.ResMonitoring, operator.ActionRead))
+	metricsGroup := r.Group("", a.adminAuth())
 	{
-		metricsGroup.GET("/metrics", a.healthHandler.Metrics)
+		metricsGroup.GET("/metrics", requireOp(operator.ResMonitoring, operator.ActionRead), a.healthHandler.Metrics)
 	}
 
 	// Social authentication routes
@@ -761,7 +761,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 
 		// Authenticated GUI routes
 		guiAuth := gui.Group("/")
-		guiAuth.Use(middleware.GUIAuthMiddleware(a.accountService, adminBasePath))
+		guiAuth.Use(middleware.GUIAuthMiddleware(a.accountService, a.operatorRepo, adminBasePath))
 		guiAuth.Use(middleware.CSRFMiddleware(a.accountService))
 		{
 			guiAuth.GET("/", a.guiHandler.Dashboard)

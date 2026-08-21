@@ -196,28 +196,6 @@ CREATE INDEX idx_activity_logs_expires       ON activity_logs(expires_at) WHERE 
 CREATE INDEX idx_activity_logs_cleanup       ON activity_logs(severity, expires_at, timestamp);
 CREATE INDEX idx_activity_logs_user_timestamp ON activity_logs(user_id, timestamp DESC);
 
--- ─── admin_accounts ───────────────────────────────────────────────────────────
-
-CREATE TABLE admin_accounts (
-    id                    UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    username              VARCHAR(255) NOT NULL,
-    email                 VARCHAR(255),
-    password_hash         VARCHAR(255) NOT NULL,
-    two_fa_enabled        BOOLEAN      NOT NULL DEFAULT FALSE,
-    two_fa_method         VARCHAR(20)           DEFAULT '',
-    two_fa_secret         TEXT                  DEFAULT '',
-    two_fa_recovery_codes JSONB                 DEFAULT '[]',
-    magic_link_enabled    BOOLEAN      NOT NULL DEFAULT FALSE,
-    backup_email          VARCHAR(255) NOT NULL DEFAULT '',
-    backup_email_verified BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    last_login_at         TIMESTAMPTZ
-);
-
-CREATE UNIQUE INDEX idx_admin_accounts_username ON admin_accounts(username);
-CREATE UNIQUE INDEX idx_admin_accounts_email    ON admin_accounts(email);
-
 -- ─── operator_permissions ─────────────────────────────────────────────────────
 
 CREATE TABLE operator_permissions (
@@ -248,6 +226,30 @@ CREATE TABLE operator_role_permissions (
     permission_id UUID NOT NULL REFERENCES operator_permissions(id) ON DELETE CASCADE,
     PRIMARY KEY (role_id, permission_id)
 );
+
+-- ─── admin_accounts ───────────────────────────────────────────────────────────
+
+CREATE TABLE admin_accounts (
+    id                    UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    username              VARCHAR(255) NOT NULL,
+    email                 VARCHAR(255),
+    password_hash         VARCHAR(255) NOT NULL,
+    operator_role_id      UUID         NOT NULL REFERENCES operator_roles(id) ON DELETE RESTRICT,
+    two_fa_enabled        BOOLEAN      NOT NULL DEFAULT FALSE,
+    two_fa_method         VARCHAR(20)           DEFAULT '',
+    two_fa_secret         TEXT                  DEFAULT '',
+    two_fa_recovery_codes JSONB                 DEFAULT '[]',
+    magic_link_enabled    BOOLEAN      NOT NULL DEFAULT FALSE,
+    backup_email          VARCHAR(255) NOT NULL DEFAULT '',
+    backup_email_verified BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    last_login_at         TIMESTAMPTZ
+);
+
+CREATE UNIQUE INDEX idx_admin_accounts_username         ON admin_accounts(username);
+CREATE UNIQUE INDEX idx_admin_accounts_email            ON admin_accounts(email);
+CREATE INDEX idx_admin_accounts_operator_role_id        ON admin_accounts(operator_role_id);
 
 -- ─── api_keys ─────────────────────────────────────────────────────────────────
 
