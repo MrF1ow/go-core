@@ -128,7 +128,7 @@ func (s *AccountService) ValidateSession(sessionID string) (*models.AdminAccount
 	}
 
 	account, err := s.Repo.GetByID(adminID)
-	if err != nil {
+	if err != nil || account == nil {
 		return nil, fmt.Errorf("admin account not found")
 	}
 

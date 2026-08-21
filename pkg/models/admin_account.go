@@ -8,16 +8,16 @@ import (
 )
 
 // AdminAccount represents a system-level admin user for the Admin GUI.
-// These are separate from regular User accounts — admin accounts are not
-// scoped to any application and have full system access.
+// These are separate from regular User accounts and are not scoped to any application.
 type AdminAccount struct {
-	ID           uuid.UUID  `json:"id"`
-	Username     string     `json:"username"`
-	Email        string     `json:"email"`
-	PasswordHash string     `json:"-"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	LastLoginAt  *time.Time `json:"last_login_at"`
+	ID             uuid.UUID  `json:"id"`
+	Username       string     `json:"username"`
+	Email          string     `json:"email"`
+	PasswordHash   string     `json:"-"`
+	OperatorRoleID uuid.UUID  `json:"operator_role_id"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	LastLoginAt    *time.Time `json:"last_login_at"`
 
 	// Two-Factor Authentication fields
 	TwoFAEnabled       bool            `json:"two_fa_enabled"`

@@ -31,10 +31,14 @@ func NewAccountRepository(pool *pgxpool.Pool) *AccountRepository {
 // Create stores a new admin account in the database.
 // The account pointer is updated with the generated ID and timestamps.
 func (r *AccountRepository) Create(account *models.AdminAccount) error {
+	if account.OperatorRoleID == uuid.Nil {
+		return errors.New("operator role ID is required")
+	}
 	row, err := r.queries.CreateAdminAccount(context.Background(), sqlcgen.CreateAdminAccountParams{
-		Username:     account.Username,
-		Email:        stringToPtr(account.Email),
-		PasswordHash: account.PasswordHash,
+		Username:       account.Username,
+		Email:          stringToPtr(account.Email),
+		PasswordHash:   account.PasswordHash,
+		OperatorRoleID: account.OperatorRoleID,
 	})
 	if err != nil {
 		return err
@@ -261,6 +265,7 @@ func rowToModel(row sqlcgen.AdminAccount) models.AdminAccount {
 		Username:            row.Username,
 		Email:               ptrToString(row.Email),
 		PasswordHash:        row.PasswordHash,
+		OperatorRoleID:      row.OperatorRoleID,
 		TwoFAEnabled:        row.TwoFaEnabled,
 		TwoFAMethod:         ptrToString(row.TwoFaMethod),
 		TwoFASecret:         ptrToString(row.TwoFaSecret),
