@@ -409,6 +409,15 @@
             }
         });
 
+        document.body.addEventListener('htmx:beforeSwap', function(event) {
+            var xhr = event.detail.xhr;
+            if (!xhr) return;
+            if (xhr.getResponseHeader('X-GUI-Forbidden') === '1') {
+                event.detail.shouldSwap = true;
+                event.detail.isError = false;
+            }
+        });
+
         // Track current active page to detect navigation changes
         var currentActivePage = (document.getElementById('page-content') || {}).getAttribute('data-active-page') || '';
 

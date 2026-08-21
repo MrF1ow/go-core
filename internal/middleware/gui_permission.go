@@ -12,9 +12,8 @@ import (
 )
 
 const (
-	guiPageContentID    = "page-content"
-	guiForbiddenMessage = "You do not have permission to view this page."
-	guiAuthBugMessage   = "internal authentication error"
+	guiPageContentID  = "page-content"
+	guiAuthBugMessage = "internal authentication error"
 )
 
 var htmxTargetIDPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{0,127}$`)
@@ -41,15 +40,46 @@ func RequireGUIPermission(resource, action string) gin.HandlerFunc {
 // Other HTMX targets get a fragment-shaped body whose outer id matches the target.
 func AbortGUIForbidden(c *gin.Context) {
 	c.Header(web.GUIForbiddenHeader, web.GUIForbiddenValue)
-	c.Header("Content-Type", "text/html; charset=utf-8")
 	targetID := guiPageContentID
+	pageDeny := true
 	if c.GetHeader("HX-Request") == "true" {
 		if id, ok := sanitizeHTMXTarget(c.GetHeader("HX-Target")); ok && id != "" && id != guiPageContentID {
 			targetID = id
+			pageDeny = false
 		}
 	}
-	c.String(http.StatusForbidden, `<div id="`+targetID+`">`+guiForbiddenMessage+`</div>`)
+	if pageDeny {
+		c.HTML(http.StatusForbidden, "forbidden", guiLayoutData(c))
+		c.Abort()
+		return
+	}
+	data := guiLayoutData(c)
+	data.Data = targetID
+	c.HTML(http.StatusForbidden, "forbidden_fragment", data)
 	c.Abort()
+}
+
+func guiLayoutData(c *gin.Context) web.TemplateData {
+	data := web.TemplateData{
+		Theme:         web.GetTheme(c),
+		AdminUsername: contextString(c, web.GUIAdminUsernameKey),
+		AdminID:       contextString(c, web.GUIAdminIDKey),
+		CSRFToken:     contextString(c, web.CSRFTokenKey),
+	}
+	basePath := contextString(c, web.GUIAdminBasePathKey)
+	if p, ok := principalFromContext(c); ok {
+		return web.AttachCan(data, basePath, p.Has)
+	}
+	return data
+}
+
+func contextString(c *gin.Context, key string) string {
+	if val, ok := c.Get(key); ok {
+		if s, ok := val.(string); ok {
+			return s
+		}
+	}
+	return ""
 }
 
 // AbortGUIInternal writes HTTP 500 HTML for a missing principal on a cookie route.

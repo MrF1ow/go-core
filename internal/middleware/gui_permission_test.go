@@ -25,7 +25,7 @@ func TestRequireGUIPermission_ViewerDeniedTenantsWriteIsHTML(t *testing.T) {
 		t.Fatalf("forbidden header = %q", response.Header().Get(web.GUIForbiddenHeader))
 	}
 	body := response.Body.String()
-	if strings.Contains(body, "{") || strings.Contains(body, `"error"`) {
+	if strings.HasPrefix(strings.TrimSpace(body), "{") {
 		t.Fatalf("JSON body = %s", body)
 	}
 	if !strings.Contains(body, `id="page-content"`) {
@@ -70,7 +70,7 @@ func TestRequireGUIPermission_CraftedTargetFallsBackToPage(t *testing.T) {
 		t.Fatalf("status = %d", response.Code)
 	}
 	body := response.Body.String()
-	if strings.Contains(body, "<script>") {
+	if strings.Contains(body, `"><script>alert(1)</script>`) {
 		t.Fatalf("unsanitized target in body: %s", body)
 	}
 	if !strings.Contains(body, `id="page-content"`) {
@@ -122,6 +122,32 @@ func TestRequireOperatorPermission_StillJSON(t *testing.T) {
 	}
 }
 
+func TestCSRFForbiddenDoesNotSendGUIHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(web.GUISessionIDKey, "sess")
+		c.Next()
+	})
+	router.Use(CSRFMiddleware(&stubGUISessions{}))
+	router.POST("/gui/tenants", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	request := httptest.NewRequest(http.MethodPost, "/gui/tenants", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d", response.Code)
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != "" {
+		t.Fatalf("CSRF 403 sent %s", web.GUIForbiddenHeader)
+	}
+	if !strings.Contains(response.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content type = %q", response.Header().Get("Content-Type"))
+	}
+}
+
 func viewerPrincipal() operator.Principal {
 	return operator.NewPrincipal(operator.KindGUIAccount, operator.RoleViewer, operator.GrantsFor(operator.RoleViewer))
 }
@@ -133,9 +159,16 @@ func superadminPrincipal() operator.Principal {
 func guiPermissionGET(t *testing.T, principal operator.Principal, resource, action, hxTarget string) *httptest.ResponseRecorder {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
+	renderer, err := web.NewRenderer("/gui")
+	if err != nil {
+		t.Fatal(err)
+	}
 	router := gin.New()
+	router.HTMLRender = renderer
 	router.Use(func(c *gin.Context) {
 		c.Set(web.OperatorPrincipalKey, &principal)
+		c.Set(web.GUIAdminBasePathKey, "/gui")
+		c.Set(web.GUIAdminUsernameKey, "tester")
 		c.Next()
 	})
 	router.GET("/gui/check", RequireGUIPermission(resource, action), func(c *gin.Context) {

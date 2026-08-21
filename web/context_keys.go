@@ -54,6 +54,9 @@ const (
 	// OperatorPrincipalKey holds *operator.Principal after AdminAuthMiddleware.
 	OperatorPrincipalKey = "operator_principal"
 
+	// GUIAdminBasePathKey is the configured admin GUI path prefix (e.g. "/gui").
+	GUIAdminBasePathKey = "gui_base_path"
+
 	// GUIForbiddenHeader marks an HTML permission 403 so HTMX may swap it.
 	// CSRF and settings env-lock 403s must not send this header.
 	GUIForbiddenHeader = "X-GUI-Forbidden"
