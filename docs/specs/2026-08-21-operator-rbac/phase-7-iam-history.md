@@ -16,7 +16,7 @@ Role assignment is an append-only event. You can see who changed which principal
 
 ## Data structures
 
-Append-only events. No updates. No deletes except via retention job later (out of scope unless cleanup already has a hook). Do not reuse `activity_logs`.
+Append-only events. No updates. No deletes except via retention job later (out of scope unless cleanup already has a hook). Do not reuse `activity_logs`. That table's `user_id` FK to `users` forbids operator actors.
 
 ## Verification
 

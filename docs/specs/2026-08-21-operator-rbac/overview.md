@@ -23,6 +23,7 @@ Included:
 - Env key runs the check with an in-memory full grant (synthetic superadmin). No skip.
 - New DB admin keys and new GUI accounts default to `viewer`.
 - Existing DB admin keys with blank `scopes` backfill to `superadmin` so current scripts do not lock out.
+- Admin keys may expire. Default is forever (`api_keys.expires_at` null). An operator can set a timestamp. After that instant, `FindActiveKeyByHash` treats the key as unknown (401) before any permission check. Keep the existing column. Do not add a second TTL table. Edit must be able to set or clear expiry the same as create.
 - `cmd/setup` first account is `superadmin`. Extra accounts created through setup are `viewer`.
 - Last `superadmin` GUI account cannot be demoted or deleted.
 - `My Account` and logout always allowed for a logged-in GUI session.
@@ -45,6 +46,7 @@ Excluded (follow-up interactions, not this plan):
 - Public module API stays `app.New` / `RegisterRoutes` / `AuthMiddleware`. Do not export `RequireOperatorPermission` in v1 unless a test in this repo needs it through `internal/`.
 - JSON 401 for bad or missing key. JSON 403 for authenticated principal missing a permission. GUI 403 HTML, not a silent redirect to dashboard.
 - Existing `HasScope` stays for possible app-key follow-up. Admin JSON must not depend on `api_keys.scopes` after the cutover.
+- Keep `api_keys.expires_at`. Null is forever. A past timestamp is dead, same as revoked, not a 403. Env key has no expiry.
 - `activity_logs` stays end-user (`app_id` + `user_id`). Operator evidence is new tables.
 - No control-ui / browser skill in this environment. JSON phases verify with `go test` and httptest. GUI phases verify with template and handler tests. Flag runtime-in-browser as unavailable.
 
@@ -101,7 +103,7 @@ No browser driver. GUI nav tests render `base.tmpl` with a principal that lacks 
 - `/deslop` each diff. **unslop** every doc and PR body.
 - **show-me-your-work** on cutover PRs.
 - Cursor babysit after opening each PR. Do not treat a green CI as “SOC 2 done.”
-- **Laziness Protocol:** do not add a plugin nav registry. Sidebar reads the same permission function as the route.
+- **Laziness Protocol:** do not add a plugin nav registry. Sidebar reads the same permission function as the route. Key expiry already exists (`expires_at`, create form, `FindActiveKeyByHash`, 7-day and 1-day emails). Phase 5 keeps it and puts the same field on edit. Duration presets (forever / 30 / 90 / 365 / custom) are optional UX that still write that one timestamp. Do not rebuild expiry.
 - **Subtract Before You Add:** stop treating `api_keys.scopes` as admin authorization. Leave the column until a later cleanup if display still needs it, but do not parse it for `/admin/*`.
 - **Never Block on the Human** for reversible internals. Do not change the four seeded role names without a product call.
 - **Sequence Work into Verifiable Units:** catalog tests before middleware tests before route tests.
@@ -109,7 +111,7 @@ No browser driver. GUI nav tests render `base.tmpl` with a principal that lacks 
 
 ## Organizational track (not code)
 
-Named DB keys for daily use. Env key is break-glass and reviewed when the access log shows `kind=env_key`. Joiner = viewer. Leaver = revoke key / disable account. Calendar access review of the roster export. Retention for operator logs longer than end-user informational events. Type I after phases 4–8 are in production. Type II after that period of consistent use.
+Named DB keys for daily use. Env key is break-glass and reviewed when the access log shows `kind=env_key`. Joiner = viewer. Leaver = revoke key / disable account. Temporary access sets `expires_at`; standing access leaves it null. Calendar access review of the roster export. Retention for operator logs longer than end-user informational events. Type I after phases 4–8 are in production. Type II after that period of consistent use.
 
 ## Permission catalog
 
