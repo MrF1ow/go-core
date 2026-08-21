@@ -39,6 +39,7 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | [Makefile](makefile-reference.md) | `make` targets |
 | [Custom CSS spec](specs/2026-08-20-admin-custom-css-design.md) | Admin GUI extra stylesheet |
 | [Favicon spec](specs/2026-08-20-admin-favicon-design.md) | Admin GUI tab icon |
+| [OIDC branding spec](specs/2026-08-21-oidc-admin-branding-design.md) | Admin branding fallback on OIDC pages |
 | [Changelog](../CHANGELOG.md) | Release history |
 | [Security policy](../SECURITY.md) | Vulnerability reporting |
 

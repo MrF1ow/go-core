@@ -16,6 +16,7 @@
         (function(){var d=document.documentElement;var m=window.matchMedia('(prefers-color-scheme: dark)');d.setAttribute('data-bs-theme',m.matches?'dark':'light');m.addEventListener('change',function(e){d.setAttribute('data-bs-theme',e.matches?'dark':'light');});})();
     </script>
     {{end}}
+    {{template "favicon" .}}
     <link rel="stylesheet" href="{{basePath}}/static/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{basePath}}/static/css/bootstrap-icons.min.css">
     {{if .PrimaryColor}}
@@ -37,6 +38,16 @@
             --bs-btn-active-bg: color-mix(in srgb, {{.PrimaryColor}} 75%, black);
             --bs-btn-active-border-color: color-mix(in srgb, {{.PrimaryColor}} 75%, black);
         }
+    </style>
+    {{end}}
+    {{if .BorderRadius}}
+    <style>
+        :root { --bs-border-radius: {{.BorderRadius}}; }
+    </style>
+    {{end}}
+    {{if .CustomCSS}}
+    <style>
+{{.CustomCSS}}
     </style>
     {{end}}
     <style>

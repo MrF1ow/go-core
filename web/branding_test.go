@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestParseHexColor_SixDigit(t *testing.T) {
@@ -181,5 +183,140 @@ func TestLoginTemplate_EmitsShieldFaviconWhenEmpty(t *testing.T) {
 	out := rec.Body.String()
 	if !strings.Contains(out, shieldFaviconURI) {
 		t.Fatal("rendered login missing default shield data URI")
+	}
+}
+
+func TestApplyBranding_GinHCopiesFaviconURLAndCustomCSSWhenAbsent(t *testing.T) {
+	css := "body { font-family: system-ui; }"
+	url := "https://example.com/favicon.ico"
+	r := &Renderer{
+		branding: ResolvedBranding{FaviconURL: url, CustomCSS: css},
+	}
+	data := r.applyBranding(gin.H{}).(gin.H)
+	if data["FaviconURL"] != url {
+		t.Fatalf("expected FaviconURL %q, got %#v", url, data["FaviconURL"])
+	}
+	if data["CustomCSS"] != template.CSS(css) {
+		t.Fatalf("expected CustomCSS %q, got %#v", css, data["CustomCSS"])
+	}
+}
+
+func TestApplyBranding_GinHDoesNotOverwriteNonEmptyPrimaryColor(t *testing.T) {
+	r := &Renderer{
+		branding: ResolvedBranding{PrimaryColor: "#4f46e5"},
+	}
+	data := r.applyBranding(gin.H{"PrimaryColor": "#ff0000"}).(gin.H)
+	if data["PrimaryColor"] != "#ff0000" {
+		t.Fatalf("expected PrimaryColor to stay %q, got %#v", "#ff0000", data["PrimaryColor"])
+	}
+}
+
+func TestApplyBranding_GinHFillsEmptyPrimaryColor(t *testing.T) {
+	r := &Renderer{
+		branding: ResolvedBranding{PrimaryColor: "#4f46e5"},
+	}
+	data := r.applyBranding(gin.H{"PrimaryColor": ""}).(gin.H)
+	if data["PrimaryColor"] != "#4f46e5" {
+		t.Fatalf("expected PrimaryColor %q, got %#v", "#4f46e5", data["PrimaryColor"])
+	}
+}
+
+func TestApplyBranding_GinHDoesNotCopyOrgNameOrLogoURL(t *testing.T) {
+	r := &Renderer{
+		branding: ResolvedBranding{OrgName: "Acme", LogoURL: "https://example.com/logo.svg"},
+	}
+	data := r.applyBranding(gin.H{}).(gin.H)
+	if _, ok := data["OrgName"]; ok {
+		t.Fatalf("OrgName must not be copied onto gin.H, got %#v", data["OrgName"])
+	}
+	if _, ok := data["LogoURL"]; ok {
+		t.Fatalf("LogoURL must not be copied onto gin.H, got %#v", data["LogoURL"])
+	}
+}
+
+func TestApplyBranding_GinHFillsEmptyTemplateCSS(t *testing.T) {
+	css := "body { color: #111; }"
+	r := &Renderer{
+		branding: ResolvedBranding{CustomCSS: css},
+	}
+	data := r.applyBranding(gin.H{"CustomCSS": template.CSS("")}).(gin.H)
+	if data["CustomCSS"] != template.CSS(css) {
+		t.Fatalf("expected CustomCSS %q, got %#v", css, data["CustomCSS"])
+	}
+}
+
+func TestApplyBranding_GinHLeavesNonStringPrimaryColor(t *testing.T) {
+	r := &Renderer{
+		branding: ResolvedBranding{PrimaryColor: "#4f46e5"},
+	}
+	data := r.applyBranding(gin.H{"PrimaryColor": 42}).(gin.H)
+	if data["PrimaryColor"] != 42 {
+		t.Fatalf("expected PrimaryColor to stay 42, got %#v", data["PrimaryColor"])
+	}
+}
+
+func TestApplyBranding_MapStringAnyFillsFaviconURL(t *testing.T) {
+	url := "https://example.com/favicon.ico"
+	r := &Renderer{
+		branding: ResolvedBranding{FaviconURL: url},
+	}
+	data := r.applyBranding(map[string]any{}).(map[string]any)
+	if data["FaviconURL"] != url {
+		t.Fatalf("expected FaviconURL %q, got %#v", url, data["FaviconURL"])
+	}
+}
+
+func TestOIDCLoginTemplate_EmitsCustomFavicon(t *testing.T) {
+	r, err := NewRenderer("/gui")
+	if err != nil {
+		t.Fatalf("NewRenderer: %v", err)
+	}
+	url := "https://example.com/favicon.ico"
+	r.SetBranding(ResolvedBranding{FaviconURL: url})
+	rec := httptest.NewRecorder()
+	if err := r.Instance("oidc_login", gin.H{}).Render(rec); err != nil {
+		t.Fatalf("render oidc_login: %v", err)
+	}
+	out := rec.Body.String()
+	if !strings.Contains(out, `href="`+url+`"`) {
+		t.Fatalf("rendered oidc_login missing favicon href %q", url)
+	}
+	if strings.Contains(out, shieldFaviconURI) {
+		t.Fatal("rendered oidc_login still emits the default shield data URI")
+	}
+}
+
+func TestOIDCLoginTemplate_EmitsShieldFaviconWhenEmpty(t *testing.T) {
+	r, err := NewRenderer("/gui")
+	if err != nil {
+		t.Fatalf("NewRenderer: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	if err := r.Instance("oidc_login", gin.H{}).Render(rec); err != nil {
+		t.Fatalf("render oidc_login: %v", err)
+	}
+	out := rec.Body.String()
+	if !strings.Contains(out, shieldFaviconURI) {
+		t.Fatal("rendered oidc_login missing default shield data URI")
+	}
+}
+
+func TestOIDCLoginTemplate_EmitsUnescapedCustomCSS(t *testing.T) {
+	r, err := NewRenderer("/gui")
+	if err != nil {
+		t.Fatalf("NewRenderer: %v", err)
+	}
+	css := `[data-bs-theme="dark"] .card > .body { color: #fff; }`
+	r.SetBranding(ResolvedBranding{CustomCSS: css})
+	rec := httptest.NewRecorder()
+	if err := r.Instance("oidc_login", gin.H{}).Render(rec); err != nil {
+		t.Fatalf("render oidc_login: %v", err)
+	}
+	out := rec.Body.String()
+	if !strings.Contains(out, css) {
+		t.Fatalf("rendered oidc_login missing CustomCSS %q", css)
+	}
+	if strings.Contains(out, ".card &gt; .body") {
+		t.Fatal("CustomCSS child combinator was HTML-escaped")
 	}
 }

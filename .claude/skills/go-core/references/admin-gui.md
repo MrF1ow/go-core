@@ -60,7 +60,7 @@ type TemplateData struct {
 }
 ```
 
-Branding fields are auto-populated by `Renderer.applyBranding()` on every `Instance()` call — handlers never set them manually.
+Branding fields are auto-populated by `Renderer.applyBranding()` on every `Instance()` call. `TemplateData` is overwritten. Empty keys on `gin.H` and `map[string]any` are filled. Handlers never set branding fields manually.
 
 **Template functions available (`Renderer.defaultFuncMap`):**
 - `basePath` -- returns the configured admin GUI path prefix (e.g. "/gui"). Used in templates as `{{basePath}}/login`
@@ -200,7 +200,7 @@ Consumers customize admin dashboard appearance via `AdminBrandingConfig` in `cor
 1. Consumer sets `cfg.Admin.Branding` fields (org name, logo, colors, border radius)
 2. `ResolveBranding()` in `web/branding.go` resolves logo and favicon URLs and auto-derives sidebar text color
 3. `Renderer.SetBranding()` stores resolved branding once at init
-4. `Renderer.applyBranding()` injects branding fields into every `TemplateData` via `Instance()`
+4. `Renderer.applyBranding()` injects branding fields into every `TemplateData` via `Instance()`. On `gin.H` and `map[string]any` it fills `FaviconURL`, `CustomCSS`, `PrimaryColor`, and `BorderRadius` only when those keys are missing or empty.
 5. Templates use conditional `{{if .PrimaryColor}}` blocks to inject CSS variable overrides
 
 **CSS injection pattern** (in `base.tmpl` and `login.tmpl`):
@@ -231,6 +231,11 @@ GUI CSP `img-src` is `'self' data: https:`, so remote `https://` branding URLs l
 - `web/templates/layouts/base.tmpl` — CSS injection block + sidebar logo/name
 - `web/templates/pages/login.tmpl` — CSS injection + logo/name on login page
 - `web/templates/pages/2fa_verify.tmpl` — CSS injection + logo on 2FA page
+- `web/templates/pages/oidc_login.tmpl` — OIDC login; favicon, PrimaryColor, BorderRadius, CustomCSS fallback
+- `web/templates/pages/oidc_consent.tmpl` — OIDC consent; same branding keys
+- `web/templates/pages/oidc_logout.tmpl` — OIDC logout; same branding keys
+- `web/templates/pages/oidc_error.tmpl` — OIDC error; same branding keys
+- `web/templates/partials/favicon.tmpl` — shared favicon `<link>` (custom URL or shield data URI)
 
 **Route:** `GET /gui/branding/logo` — registered only when `LogoURL` is a file path.
 **Route:** `GET /gui/branding/favicon` — registered only when `FaviconURL` is a file path.
