@@ -32,6 +32,7 @@ All fields are optional. Zero values produce the default Bootstrap look.
 | `SidebarColor` | `string` | `#212529` light / `#101214` dark | Hex color for sidebar background. Applies to both light and dark themes. |
 | `SidebarTextColor` | `string` | Auto-derived | Hex color for sidebar text. When empty, automatically picks `#ffffff` (dark bg) or `#212529` (light bg) based on sidebar background luminance. |
 | `CustomCSS` | `string` | off | Raw CSS injected after the branding `<style>` block. Empty string means no extra tag. |
+| `FaviconURL` | `string` | Shield SVG data URI | URL or file path for the tab icon. Empty keeps the built-in shield. |
 
 ## Logo
 
@@ -41,6 +42,19 @@ All fields are optional. Zero values produce the default Bootstrap look.
 - **File path**: the file is read at startup and served at `<AdminBasePath>/branding/logo` (default `/gui/branding/logo`). The file must exist when `app.New()` is called.
 
 Supported formats: PNG, SVG, JPG, WebP — anything a browser `<img>` tag can render.
+
+GUI `img-src` is `'self' data: https:`. An `https://` `LogoURL` loads. An `http://` `LogoURL` is accepted by validation but blocked by CSP.
+
+## Favicon
+
+`FaviconURL` uses the same URL-or-file split as `LogoURL`. Empty keeps the built-in shield SVG data URI. The field does not fall back to `LogoURL`.
+
+- **URL** (`http://` or `https://`): used as `<link rel="icon" href="...">`.
+- **File path**: the file is read at startup and served at `<AdminBasePath>/branding/favicon` (default `/gui/branding/favicon`). The file must exist when `app.New()` is called.
+
+ICO, PNG, SVG, GIF, WebP, and JPEG are all valid. File size is capped at 1 MiB, same as `LogoURL`.
+
+Remote `https://` favicons are allowed by GUI CSP. Remote `http://` values are not.
 
 ## Sidebar Text Auto-Derivation
 

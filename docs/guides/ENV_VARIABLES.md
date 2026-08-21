@@ -95,6 +95,7 @@ There is no separate refresh-token secret. Both token types are signed with `JWT
 | `ADMIN_BRANDING_SIDEBAR_COLOR` | hex |
 | `ADMIN_BRANDING_SIDEBAR_TEXT_COLOR` | hex, or auto from sidebar luminance |
 | `ADMIN_BRANDING_CUSTOM_CSS` | raw CSS, max 64KiB. Multiline `.env` values are awkward; library consumers should set `Admin.Branding.CustomCSS` |
+| `ADMIN_BRANDING_FAVICON_URL` | URL or local file path |
 
 See [web/README.md](../../web/README.md) for branding rules.
 

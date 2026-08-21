@@ -48,7 +48,7 @@ func SecurityHeadersMiddleware(adminBasePath string) gin.HandlerFunc {
 				"script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
 				"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
 				"font-src 'self' https://cdn.jsdelivr.net",
-				"img-src 'self' data:",
+				"img-src 'self' data: https:",
 				"connect-src 'self'",
 				"frame-ancestors 'none'",
 				"form-action 'self'",

@@ -173,6 +173,7 @@ func main() {
 				SidebarColor:     os.Getenv("ADMIN_BRANDING_SIDEBAR_COLOR"),
 				SidebarTextColor: os.Getenv("ADMIN_BRANDING_SIDEBAR_TEXT_COLOR"),
 				CustomCSS:        os.Getenv("ADMIN_BRANDING_CUSTOM_CSS"),
+				FaviconURL:       os.Getenv("ADMIN_BRANDING_FAVICON_URL"),
 			},
 		},
 		Social: core.SocialConfig{

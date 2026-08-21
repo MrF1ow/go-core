@@ -12,6 +12,8 @@ var (
 	borderRadiusRegex = regexp.MustCompile(`^(0|[0-9]+(\.[0-9]+)?(px|rem|em))$`)
 )
 
+const maxBrandingFileSize = 1 << 20
+
 // ValidateConfig checks that all required Config fields are set.
 // Returns a descriptive error for the first missing or invalid field.
 // Called by app.New() before any initialization or connections.
@@ -72,18 +74,30 @@ func validateBranding(b AdminBrandingConfig) error {
 			}
 		}
 	}
-	if b.LogoURL != "" {
-		isURL := strings.HasPrefix(b.LogoURL, "http://") || strings.HasPrefix(b.LogoURL, "https://")
-		if !isURL {
-			info, err := os.Stat(b.LogoURL)
-			if err != nil {
-				return fmt.Errorf("core: Config.Admin.Branding.LogoURL file not found: %s", b.LogoURL)
-			}
-			const maxLogoSize = 1 << 20 // 1 MB
-			if info.Size() > maxLogoSize {
-				return fmt.Errorf("core: Config.Admin.Branding.LogoURL file too large (%d bytes, max %d)", info.Size(), maxLogoSize)
-			}
+	if b.LogoURL != "" && !isRemoteAssetURL(b.LogoURL) {
+		if err := validateBrandingFile("LogoURL", b.LogoURL); err != nil {
+			return err
 		}
+	}
+	if b.FaviconURL != "" && !isRemoteAssetURL(b.FaviconURL) {
+		if err := validateBrandingFile("FaviconURL", b.FaviconURL); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isRemoteAssetURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+}
+
+func validateBrandingFile(field, path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("core: Config.Admin.Branding.%s file not found: %s", field, path)
+	}
+	if info.Size() > maxBrandingFileSize {
+		return fmt.Errorf("core: Config.Admin.Branding.%s file too large (%d bytes, max %d)", field, info.Size(), maxBrandingFileSize)
 	}
 	return nil
 }

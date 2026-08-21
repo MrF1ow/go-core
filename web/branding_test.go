@@ -81,9 +81,27 @@ func TestAutoSidebarTextColor_InvalidFallsBackToWhite(t *testing.T) {
 
 func TestResolveBranding_CopiesCustomCSS(t *testing.T) {
 	css := `[data-bs-theme="dark"] { --bs-body-bg: #121212; }`
-	got := ResolveBranding("", "", "", "", "", "", "", css, "")
+	got := ResolveBranding(BrandingInput{CustomCSS: css})
 	if got.CustomCSS != css {
 		t.Fatalf("expected CustomCSS %q, got %q", css, got.CustomCSS)
+	}
+}
+
+func TestResolveBranding_CopiesFaviconURL(t *testing.T) {
+	url := "https://example.com/favicon.ico"
+	got := ResolveBranding(BrandingInput{FaviconURL: url})
+	if got.FaviconURL != url {
+		t.Fatalf("expected FaviconURL %q, got %q", url, got.FaviconURL)
+	}
+}
+
+func TestResolveBranding_FaviconServeURLWins(t *testing.T) {
+	got := ResolveBranding(BrandingInput{
+		FaviconURL:      "https://example.com/favicon.ico",
+		FaviconServeURL: "/gui/branding/favicon",
+	})
+	if got.FaviconURL != "/gui/branding/favicon" {
+		t.Fatalf("expected FaviconURL %q, got %q", "/gui/branding/favicon", got.FaviconURL)
 	}
 }
 
@@ -95,6 +113,17 @@ func TestApplyBranding_SetsCustomCSS(t *testing.T) {
 	data := r.applyBranding(TemplateData{}).(TemplateData)
 	if data.CustomCSS != template.CSS(css) {
 		t.Fatalf("expected TemplateData.CustomCSS %q, got %q", css, data.CustomCSS)
+	}
+}
+
+func TestApplyBranding_SetsFaviconURL(t *testing.T) {
+	url := "https://example.com/favicon.ico"
+	r := &Renderer{
+		branding: ResolvedBranding{FaviconURL: url},
+	}
+	data := r.applyBranding(TemplateData{}).(TemplateData)
+	if data.FaviconURL != url {
+		t.Fatalf("expected TemplateData.FaviconURL %q, got %q", url, data.FaviconURL)
 	}
 }
 
@@ -115,5 +144,42 @@ func TestLoginTemplate_EmitsUnescapedCustomCSS(t *testing.T) {
 	}
 	if strings.Contains(out, ".card &gt; .body") {
 		t.Fatal("CustomCSS child combinator was HTML-escaped")
+	}
+}
+
+const shieldFaviconURI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 1L3 7v8c0 8 5 14 13 16 8-2 13-8 13-16V7Z' fill='%23212529'/%3E%3Crect x='12' y='14' width='8' height='7' rx='1.5' fill='%23fff'/%3E%3Cpath d='M13.5 14v-2.5a2.5 2.5 0 0 1 5 0V14' fill='none' stroke='%23fff' stroke-width='1.8'/%3E%3C/svg%3E"
+
+func TestLoginTemplate_EmitsCustomFavicon(t *testing.T) {
+	r, err := NewRenderer("/gui")
+	if err != nil {
+		t.Fatalf("NewRenderer: %v", err)
+	}
+	url := "https://example.com/favicon.ico"
+	r.SetBranding(ResolvedBranding{FaviconURL: url})
+	rec := httptest.NewRecorder()
+	if err := r.Instance("login", TemplateData{}).Render(rec); err != nil {
+		t.Fatalf("render login: %v", err)
+	}
+	out := rec.Body.String()
+	if !strings.Contains(out, `href="`+url+`"`) {
+		t.Fatalf("rendered login missing favicon href %q", url)
+	}
+	if strings.Contains(out, shieldFaviconURI) {
+		t.Fatal("rendered login still emits the default shield data URI")
+	}
+}
+
+func TestLoginTemplate_EmitsShieldFaviconWhenEmpty(t *testing.T) {
+	r, err := NewRenderer("/gui")
+	if err != nil {
+		t.Fatalf("NewRenderer: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	if err := r.Instance("login", TemplateData{}).Render(rec); err != nil {
+		t.Fatalf("render login: %v", err)
+	}
+	out := rec.Body.String()
+	if !strings.Contains(out, shieldFaviconURI) {
+		t.Fatal("rendered login missing default shield data URI")
 	}
 }

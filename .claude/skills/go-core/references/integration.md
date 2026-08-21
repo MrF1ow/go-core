@@ -90,6 +90,7 @@ Customize admin GUI appearance via `cfg.Admin.Branding`:
 cfg.Admin.Branding = core.AdminBrandingConfig{
     OrgName:      "Acme Corp",                    // Replaces "Auth API" text
     LogoURL:      "https://acme.com/logo.svg",    // URL or file path
+    FaviconURL:   "https://acme.com/favicon.ico", // URL or file path; empty = shield data URI
     PrimaryColor: "#4f46e5",                       // Overrides --bs-primary
     BorderRadius: "0.75rem",                       // Overrides --bs-border-radius
     SidebarColor: "#1a1a2e",                       // Sidebar background
@@ -97,7 +98,7 @@ cfg.Admin.Branding = core.AdminBrandingConfig{
 }
 ```
 
-All fields optional. Zero-value = default Bootstrap appearance. `LogoURL` accepts URLs or file paths (files served from memory at `<basePath>/branding/logo`). See [`web/README.md`](../../../web/README.md) for full field reference.
+All fields optional. Zero-value = default Bootstrap appearance. `LogoURL` and `FaviconURL` accept URLs or file paths (files served from memory at `<basePath>/branding/logo` and `<basePath>/branding/favicon`). See [`web/README.md`](../../../web/README.md) for full field reference.
 
 ### Custom Admin Path
 

@@ -79,9 +79,10 @@ type App struct {
 	apiKeyNotificationSvc *admin.ApiKeyNotificationService
 	expiryService         *sessiongroup.ExpiryService
 
-	// Branding logo (read once at startup, served from memory)
-	logoData        []byte
-	logoContentType string
+	logoData           []byte
+	logoContentType    string
+	faviconData        []byte
+	faviconContentType string
 }
 
 // New creates a new App by connecting to the database (pgx) and initializing
@@ -378,16 +379,21 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 
 	var logoData []byte
 	var logoContentType string
+	var faviconData []byte
+	var faviconContentType string
 	b := cfg.Admin.Branding
-	if b.LogoURL != "" && !strings.HasPrefix(b.LogoURL, "http://") && !strings.HasPrefix(b.LogoURL, "https://") {
+	if b.LogoURL != "" && !isRemoteAssetURL(b.LogoURL) {
 		var err error
-		logoData, err = os.ReadFile(b.LogoURL)
+		logoData, logoContentType, err = readBrandingFile(b.LogoURL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read branding logo file: %w", err)
 		}
-		logoContentType = http.DetectContentType(logoData)
-		if strings.HasSuffix(strings.ToLower(b.LogoURL), ".svg") {
-			logoContentType = "image/svg+xml"
+	}
+	if b.FaviconURL != "" && !isRemoteAssetURL(b.FaviconURL) {
+		var err error
+		faviconData, faviconContentType, err = readBrandingFile(b.FaviconURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read branding favicon file: %w", err)
 		}
 	}
 
@@ -417,6 +423,8 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 		apiKeyNotificationSvc: apiKeyNotificationSvc,
 		logoData:              logoData,
 		logoContentType:       logoContentType,
+		faviconData:           faviconData,
+		faviconContentType:    faviconContentType,
 	}, nil
 }
 
@@ -441,24 +449,27 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 
 	// Apply admin branding to renderer
 	b := cfg.Admin.Branding
-	isFileURL := b.LogoURL != "" &&
-		!strings.HasPrefix(b.LogoURL, "http://") &&
-		!strings.HasPrefix(b.LogoURL, "https://")
 	logoServeURL := ""
-	if isFileURL {
+	if b.LogoURL != "" && !isRemoteAssetURL(b.LogoURL) {
 		logoServeURL = adminBasePath + "/branding/logo"
 	}
-	renderer.SetBranding(web.ResolveBranding(
-		b.OrgName,
-		b.LogoURL,
-		b.PrimaryColor,
-		b.SecondaryColor,
-		b.BorderRadius,
-		b.SidebarColor,
-		b.SidebarTextColor,
-		b.CustomCSS,
-		logoServeURL,
-	))
+	faviconServeURL := ""
+	if b.FaviconURL != "" && !isRemoteAssetURL(b.FaviconURL) {
+		faviconServeURL = adminBasePath + "/branding/favicon"
+	}
+	renderer.SetBranding(web.ResolveBranding(web.BrandingInput{
+		OrgName:          b.OrgName,
+		LogoURL:          b.LogoURL,
+		PrimaryColor:     b.PrimaryColor,
+		SecondaryColor:   b.SecondaryColor,
+		BorderRadius:     b.BorderRadius,
+		SidebarColor:     b.SidebarColor,
+		SidebarTextColor: b.SidebarTextColor,
+		CustomCSS:        b.CustomCSS,
+		FaviconURL:       b.FaviconURL,
+		LogoServeURL:     logoServeURL,
+		FaviconServeURL:  faviconServeURL,
+	}))
 
 	// Add security headers middleware (before CORS so headers are always set)
 	r.Use(middleware.SecurityHeadersMiddleware(adminBasePath))
@@ -722,11 +733,16 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 		// Static assets (no auth required)
 		gui.StaticFS("/static", static.HTTPFileSystem())
 
-		// Serve branding logo from local file (if configured, read at startup)
-		if isFileURL {
+		if logoServeURL != "" {
 			gui.GET("/branding/logo", func(c *gin.Context) {
 				c.Header("Cache-Control", "public, max-age=86400, immutable")
 				c.Data(http.StatusOK, a.logoContentType, a.logoData)
+			})
+		}
+		if faviconServeURL != "" {
+			gui.GET("/branding/favicon", func(c *gin.Context) {
+				c.Header("Cache-Control", "public, max-age=86400, immutable")
+				c.Data(http.StatusOK, a.faviconContentType, a.faviconData)
 			})
 		}
 
@@ -1065,5 +1081,25 @@ func (a *App) Close() {
 	}
 	if a.ownsPool && a.pool != nil {
 		a.pool.Close()
+	}
+}
+
+func isRemoteAssetURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+}
+
+func readBrandingFile(path string) ([]byte, string, error) {
+	data, err := os.ReadFile(path) // #nosec G304 -- path is AdminBrandingConfig LogoURL/FaviconURL, validated by validateBrandingFile at app.New.
+	if err != nil {
+		return nil, "", err
+	}
+	lower := strings.ToLower(path)
+	switch {
+	case strings.HasSuffix(lower, ".svg"):
+		return data, "image/svg+xml", nil
+	case strings.HasSuffix(lower, ".ico"):
+		return data, "image/x-icon", nil
+	default:
+		return data, http.DetectContentType(data), nil
 	}
 }
