@@ -65,9 +65,21 @@ func HashApiKey(rawKey string) string {
 }
 
 func parseOptionalExpiresAt(raw string, now time.Time) (*time.Time, error) {
+	return parseOptionalExpiresAtKeeping(raw, now, nil)
+}
+
+// parseOptionalExpiresAtKeeping treats a posted datetime-local value that still
+// matches the stored instant (minute precision, same format as the edit form)
+// as "leave expiry alone". That lets operators change name, description, or
+// role on a key whose expiry has already passed. Clearing the field is forever.
+// Any other posted value must be strictly after now, same as create.
+func parseOptionalExpiresAtKeeping(raw string, now time.Time, current *time.Time) (*time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil, nil
+	}
+	if current != nil && raw == formatExpiresAtLocal(current) {
+		return current, nil
 	}
 	t, err := time.Parse("2006-01-02T15:04", raw)
 	if err != nil {

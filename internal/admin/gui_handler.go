@@ -2261,7 +2261,7 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		return
 	}
 
-	expiresAt, err := parseOptionalExpiresAt(c.PostForm("expires_at"), time.Now())
+	expiresAt, err := parseOptionalExpiresAtKeeping(c.PostForm("expires_at"), time.Now(), existing.ExpiresAt)
 	if err != nil {
 		c.String(http.StatusBadRequest,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid expiration date. Leave blank for forever.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
