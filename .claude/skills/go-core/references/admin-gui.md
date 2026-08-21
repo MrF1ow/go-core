@@ -56,6 +56,7 @@ type TemplateData struct {
     SidebarColor     string      // Branding: hex sidebar background
     SidebarTextColor string      // Branding: hex sidebar text (auto-derived or explicit)
     CustomCSS        template.CSS // Branding: raw extra stylesheet (empty = off)
+    FaviconURL       string      // Branding: resolved favicon URL (empty = shield data URI)
 }
 ```
 
@@ -197,7 +198,7 @@ Consumers customize admin dashboard appearance via `AdminBrandingConfig` in `cor
 
 **How it works:**
 1. Consumer sets `cfg.Admin.Branding` fields (org name, logo, colors, border radius)
-2. `ResolveBranding()` in `web/branding.go` resolves logo URL and auto-derives sidebar text color
+2. `ResolveBranding()` in `web/branding.go` resolves logo and favicon URLs and auto-derives sidebar text color
 3. `Renderer.SetBranding()` stores resolved branding once at init
 4. `Renderer.applyBranding()` injects branding fields into every `TemplateData` via `Instance()`
 5. Templates use conditional `{{if .PrimaryColor}}` blocks to inject CSS variable overrides
@@ -210,7 +211,15 @@ Consumers customize admin dashboard appearance via `AdminBrandingConfig` in `cor
 **Logo resolution** (`LogoURL`):
 - URL (`http://` or `https://`): used as-is in `<img src>`
 - File path: file read once at startup, served from memory at `/gui/branding/logo`
-- Content-Type detected via `http.DetectContentType`
+- Content-Type detected via `http.DetectContentType`, with `.svg` → `image/svg+xml` and `.ico` → `image/x-icon`
+
+**Favicon resolution** (`FaviconURL`):
+- Empty: templates keep the built-in shield SVG data URI (does not fall back to `LogoURL`)
+- URL (`http://` or `https://`): used as-is in `<link rel="icon" href>`
+- File path: file read once at startup, served from memory at `/gui/branding/favicon`
+- Same content-type rules as `LogoURL`
+
+GUI CSP `img-src` is `'self' data: https:`, so remote `https://` branding URLs load. `http://` prefixes remain valid in config but are blocked by CSP.
 
 **Sidebar text auto-derivation** (`web/branding.go`):
 - When `SidebarColor` set but `SidebarTextColor` empty: compute WCAG relative luminance
@@ -224,6 +233,7 @@ Consumers customize admin dashboard appearance via `AdminBrandingConfig` in `cor
 - `web/templates/pages/2fa_verify.tmpl` — CSS injection + logo on 2FA page
 
 **Route:** `GET /gui/branding/logo` — registered only when `LogoURL` is a file path.
+**Route:** `GET /gui/branding/favicon` — registered only when `FaviconURL` is a file path.
 
 ## When To Use This Skill
 
