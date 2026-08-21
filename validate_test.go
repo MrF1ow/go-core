@@ -1,6 +1,8 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -156,6 +158,46 @@ func TestValidateConfig_CustomCSSRejectsJavascriptURI(t *testing.T) {
 	cfg := validTestConfig()
 	cfg.Admin.Branding.CustomCSS = "a { background: url(JavaScript:alert(1)); }"
 	assertValidationError(t, cfg, "CustomCSS")
+}
+
+func TestValidateConfig_EmptyFaviconURLIsValid(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.FaviconURL = ""
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error for empty FaviconURL, got: %v", err)
+	}
+}
+
+func TestValidateConfig_HTTPSFaviconURLIsValid(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.FaviconURL = "https://example.com/favicon.ico"
+	if err := ValidateConfig(cfg); err != nil {
+		t.Fatalf("expected no error for https FaviconURL, got: %v", err)
+	}
+}
+
+func TestValidateConfig_MissingFaviconFileRejected(t *testing.T) {
+	cfg := validTestConfig()
+	cfg.Admin.Branding.FaviconURL = "/no/such/favicon.ico"
+	assertValidationError(t, cfg, "FaviconURL")
+}
+
+func TestValidateConfig_FaviconFileTooLarge(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "favicon.ico")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(maxBrandingFileSize + 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := validTestConfig()
+	cfg.Admin.Branding.FaviconURL = path
+	assertValidationError(t, cfg, "FaviconURL")
 }
 
 func validTestConfig() Config {

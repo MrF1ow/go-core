@@ -37,6 +37,7 @@ func main() {
 	// cfg.Admin.Branding = core.AdminBrandingConfig{
 	// 	OrgName:      "Acme Corp",
 	// 	LogoURL:      "https://acme.com/logo.svg", // or local file path
+	// 	FaviconURL:   "https://acme.com/favicon.ico", // or local file path
 	// 	PrimaryColor: "#4f46e5",
 	// 	BorderRadius: "0.75rem",
 	// 	SidebarColor: "#1a1a2e",

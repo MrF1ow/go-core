@@ -67,6 +67,22 @@ func AutoSidebarTextColor(sidebarHex string) string {
 	return "#ffffff"
 }
 
+// BrandingInput is the consumer branding config plus optional in-process serve
+// URLs used when LogoURL or FaviconURL points at a local file.
+type BrandingInput struct {
+	OrgName          string
+	LogoURL          string
+	PrimaryColor     string
+	SecondaryColor   string
+	BorderRadius     string
+	SidebarColor     string
+	SidebarTextColor string
+	CustomCSS        string
+	FaviconURL       string
+	LogoServeURL     string
+	FaviconServeURL  string
+}
+
 // ResolvedBranding holds the fully resolved branding values ready for template
 // rendering. Fields remain empty when the consumer does not configure them.
 type ResolvedBranding struct {
@@ -78,32 +94,37 @@ type ResolvedBranding struct {
 	SidebarColor     string
 	SidebarTextColor string
 	CustomCSS        string
+	FaviconURL       string
 }
 
 // ResolveBranding applies precedence rules to produce a ResolvedBranding:
-//   - logoServeURL overrides logoURL when non-empty (served upload takes priority)
+//   - LogoServeURL / FaviconServeURL override the corresponding URL when non-empty
 //   - sidebarTextColor is used as-is when set; otherwise it is auto-derived from
 //     sidebarColor via WCAG luminance; if sidebarColor is also empty the field is
 //     left blank for the template to apply its own default.
-func ResolveBranding(orgName, logoURL, primaryColor, secondaryColor, borderRadius, sidebarColor, sidebarTextColor, customCSS, logoServeURL string) ResolvedBranding {
+func ResolveBranding(in BrandingInput) ResolvedBranding {
 	resolved := ResolvedBranding{
-		OrgName:        orgName,
-		LogoURL:        logoURL,
-		PrimaryColor:   primaryColor,
-		SecondaryColor: secondaryColor,
-		BorderRadius:   borderRadius,
-		SidebarColor:   sidebarColor,
-		CustomCSS:      customCSS,
+		OrgName:        in.OrgName,
+		LogoURL:        in.LogoURL,
+		PrimaryColor:   in.PrimaryColor,
+		SecondaryColor: in.SecondaryColor,
+		BorderRadius:   in.BorderRadius,
+		SidebarColor:   in.SidebarColor,
+		CustomCSS:      in.CustomCSS,
+		FaviconURL:     in.FaviconURL,
 	}
 
-	if logoServeURL != "" {
-		resolved.LogoURL = logoServeURL
+	if in.LogoServeURL != "" {
+		resolved.LogoURL = in.LogoServeURL
+	}
+	if in.FaviconServeURL != "" {
+		resolved.FaviconURL = in.FaviconServeURL
 	}
 
-	if sidebarTextColor != "" {
-		resolved.SidebarTextColor = sidebarTextColor
-	} else if sidebarColor != "" {
-		resolved.SidebarTextColor = AutoSidebarTextColor(sidebarColor)
+	if in.SidebarTextColor != "" {
+		resolved.SidebarTextColor = in.SidebarTextColor
+	} else if in.SidebarColor != "" {
+		resolved.SidebarTextColor = AutoSidebarTextColor(in.SidebarColor)
 	}
 
 	return resolved

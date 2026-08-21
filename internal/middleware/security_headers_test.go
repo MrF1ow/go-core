@@ -94,6 +94,9 @@ func TestSecurityHeadersCSPGUI(t *testing.T) {
 	if !strings.Contains(csp, "font-src 'self' https://cdn.jsdelivr.net") {
 		t.Errorf("GUI CSP should contain font-src 'self' https://cdn.jsdelivr.net, got %q", csp)
 	}
+	if !strings.Contains(csp, "img-src 'self' data: https:") {
+		t.Errorf("GUI CSP should contain img-src 'self' data: https:, got %q", csp)
+	}
 }
 
 func TestSecurityHeadersHSTSWithTLS(t *testing.T) {

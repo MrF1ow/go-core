@@ -59,6 +59,7 @@ type TemplateData struct {
 	SidebarColor     string
 	SidebarTextColor string
 	CustomCSS        template.CSS
+	FaviconURL       string
 
 	// Page-specific data (each page can put arbitrary data here)
 	Data interface{}
@@ -126,6 +127,7 @@ func (r *Renderer) applyBranding(data interface{}) interface{} {
 		td.SidebarColor = r.branding.SidebarColor
 		td.SidebarTextColor = r.branding.SidebarTextColor
 		td.CustomCSS = template.CSS(r.branding.CustomCSS) // #nosec G203 -- validated in validateBranding before SetBranding.
+		td.FaviconURL = r.branding.FaviconURL
 	}
 
 	switch td := data.(type) {
