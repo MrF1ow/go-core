@@ -218,6 +218,37 @@ CREATE TABLE admin_accounts (
 CREATE UNIQUE INDEX idx_admin_accounts_username ON admin_accounts(username);
 CREATE UNIQUE INDEX idx_admin_accounts_email    ON admin_accounts(email);
 
+-- ─── operator_permissions ─────────────────────────────────────────────────────
+
+CREATE TABLE operator_permissions (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    resource    VARCHAR(100) NOT NULL,
+    action      VARCHAR(100) NOT NULL,
+    description TEXT         NOT NULL DEFAULT '',
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT idx_operator_permission_resource_action UNIQUE (resource, action)
+);
+
+-- ─── operator_roles ───────────────────────────────────────────────────────────
+
+CREATE TABLE operator_roles (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        VARCHAR(100) NOT NULL,
+    description TEXT         NOT NULL DEFAULT '',
+    is_system   BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT idx_operator_roles_name UNIQUE (name)
+);
+
+-- ─── operator_role_permissions ────────────────────────────────────────────────
+
+CREATE TABLE operator_role_permissions (
+    role_id       UUID NOT NULL REFERENCES operator_roles(id)       ON DELETE CASCADE,
+    permission_id UUID NOT NULL REFERENCES operator_permissions(id) ON DELETE CASCADE,
+    PRIMARY KEY (role_id, permission_id)
+);
+
 -- ─── api_keys ─────────────────────────────────────────────────────────────────
 
 CREATE TABLE api_keys (
@@ -230,6 +261,7 @@ CREATE TABLE api_keys (
     key_suffix       VARCHAR(4)  NOT NULL,
     app_id           UUID        REFERENCES applications(id) ON DELETE CASCADE,
     scopes           TEXT        NOT NULL DEFAULT '',
+    operator_role_id UUID        REFERENCES operator_roles(id) ON DELETE RESTRICT,
     expires_at       TIMESTAMPTZ,
     last_used_at     TIMESTAMPTZ,
     notified_7_days_at TIMESTAMPTZ,
@@ -244,6 +276,7 @@ CREATE INDEX idx_api_keys_key_type          ON api_keys(key_type);
 CREATE INDEX idx_api_keys_app_id            ON api_keys(app_id);
 CREATE INDEX idx_api_keys_is_revoked        ON api_keys(is_revoked);
 CREATE INDEX idx_api_keys_expires_at        ON api_keys(expires_at);
+CREATE INDEX idx_api_keys_operator_role_id  ON api_keys(operator_role_id);
 CREATE INDEX idx_api_keys_active_lookup     ON api_keys(key_hash, is_revoked) WHERE is_revoked = FALSE;
 
 -- ─── api_key_usages ───────────────────────────────────────────────────────────

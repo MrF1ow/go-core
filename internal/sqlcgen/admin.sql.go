@@ -283,25 +283,26 @@ func (q *Queries) AdminCountVerifiedPhoneUsers(ctx context.Context) (int64, erro
 
 const adminCreateApiKey = `-- name: AdminCreateApiKey :one
 
-INSERT INTO api_keys (id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, expires_at, is_revoked, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, expires_at, last_used_at, notified_7_days_at, notified_1_day_at, is_revoked, created_at, updated_at
+INSERT INTO api_keys (id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, operator_role_id, expires_at, is_revoked, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, operator_role_id, expires_at, last_used_at, notified_7_days_at, notified_1_day_at, is_revoked, created_at, updated_at
 `
 
 type AdminCreateApiKeyParams struct {
-	ID          uuid.UUID          `json:"id"`
-	KeyType     string             `json:"key_type"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	KeyHash     string             `json:"key_hash"`
-	KeyPrefix   string             `json:"key_prefix"`
-	KeySuffix   string             `json:"key_suffix"`
-	AppID       pgtype.UUID        `json:"app_id"`
-	Scopes      string             `json:"scopes"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
-	IsRevoked   bool               `json:"is_revoked"`
-	CreatedAt   time.Time          `json:"created_at"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+	ID             uuid.UUID          `json:"id"`
+	KeyType        string             `json:"key_type"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	KeyHash        string             `json:"key_hash"`
+	KeyPrefix      string             `json:"key_prefix"`
+	KeySuffix      string             `json:"key_suffix"`
+	AppID          pgtype.UUID        `json:"app_id"`
+	Scopes         string             `json:"scopes"`
+	OperatorRoleID pgtype.UUID        `json:"operator_role_id"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	IsRevoked      bool               `json:"is_revoked"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
 }
 
 // ============ API KEYS ============
@@ -316,6 +317,7 @@ func (q *Queries) AdminCreateApiKey(ctx context.Context, arg AdminCreateApiKeyPa
 		arg.KeySuffix,
 		arg.AppID,
 		arg.Scopes,
+		arg.OperatorRoleID,
 		arg.ExpiresAt,
 		arg.IsRevoked,
 		arg.CreatedAt,
@@ -332,6 +334,7 @@ func (q *Queries) AdminCreateApiKey(ctx context.Context, arg AdminCreateApiKeyPa
 		&i.KeySuffix,
 		&i.AppID,
 		&i.Scopes,
+		&i.OperatorRoleID,
 		&i.ExpiresAt,
 		&i.LastUsedAt,
 		&i.Notified7DaysAt,
@@ -991,7 +994,7 @@ func (q *Queries) AdminExportUsers(ctx context.Context, arg AdminExportUsersPara
 }
 
 const adminFindActiveKeyByHash = `-- name: AdminFindActiveKeyByHash :one
-SELECT id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, expires_at, last_used_at, notified_7_days_at, notified_1_day_at, is_revoked, created_at, updated_at FROM api_keys WHERE key_hash = $1 AND is_revoked = false
+SELECT id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, operator_role_id, expires_at, last_used_at, notified_7_days_at, notified_1_day_at, is_revoked, created_at, updated_at FROM api_keys WHERE key_hash = $1 AND is_revoked = false
 `
 
 func (q *Queries) AdminFindActiveKeyByHash(ctx context.Context, keyHash string) (ApiKey, error) {
@@ -1007,6 +1010,7 @@ func (q *Queries) AdminFindActiveKeyByHash(ctx context.Context, keyHash string) 
 		&i.KeySuffix,
 		&i.AppID,
 		&i.Scopes,
+		&i.OperatorRoleID,
 		&i.ExpiresAt,
 		&i.LastUsedAt,
 		&i.Notified7DaysAt,
@@ -1072,7 +1076,7 @@ func (q *Queries) AdminGetActivityLogDetail(ctx context.Context, id uuid.UUID) (
 }
 
 const adminGetApiKeyByID = `-- name: AdminGetApiKeyByID :one
-SELECT id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, expires_at, last_used_at, notified_7_days_at, notified_1_day_at, is_revoked, created_at, updated_at FROM api_keys WHERE id = $1
+SELECT id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, operator_role_id, expires_at, last_used_at, notified_7_days_at, notified_1_day_at, is_revoked, created_at, updated_at FROM api_keys WHERE id = $1
 `
 
 func (q *Queries) AdminGetApiKeyByID(ctx context.Context, id uuid.UUID) (ApiKey, error) {
@@ -1088,6 +1092,7 @@ func (q *Queries) AdminGetApiKeyByID(ctx context.Context, id uuid.UUID) (ApiKey,
 		&i.KeySuffix,
 		&i.AppID,
 		&i.Scopes,
+		&i.OperatorRoleID,
 		&i.ExpiresAt,
 		&i.LastUsedAt,
 		&i.Notified7DaysAt,
@@ -1378,7 +1383,7 @@ func (q *Queries) AdminGetFirstActiveOIDCClientLoginTheme(ctx context.Context, a
 }
 
 const adminGetKeysExpiringWithin = `-- name: AdminGetKeysExpiringWithin :many
-SELECT id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, expires_at, last_used_at, notified_7_days_at, notified_1_day_at, is_revoked, created_at, updated_at FROM api_keys
+SELECT id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, operator_role_id, expires_at, last_used_at, notified_7_days_at, notified_1_day_at, is_revoked, created_at, updated_at FROM api_keys
 WHERE is_revoked = false
   AND expires_at IS NOT NULL
   AND expires_at > NOW()
@@ -1404,6 +1409,7 @@ func (q *Queries) AdminGetKeysExpiringWithin(ctx context.Context, expiresAt pgty
 			&i.KeySuffix,
 			&i.AppID,
 			&i.Scopes,
+			&i.OperatorRoleID,
 			&i.ExpiresAt,
 			&i.LastUsedAt,
 			&i.Notified7DaysAt,
@@ -2262,10 +2268,12 @@ SELECT ak.id, ak.key_type, ak.name,
        ak.last_used_at, ak.is_revoked,
        ak.created_at,
        COALESCE(a.name, '') AS app_name,
-       COALESCE(t.name, '') AS tenant_name
+       COALESCE(t.name, '') AS tenant_name,
+       COALESCE(r.name, '') AS operator_role_name
 FROM api_keys ak
 LEFT JOIN applications a ON a.id = ak.app_id
 LEFT JOIN tenants t ON t.id = a.tenant_id
+LEFT JOIN operator_roles r ON r.id = ak.operator_role_id
 WHERE ($3::text IS NULL OR ak.key_type = $3::text)
 ORDER BY ak.created_at DESC
 LIMIT $1 OFFSET $2
@@ -2278,19 +2286,20 @@ type AdminListApiKeysParams struct {
 }
 
 type AdminListApiKeysRow struct {
-	ID         uuid.UUID          `json:"id"`
-	KeyType    string             `json:"key_type"`
-	Name       string             `json:"name"`
-	KeyPrefix  string             `json:"key_prefix"`
-	KeySuffix  string             `json:"key_suffix"`
-	Scopes     string             `json:"scopes"`
-	AppID      pgtype.UUID        `json:"app_id"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
-	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
-	IsRevoked  bool               `json:"is_revoked"`
-	CreatedAt  time.Time          `json:"created_at"`
-	AppName    string             `json:"app_name"`
-	TenantName string             `json:"tenant_name"`
+	ID               uuid.UUID          `json:"id"`
+	KeyType          string             `json:"key_type"`
+	Name             string             `json:"name"`
+	KeyPrefix        string             `json:"key_prefix"`
+	KeySuffix        string             `json:"key_suffix"`
+	Scopes           string             `json:"scopes"`
+	AppID            pgtype.UUID        `json:"app_id"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	LastUsedAt       pgtype.Timestamptz `json:"last_used_at"`
+	IsRevoked        bool               `json:"is_revoked"`
+	CreatedAt        time.Time          `json:"created_at"`
+	AppName          string             `json:"app_name"`
+	TenantName       string             `json:"tenant_name"`
+	OperatorRoleName string             `json:"operator_role_name"`
 }
 
 func (q *Queries) AdminListApiKeys(ctx context.Context, arg AdminListApiKeysParams) ([]AdminListApiKeysRow, error) {
@@ -2316,6 +2325,7 @@ func (q *Queries) AdminListApiKeys(ctx context.Context, arg AdminListApiKeysPara
 			&i.CreatedAt,
 			&i.AppName,
 			&i.TenantName,
+			&i.OperatorRoleName,
 		); err != nil {
 			return nil, err
 		}
@@ -2906,34 +2916,38 @@ func (q *Queries) AdminUnlockUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const adminUpdateApiKey = `-- name: AdminUpdateApiKey :exec
+UPDATE api_keys SET name = $2, description = $3, scopes = $4, operator_role_id = $5, expires_at = $6, updated_at = NOW()
+WHERE id = $1
+`
+
+type AdminUpdateApiKeyParams struct {
+	ID             uuid.UUID          `json:"id"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	Scopes         string             `json:"scopes"`
+	OperatorRoleID pgtype.UUID        `json:"operator_role_id"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) AdminUpdateApiKey(ctx context.Context, arg AdminUpdateApiKeyParams) error {
+	_, err := q.db.Exec(ctx, adminUpdateApiKey,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.Scopes,
+		arg.OperatorRoleID,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
 const adminUpdateApiKeyLastUsed = `-- name: AdminUpdateApiKeyLastUsed :exec
 UPDATE api_keys SET last_used_at = NOW() WHERE id = $1
 `
 
 func (q *Queries) AdminUpdateApiKeyLastUsed(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, adminUpdateApiKeyLastUsed, id)
-	return err
-}
-
-const adminUpdateApiKeyScopes = `-- name: AdminUpdateApiKeyScopes :exec
-UPDATE api_keys SET name = $2, description = $3, scopes = $4, updated_at = NOW()
-WHERE id = $1
-`
-
-type AdminUpdateApiKeyScopesParams struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Scopes      string    `json:"scopes"`
-}
-
-func (q *Queries) AdminUpdateApiKeyScopes(ctx context.Context, arg AdminUpdateApiKeyScopesParams) error {
-	_, err := q.db.Exec(ctx, adminUpdateApiKeyScopes,
-		arg.ID,
-		arg.Name,
-		arg.Description,
-		arg.Scopes,
-	)
 	return err
 }
 

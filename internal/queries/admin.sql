@@ -437,8 +437,8 @@ LIMIT $1;
 -- ============ API KEYS ============
 
 -- name: AdminCreateApiKey :one
-INSERT INTO api_keys (id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, expires_at, is_revoked, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO api_keys (id, key_type, name, description, key_hash, key_prefix, key_suffix, app_id, scopes, operator_role_id, expires_at, is_revoked, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: AdminCountApiKeys :one
@@ -453,10 +453,12 @@ SELECT ak.id, ak.key_type, ak.name,
        ak.last_used_at, ak.is_revoked,
        ak.created_at,
        COALESCE(a.name, '') AS app_name,
-       COALESCE(t.name, '') AS tenant_name
+       COALESCE(t.name, '') AS tenant_name,
+       COALESCE(r.name, '') AS operator_role_name
 FROM api_keys ak
 LEFT JOIN applications a ON a.id = ak.app_id
 LEFT JOIN tenants t ON t.id = a.tenant_id
+LEFT JOIN operator_roles r ON r.id = ak.operator_role_id
 WHERE (sqlc.narg('key_type')::text IS NULL OR ak.key_type = sqlc.narg('key_type')::text)
 ORDER BY ak.created_at DESC
 LIMIT $1 OFFSET $2;
@@ -476,8 +478,8 @@ SELECT * FROM api_keys WHERE key_hash = $1 AND is_revoked = false;
 -- name: AdminUpdateApiKeyLastUsed :exec
 UPDATE api_keys SET last_used_at = NOW() WHERE id = $1;
 
--- name: AdminUpdateApiKeyScopes :exec
-UPDATE api_keys SET name = $2, description = $3, scopes = $4, updated_at = NOW()
+-- name: AdminUpdateApiKey :exec
+UPDATE api_keys SET name = $2, description = $3, scopes = $4, operator_role_id = $5, expires_at = $6, updated_at = NOW()
 WHERE id = $1;
 
 -- name: AdminGetKeysExpiringWithin :many

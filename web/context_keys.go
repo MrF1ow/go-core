@@ -47,8 +47,12 @@ const (
 	AuthTypeApp = "app"
 
 	// ApiKeyScopesKey is the Gin context key for the scopes granted by the validated API key.
-	// Value is []string; set by AppApiKeyMiddleware and AdminAuthMiddleware after successful validation.
+	// Value is []string; set by AppApiKeyMiddleware after successful validation.
+	// Admin JSON auth does not set this. Operator grants live on OperatorPrincipalKey.
 	ApiKeyScopesKey = "api_key_scopes" // #nosec G101 -- context key string, not a credential
+
+	// OperatorPrincipalKey holds *operator.Principal after AdminAuthMiddleware.
+	OperatorPrincipalKey = "operator_principal"
 )
 
 // SessionValidator is the interface used by GUI middleware to validate sessions

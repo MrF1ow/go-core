@@ -62,6 +62,10 @@ func (m *mockKeyStore) UpdateApiKeyLastUsed(id uuid.UUID) {
 	// No-op for testing
 }
 
+func (m *mockKeyStore) IncrementDailyUsage(id uuid.UUID) {
+	// No-op for testing
+}
+
 // addKey creates and stores a mock API key, returning the raw key string.
 func (m *mockKeyStore) addKey(keyType string, appID *uuid.UUID, revoked bool, expiresAt *time.Time) string {
 	rawKey, keyHash, _, _ := generateTestKey(keyType)
@@ -130,7 +134,7 @@ func buildAppRouter(store *mockKeyStore) *gin.Engine {
 
 	// Admin route group (for cross-testing)
 	adminRoutes := r.Group("/admin")
-	adminRoutes.Use(AdminAuthMiddleware(store))
+	adminRoutes.Use(AdminAuthMiddleware("", store, nil))
 	{
 		adminRoutes.GET("/apps/:id/email-config", func(c *gin.Context) {
 			authType, _ := c.Get(web.AuthTypeKey)

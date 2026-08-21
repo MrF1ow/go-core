@@ -19,6 +19,7 @@ import (
 	healthpkg "github.com/MrF1ow/go-core/internal/health"
 	logService "github.com/MrF1ow/go-core/internal/log"
 	oidcpkg "github.com/MrF1ow/go-core/internal/oidc"
+	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/internal/rbac"
 	"github.com/MrF1ow/go-core/internal/redis"
 	"github.com/MrF1ow/go-core/internal/twofa"
@@ -69,6 +70,7 @@ type GUIHandler struct {
 	OIDCService       *oidcpkg.Service               // OIDC provider service (nil = OIDC disabled)
 	TrustedDeviceRepo *twofa.TrustedDeviceRepository // Trusted device repository (nil = feature disabled)
 	HealthHandler     *healthpkg.Handler             // System health + metrics (nil = monitoring disabled)
+	OperatorRepo      *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
 	AdminSessionTTL   time.Duration                  // Admin session cookie TTL
 	AdminBaseURL      string                         // Base URL for admin links (e.g. magic link emails)
 	AccessTokenTTL    time.Duration                  // Access token TTL (used for session status display)
@@ -1973,7 +1975,9 @@ func (h *GUIHandler) ApiKeyCreateForm(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "api_key_form", gin.H{
-		"Apps": apps,
+		"Apps":          apps,
+		"OperatorRoles": operatorRoleOptions(),
+		"DefaultRoleID": operator.RoleIDViewer.String(),
 	})
 }
 
@@ -2026,23 +2030,25 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 		appName = app.Name
 	}
 
-	// Parse optional expiration
-	var expiresAt *time.Time
+	expiresAt, err := parseOptionalExpiresAt(expiresAtStr, time.Now())
+	if err != nil {
+		c.String(http.StatusBadRequest,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid expiration date. Leave blank for forever.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
 	var expiresAtDisplay string
-	if expiresAtStr != "" {
-		t, err := time.Parse("2006-01-02T15:04", expiresAtStr)
-		if err != nil {
-			c.String(http.StatusBadRequest,
-				`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid expiration date format.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
-			return
-		}
-		if t.Before(time.Now()) {
-			c.String(http.StatusBadRequest,
-				`<div class="alert alert-danger alert-dismissible fade show" role="alert">Expiration date must be in the future.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
-			return
-		}
-		expiresAt = &t
-		expiresAtDisplay = t.Format("Jan 02, 2006 15:04")
+	if expiresAt != nil {
+		expiresAtDisplay = expiresAt.Format("Jan 02, 2006 15:04")
+	}
+
+	roleID, err := resolveAdminOperatorRoleID(keyType, c.PostForm("operator_role_id"))
+	if err != nil {
+		c.String(http.StatusBadRequest,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid operator role.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
+	if keyType == KeyTypeAdmin {
+		scopes = ""
 	}
 
 	// Generate the key
@@ -2055,15 +2061,16 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 
 	// Create the DB record
 	apiKey := &models.ApiKey{
-		KeyType:     keyType,
-		Name:        name,
-		Description: description,
-		Scopes:      scopes,
-		KeyHash:     keyHash,
-		KeyPrefix:   keyPrefix,
-		KeySuffix:   keySuffix,
-		AppID:       appID,
-		ExpiresAt:   expiresAt,
+		KeyType:        keyType,
+		Name:           name,
+		Description:    description,
+		Scopes:         scopes,
+		OperatorRoleID: roleID,
+		KeyHash:        keyHash,
+		KeyPrefix:      keyPrefix,
+		KeySuffix:      keySuffix,
+		AppID:          appID,
+		ExpiresAt:      expiresAt,
 	}
 	if err := h.Repo.CreateApiKey(apiKey); err != nil {
 		c.String(http.StatusInternalServerError,
@@ -2220,13 +2227,16 @@ func (h *GUIHandler) ApiKeyEditForm(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "api_key_edit_form", gin.H{
-		"ID":          apiKey.ID,
-		"Name":        apiKey.Name,
-		"Description": apiKey.Description,
-		"Scopes":      apiKey.Scopes,
-		"KeyType":     apiKey.KeyType,
-		"KeyPrefix":   apiKey.KeyPrefix,
-		"KeySuffix":   apiKey.KeySuffix,
+		"ID":             apiKey.ID,
+		"Name":           apiKey.Name,
+		"Description":    apiKey.Description,
+		"Scopes":         apiKey.Scopes,
+		"KeyType":        apiKey.KeyType,
+		"KeyPrefix":      apiKey.KeyPrefix,
+		"KeySuffix":      apiKey.KeySuffix,
+		"OperatorRoleID": uuidPtrString(apiKey.OperatorRoleID),
+		"ExpiresAtLocal": formatExpiresAtLocal(apiKey.ExpiresAt),
+		"OperatorRoles":  operatorRoleOptions(),
 	})
 }
 
@@ -2244,7 +2254,31 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		return
 	}
 
-	if err := h.Repo.UpdateApiKeyScopes(id, name, description, scopes); err != nil {
+	existing, err := h.Repo.GetApiKeyByID(id)
+	if err != nil {
+		c.String(http.StatusNotFound,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">API key not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
+
+	expiresAt, err := parseOptionalExpiresAtKeeping(c.PostForm("expires_at"), time.Now(), existing.ExpiresAt)
+	if err != nil {
+		c.String(http.StatusBadRequest,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid expiration date. Leave blank for forever.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
+
+	roleID, err := resolveAdminOperatorRoleID(existing.KeyType, c.PostForm("operator_role_id"))
+	if err != nil {
+		c.String(http.StatusBadRequest,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid operator role.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
+	if existing.KeyType == KeyTypeAdmin {
+		scopes = ""
+	}
+
+	if err := h.Repo.UpdateApiKey(id, name, description, scopes, roleID, expiresAt); err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to update API key.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return

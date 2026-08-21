@@ -4,7 +4,14 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/MrF1ow/go-core/internal/operator"
 )
 
 const (
@@ -56,3 +63,84 @@ func HashApiKey(rawKey string) string {
 	h := sha256.Sum256([]byte(rawKey))
 	return hex.EncodeToString(h[:])
 }
+
+func parseOptionalExpiresAt(raw string, now time.Time) (*time.Time, error) {
+	return parseOptionalExpiresAtKeeping(raw, now, nil)
+}
+
+// parseOptionalExpiresAtKeeping treats a posted datetime-local value that still
+// matches the stored instant (minute precision, same format as the edit form)
+// as "leave expiry alone". That lets operators change name, description, or
+// role on a key whose expiry has already passed. Clearing the field is forever.
+// Any other posted value must be strictly after now, same as create.
+func parseOptionalExpiresAtKeeping(raw string, now time.Time, current *time.Time) (*time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	if current != nil && raw == formatExpiresAtLocal(current) {
+		return current, nil
+	}
+	t, err := time.Parse("2006-01-02T15:04", raw)
+	if err != nil {
+		return nil, err
+	}
+	if !t.After(now) {
+		return nil, errExpiresInPast
+	}
+	return &t, nil
+}
+
+func formatExpiresAtLocal(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format("2006-01-02T15:04")
+}
+
+func resolveAdminOperatorRoleID(keyType, roleIDStr string) (*uuid.UUID, error) {
+	if keyType != KeyTypeAdmin {
+		return nil, nil
+	}
+	roleIDStr = strings.TrimSpace(roleIDStr)
+	if roleIDStr == "" {
+		id := operator.RoleIDViewer
+		return &id, nil
+	}
+	id, err := uuid.Parse(roleIDStr)
+	if err != nil {
+		return nil, err
+	}
+	switch id {
+	case operator.RoleIDSuperadmin, operator.RoleIDAdmin, operator.RoleIDSupport, operator.RoleIDViewer:
+		return &id, nil
+	default:
+		return nil, errUnknownOperatorRole
+	}
+}
+
+func uuidPtrString(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
+}
+
+type operatorRoleOption struct {
+	ID   uuid.UUID
+	Name string
+}
+
+func operatorRoleOptions() []operatorRoleOption {
+	return []operatorRoleOption{
+		{ID: operator.RoleIDViewer, Name: operator.RoleViewer},
+		{ID: operator.RoleIDSupport, Name: operator.RoleSupport},
+		{ID: operator.RoleIDAdmin, Name: operator.RoleAdmin},
+		{ID: operator.RoleIDSuperadmin, Name: operator.RoleSuperadmin},
+	}
+}
+
+var (
+	errExpiresInPast       = errors.New("expiration date must be in the future")
+	errUnknownOperatorRole = errors.New("unknown operator role")
+)

@@ -27,6 +27,7 @@ import (
 	logService "github.com/MrF1ow/go-core/internal/log"
 	"github.com/MrF1ow/go-core/internal/middleware"
 	"github.com/MrF1ow/go-core/internal/oidc"
+	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/internal/rbac"
 	"github.com/MrF1ow/go-core/internal/redis"
 	"github.com/MrF1ow/go-core/internal/session"
@@ -70,6 +71,7 @@ type App struct {
 	rbacService         *rbac.Service
 	accountService      *admin.AccountService
 	adminRepo           *admin.Repository
+	operatorRepo        *operator.Repository
 	sessionGroupRevoker *sessiongroup.Revoker
 	settingsService     *admin.SettingsService
 
@@ -233,6 +235,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 	logHandler := logService.NewHandler(logQueryService)
 	sessionHandler := session.NewHandler(sessionService)
 	adminRepo := admin.NewRepository(pool)
+	operatorRepo := operator.NewRepository(pool)
 	adminHandler := admin.NewHandler(adminRepo, emailService)
 
 	// Wire resolver callbacks so the email variable resolver can look up email types, users, and apps
@@ -271,6 +274,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 	}
 	settingsService := admin.NewSettingsService(settingsRepo, pool, redisAddr, cfg.Port, cfg.GinMode)
 	guiHandler := admin.NewGUIHandler(accountService, dashboardService, adminRepo, settingsService, emailService, rbacService, webauthnService)
+	guiHandler.OperatorRepo = operatorRepo
 	guiHandler.AdminBaseURL = cfg.Admin.BaseURL
 	guiHandler.AccessTokenTTL = cfg.JWT.AccessTokenTTL
 	guiHandler.AdminSessionTTL = cfg.Admin.SessionTTL
@@ -416,6 +420,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 		rbacService:           rbacService,
 		accountService:        accountService,
 		adminRepo:             adminRepo,
+		operatorRepo:          operatorRepo,
 		sessionGroupRevoker:   sessionGroupRevoker,
 		settingsService:       settingsService,
 		webhookService:        webhookService,
@@ -518,7 +523,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	}
 
 	// Metrics endpoint (Admin API Key required)
-	metricsGroup := r.Group("", middleware.AdminAuthMiddleware(cfg.Admin.APIKey, a.adminRepo))
+	metricsGroup := r.Group("", a.adminAuth(), requireOp(operator.ResMonitoring, operator.ActionRead))
 	{
 		metricsGroup.GET("/metrics", a.healthHandler.Metrics)
 	}
@@ -627,86 +632,77 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 
 	// Admin routes (protected by Admin API Key)
 	adminRoutes := r.Group("/admin")
-	adminRoutes.Use(middleware.AdminAuthMiddleware(cfg.Admin.APIKey, a.adminRepo))
+	adminRoutes.Use(a.adminAuth())
 	{
-		adminRoutes.GET("/activity-logs", a.logHandler.GetAllActivityLogs)
-		adminRoutes.GET("/activity-logs/export", a.logHandler.ExportAllActivityLogs)
+		adminRoutes.GET("/activity-logs", requireOp(operator.ResLogs, operator.ActionRead), a.logHandler.GetAllActivityLogs)
+		adminRoutes.GET("/activity-logs/export", requireOp(operator.ResLogs, operator.ActionRead), a.logHandler.ExportAllActivityLogs)
 
-		// Multi-tenancy Management
-		adminRoutes.POST("/tenants", a.adminHandler.CreateTenant)
-		adminRoutes.GET("/tenants", a.adminHandler.ListTenants)
-		adminRoutes.POST("/apps", a.adminHandler.CreateApp)
-		adminRoutes.GET("/apps/:id", a.adminHandler.GetAppDetails)
-		adminRoutes.POST("/apps/:id/oauth-config", a.adminHandler.UpsertOAuthConfig)
+		adminRoutes.POST("/tenants", requireOp(operator.ResTenants, operator.ActionWrite), a.adminHandler.CreateTenant)
+		adminRoutes.GET("/tenants", requireOp(operator.ResTenants, operator.ActionRead), a.adminHandler.ListTenants)
+		adminRoutes.POST("/apps", requireOp(operator.ResApplications, operator.ActionWrite), a.adminHandler.CreateApp)
+		adminRoutes.GET("/apps/:id", requireOp(operator.ResApplications, operator.ActionRead), a.adminHandler.GetAppDetails)
+		adminRoutes.POST("/apps/:id/oauth-config", requireOp(operator.ResOAuth, operator.ActionWrite), a.adminHandler.UpsertOAuthConfig)
 
-		// Email management API
-		adminRoutes.GET("/email-types", a.adminHandler.ListEmailTypes)
-		adminRoutes.GET("/email-types/:code", a.adminHandler.GetEmailType)
-		adminRoutes.GET("/email-variables", a.adminHandler.ListWellKnownVariables)
-		adminRoutes.GET("/email-templates", a.adminHandler.ListEmailTemplates)
-		adminRoutes.GET("/email-templates/:id", a.adminHandler.GetEmailTemplate)
-		adminRoutes.POST("/email-templates", a.adminHandler.SaveEmailTemplate)
-		adminRoutes.DELETE("/email-templates/:id", a.adminHandler.DeleteEmailTemplate)
-		adminRoutes.POST("/email-templates/preview", a.adminHandler.PreviewEmailTemplate)
-		adminRoutes.GET("/apps/:id/email-config", a.adminHandler.GetEmailServerConfig)
-		adminRoutes.PUT("/apps/:id/email-config", a.adminHandler.SaveEmailServerConfig)
-		adminRoutes.DELETE("/apps/:id/email-config", a.adminHandler.DeleteEmailServerConfig)
-		adminRoutes.POST("/apps/:id/email-test", a.adminHandler.SendTestEmail)
-		adminRoutes.GET("/apps/:id/email-servers", a.adminHandler.ListEmailServerConfigsByApp)
+		adminRoutes.GET("/email-types", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.ListEmailTypes)
+		adminRoutes.GET("/email-types/:code", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.GetEmailType)
+		adminRoutes.GET("/email-variables", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.ListWellKnownVariables)
+		adminRoutes.GET("/email-templates", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.ListEmailTemplates)
+		adminRoutes.GET("/email-templates/:id", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.GetEmailTemplate)
+		adminRoutes.POST("/email-templates", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.SaveEmailTemplate)
+		adminRoutes.DELETE("/email-templates/:id", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.DeleteEmailTemplate)
+		adminRoutes.POST("/email-templates/preview", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.PreviewEmailTemplate)
+		adminRoutes.GET("/apps/:id/email-config", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.GetEmailServerConfig)
+		adminRoutes.PUT("/apps/:id/email-config", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.SaveEmailServerConfig)
+		adminRoutes.DELETE("/apps/:id/email-config", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.DeleteEmailServerConfig)
+		adminRoutes.POST("/apps/:id/email-test", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.SendTestEmail)
+		adminRoutes.GET("/apps/:id/email-servers", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.ListEmailServerConfigsByApp)
 
-		// Email server config CRUD
-		adminRoutes.GET("/email-servers", a.adminHandler.ListAllEmailServerConfigs)
-		adminRoutes.GET("/email-servers/:id", a.adminHandler.GetEmailServerConfigByID)
-		adminRoutes.POST("/email-servers", a.adminHandler.CreateEmailServerConfig)
-		adminRoutes.PUT("/email-servers/:id", a.adminHandler.UpdateEmailServerConfigByID)
-		adminRoutes.DELETE("/email-servers/:id", a.adminHandler.DeleteEmailServerConfigByID)
-		adminRoutes.POST("/email-servers/:id/test", a.adminHandler.SendTestEmailByConfigID)
+		adminRoutes.GET("/email-servers", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.ListAllEmailServerConfigs)
+		adminRoutes.GET("/email-servers/:id", requireOp(operator.ResEmail, operator.ActionRead), a.adminHandler.GetEmailServerConfigByID)
+		adminRoutes.POST("/email-servers", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.CreateEmailServerConfig)
+		adminRoutes.PUT("/email-servers/:id", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.UpdateEmailServerConfigByID)
+		adminRoutes.DELETE("/email-servers/:id", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.DeleteEmailServerConfigByID)
+		adminRoutes.POST("/email-servers/:id/test", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.SendTestEmailByConfigID)
 
-		// Email type CRUD & send email
-		adminRoutes.POST("/email-types", a.adminHandler.CreateEmailType)
-		adminRoutes.PUT("/email-types/:id", a.adminHandler.UpdateEmailType)
-		adminRoutes.DELETE("/email-types/:id", a.adminHandler.DeleteEmailType)
-		adminRoutes.POST("/apps/:id/send-email", a.adminHandler.SendCustomEmail)
+		adminRoutes.POST("/email-types", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.CreateEmailType)
+		adminRoutes.PUT("/email-types/:id", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.UpdateEmailType)
+		adminRoutes.DELETE("/email-types/:id", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.DeleteEmailType)
+		adminRoutes.POST("/apps/:id/send-email", requireOp(operator.ResEmail, operator.ActionWrite), a.adminHandler.SendCustomEmail)
 
-		// RBAC Management
-		adminRoutes.GET("/rbac/roles", a.rbacHandler.ListRoles)
-		adminRoutes.GET("/rbac/roles/:id", a.rbacHandler.GetRole)
-		adminRoutes.POST("/rbac/roles", a.rbacHandler.CreateRole)
-		adminRoutes.PUT("/rbac/roles/:id", a.rbacHandler.UpdateRole)
-		adminRoutes.DELETE("/rbac/roles/:id", a.rbacHandler.DeleteRole)
-		adminRoutes.PUT("/rbac/roles/:id/permissions", a.rbacHandler.SetRolePermissions)
-		adminRoutes.GET("/rbac/permissions", a.rbacHandler.ListPermissions)
-		adminRoutes.POST("/rbac/permissions", a.rbacHandler.CreatePermission)
-		adminRoutes.GET("/rbac/user-roles", a.rbacHandler.ListUserRoles)
-		adminRoutes.POST("/rbac/user-roles", a.rbacHandler.AssignRole)
-		adminRoutes.DELETE("/rbac/user-roles", a.rbacHandler.RevokeRole)
-		adminRoutes.GET("/rbac/user-roles/user", a.rbacHandler.GetUserRoles)
+		adminRoutes.GET("/rbac/roles", requireOp(operator.ResEndUserRBAC, operator.ActionRead), a.rbacHandler.ListRoles)
+		adminRoutes.GET("/rbac/roles/:id", requireOp(operator.ResEndUserRBAC, operator.ActionRead), a.rbacHandler.GetRole)
+		adminRoutes.POST("/rbac/roles", requireOp(operator.ResEndUserRBAC, operator.ActionWrite), a.rbacHandler.CreateRole)
+		adminRoutes.PUT("/rbac/roles/:id", requireOp(operator.ResEndUserRBAC, operator.ActionWrite), a.rbacHandler.UpdateRole)
+		adminRoutes.DELETE("/rbac/roles/:id", requireOp(operator.ResEndUserRBAC, operator.ActionWrite), a.rbacHandler.DeleteRole)
+		adminRoutes.PUT("/rbac/roles/:id/permissions", requireOp(operator.ResEndUserRBAC, operator.ActionWrite), a.rbacHandler.SetRolePermissions)
+		adminRoutes.GET("/rbac/permissions", requireOp(operator.ResEndUserRBAC, operator.ActionRead), a.rbacHandler.ListPermissions)
+		adminRoutes.POST("/rbac/permissions", requireOp(operator.ResEndUserRBAC, operator.ActionWrite), a.rbacHandler.CreatePermission)
+		adminRoutes.GET("/rbac/user-roles", requireOp(operator.ResEndUserRBAC, operator.ActionRead), a.rbacHandler.ListUserRoles)
+		adminRoutes.POST("/rbac/user-roles", requireOp(operator.ResEndUserRBAC, operator.ActionWrite), a.rbacHandler.AssignRole)
+		adminRoutes.DELETE("/rbac/user-roles", requireOp(operator.ResEndUserRBAC, operator.ActionWrite), a.rbacHandler.RevokeRole)
+		adminRoutes.GET("/rbac/user-roles/user", requireOp(operator.ResEndUserRBAC, operator.ActionRead), a.rbacHandler.GetUserRoles)
 
-		// IP Rule Management
-		adminRoutes.GET("/apps/:id/ip-rules", a.adminHandler.ListIPRules)
-		adminRoutes.POST("/apps/:id/ip-rules", a.adminHandler.CreateIPRule)
-		adminRoutes.GET("/apps/:id/ip-rules/:rule_id", a.adminHandler.GetIPRule)
-		adminRoutes.PUT("/apps/:id/ip-rules/:rule_id", a.adminHandler.UpdateIPRule)
-		adminRoutes.DELETE("/apps/:id/ip-rules/:rule_id", a.adminHandler.DeleteIPRule)
-		adminRoutes.POST("/apps/:id/ip-rules/check", a.adminHandler.CheckIPAccess)
+		adminRoutes.GET("/apps/:id/ip-rules", requireOp(operator.ResIPRules, operator.ActionRead), a.adminHandler.ListIPRules)
+		adminRoutes.POST("/apps/:id/ip-rules", requireOp(operator.ResIPRules, operator.ActionWrite), a.adminHandler.CreateIPRule)
+		adminRoutes.GET("/apps/:id/ip-rules/:rule_id", requireOp(operator.ResIPRules, operator.ActionRead), a.adminHandler.GetIPRule)
+		adminRoutes.PUT("/apps/:id/ip-rules/:rule_id", requireOp(operator.ResIPRules, operator.ActionWrite), a.adminHandler.UpdateIPRule)
+		adminRoutes.DELETE("/apps/:id/ip-rules/:rule_id", requireOp(operator.ResIPRules, operator.ActionWrite), a.adminHandler.DeleteIPRule)
+		adminRoutes.POST("/apps/:id/ip-rules/check", requireOp(operator.ResIPRules, operator.ActionWrite), a.adminHandler.CheckIPAccess)
 
-		// Webhook Management (Admin)
-		adminRoutes.GET("/webhooks", a.webhookHandler.AdminListEndpoints)
-		adminRoutes.GET("/webhooks/apps/:app_id", a.webhookHandler.AdminListEndpointsByApp)
-		adminRoutes.POST("/webhooks/apps/:app_id", a.webhookHandler.AdminCreateEndpoint)
-		adminRoutes.PUT("/webhooks/:id/toggle", a.webhookHandler.AdminToggleEndpoint)
-		adminRoutes.DELETE("/webhooks/:id", a.webhookHandler.AdminDeleteEndpoint)
-		adminRoutes.GET("/webhooks/:id/deliveries", a.webhookHandler.AdminListDeliveriesByEndpoint)
-		adminRoutes.GET("/webhooks/apps/:app_id/deliveries", a.webhookHandler.AdminListDeliveriesByApp)
+		adminRoutes.GET("/webhooks", requireOp(operator.ResWebhooks, operator.ActionRead), a.webhookHandler.AdminListEndpoints)
+		adminRoutes.GET("/webhooks/apps/:app_id", requireOp(operator.ResWebhooks, operator.ActionRead), a.webhookHandler.AdminListEndpointsByApp)
+		adminRoutes.POST("/webhooks/apps/:app_id", requireOp(operator.ResWebhooks, operator.ActionWrite), a.webhookHandler.AdminCreateEndpoint)
+		adminRoutes.PUT("/webhooks/:id/toggle", requireOp(operator.ResWebhooks, operator.ActionWrite), a.webhookHandler.AdminToggleEndpoint)
+		adminRoutes.DELETE("/webhooks/:id", requireOp(operator.ResWebhooks, operator.ActionWrite), a.webhookHandler.AdminDeleteEndpoint)
+		adminRoutes.GET("/webhooks/:id/deliveries", requireOp(operator.ResWebhooks, operator.ActionRead), a.webhookHandler.AdminListDeliveriesByEndpoint)
+		adminRoutes.GET("/webhooks/apps/:app_id/deliveries", requireOp(operator.ResWebhooks, operator.ActionRead), a.webhookHandler.AdminListDeliveriesByApp)
 
-		// User Import/Export (Admin)
-		adminRoutes.GET("/users/export", a.adminHandler.ExportUsers)
-		adminRoutes.POST("/users/import", a.adminHandler.ImportUsers)
+		adminRoutes.GET("/users/export", requireOp(operator.ResUsers, operator.ActionRead), a.adminHandler.ExportUsers)
+		adminRoutes.POST("/users/import", requireOp(operator.ResUsers, operator.ActionWrite), a.adminHandler.ImportUsers)
 
-		// Trusted Device Management (Admin)
-		adminRoutes.GET("/users/:id/trusted-devices", a.adminHandler.AdminListTrustedDevices)
-		adminRoutes.DELETE("/users/:id/trusted-devices/:device_id", a.adminHandler.AdminRevokeTrustedDevice)
-		adminRoutes.DELETE("/users/:id/trusted-devices", a.adminHandler.AdminRevokeAllTrustedDevices)
+		adminRoutes.GET("/users/:id/trusted-devices", requireOp(operator.ResUsers, operator.ActionRead), a.adminHandler.AdminListTrustedDevices)
+		adminRoutes.DELETE("/users/:id/trusted-devices/:device_id", requireOp(operator.ResUsers, operator.ActionWrite), a.adminHandler.AdminRevokeTrustedDevice)
+		adminRoutes.DELETE("/users/:id/trusted-devices", requireOp(operator.ResUsers, operator.ActionWrite), a.adminHandler.AdminRevokeAllTrustedDevices)
 	}
 
 	// App API routes (protected by per-application API key)
@@ -1043,14 +1039,14 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 
 		// Admin OIDC client management (JSON API, protected by Admin API key)
 		adminOIDC := r.Group("/admin/oidc/apps/:id/clients")
-		adminOIDC.Use(middleware.AdminAuthMiddleware(cfg.Admin.APIKey, a.adminRepo))
+		adminOIDC.Use(a.adminAuth())
 		{
-			adminOIDC.POST("", a.oidcHandler.AdminCreateClient)
-			adminOIDC.GET("", a.oidcHandler.AdminListClients)
-			adminOIDC.GET("/:cid", a.oidcHandler.AdminGetClient)
-			adminOIDC.PUT("/:cid", a.oidcHandler.AdminUpdateClient)
-			adminOIDC.DELETE("/:cid", a.oidcHandler.AdminDeleteClient)
-			adminOIDC.POST("/:cid/rotate-secret", a.oidcHandler.AdminRotateClientSecret)
+			adminOIDC.POST("", requireOp(operator.ResOIDC, operator.ActionWrite), a.oidcHandler.AdminCreateClient)
+			adminOIDC.GET("", requireOp(operator.ResOIDC, operator.ActionRead), a.oidcHandler.AdminListClients)
+			adminOIDC.GET("/:cid", requireOp(operator.ResOIDC, operator.ActionRead), a.oidcHandler.AdminGetClient)
+			adminOIDC.PUT("/:cid", requireOp(operator.ResOIDC, operator.ActionWrite), a.oidcHandler.AdminUpdateClient)
+			adminOIDC.DELETE("/:cid", requireOp(operator.ResOIDC, operator.ActionWrite), a.oidcHandler.AdminDeleteClient)
+			adminOIDC.POST("/:cid/rotate-secret", requireOp(operator.ResOIDC, operator.ActionWrite), a.oidcHandler.AdminRotateClientSecret)
 		}
 	}
 
@@ -1062,6 +1058,14 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 		cfg.Session.RedisNotifyKeyspaceEvents,
 	))
 	a.expiryService.Start()
+}
+
+func (a *App) adminAuth() gin.HandlerFunc {
+	return middleware.AdminAuthMiddleware(a.config.Admin.APIKey, a.adminRepo, a.operatorRepo)
+}
+
+func requireOp(resource, action string) gin.HandlerFunc {
+	return middleware.RequireOperatorPermission(resource, action)
 }
 
 // Close performs graceful shutdown of all background services and, if the pool

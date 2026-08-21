@@ -1347,19 +1347,20 @@ func (r *Repository) ExportActivityLogs(eventType, severity, appID, search, star
 
 // ApiKeyListItem represents an API key row in the admin GUI list view.
 type ApiKeyListItem struct {
-	ID         uuid.UUID  `json:"id"`
-	KeyType    string     `json:"key_type"`
-	Name       string     `json:"name"`
-	KeyPrefix  string     `json:"key_prefix"`
-	KeySuffix  string     `json:"key_suffix"`
-	Scopes     string     `json:"scopes"`
-	AppID      *uuid.UUID `json:"app_id"`
-	AppName    string     `json:"app_name"`
-	TenantName string     `json:"tenant_name"`
-	ExpiresAt  *time.Time `json:"expires_at"`
-	LastUsedAt *time.Time `json:"last_used_at"`
-	IsRevoked  bool       `json:"is_revoked"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID               uuid.UUID  `json:"id"`
+	KeyType          string     `json:"key_type"`
+	Name             string     `json:"name"`
+	KeyPrefix        string     `json:"key_prefix"`
+	KeySuffix        string     `json:"key_suffix"`
+	Scopes           string     `json:"scopes"`
+	OperatorRoleName string     `json:"operator_role_name"`
+	AppID            *uuid.UUID `json:"app_id"`
+	AppName          string     `json:"app_name"`
+	TenantName       string     `json:"tenant_name"`
+	ExpiresAt        *time.Time `json:"expires_at"`
+	LastUsedAt       *time.Time `json:"last_used_at"`
+	IsRevoked        bool       `json:"is_revoked"`
+	CreatedAt        time.Time  `json:"created_at"`
 }
 
 // CreateApiKey inserts a new API key record.
@@ -1376,19 +1377,20 @@ func (r *Repository) CreateApiKey(apiKey *models.ApiKey) error {
 	}
 
 	row, err := r.queries.AdminCreateApiKey(context.Background(), sqlcgen.AdminCreateApiKeyParams{
-		ID:          apiKey.ID,
-		KeyType:     apiKey.KeyType,
-		Name:        apiKey.Name,
-		Description: apiKey.Description,
-		KeyHash:     apiKey.KeyHash,
-		KeyPrefix:   apiKey.KeyPrefix,
-		KeySuffix:   apiKey.KeySuffix,
-		AppID:       uuidPtrToPgtype(apiKey.AppID),
-		Scopes:      apiKey.Scopes,
-		ExpiresAt:   timePtrToTimestamptz(apiKey.ExpiresAt),
-		IsRevoked:   apiKey.IsRevoked,
-		CreatedAt:   apiKey.CreatedAt,
-		UpdatedAt:   apiKey.UpdatedAt,
+		ID:             apiKey.ID,
+		KeyType:        apiKey.KeyType,
+		Name:           apiKey.Name,
+		Description:    apiKey.Description,
+		KeyHash:        apiKey.KeyHash,
+		KeyPrefix:      apiKey.KeyPrefix,
+		KeySuffix:      apiKey.KeySuffix,
+		AppID:          uuidPtrToPgtype(apiKey.AppID),
+		Scopes:         apiKey.Scopes,
+		OperatorRoleID: uuidPtrToPgtype(apiKey.OperatorRoleID),
+		ExpiresAt:      timePtrToTimestamptz(apiKey.ExpiresAt),
+		IsRevoked:      apiKey.IsRevoked,
+		CreatedAt:      apiKey.CreatedAt,
+		UpdatedAt:      apiKey.UpdatedAt,
 	})
 	if err != nil {
 		return err
@@ -1424,19 +1426,20 @@ func (r *Repository) ListApiKeys(page, pageSize int, keyType string) ([]ApiKeyLi
 	items := make([]ApiKeyListItem, len(rows))
 	for i, row := range rows {
 		items[i] = ApiKeyListItem{
-			ID:         row.ID,
-			KeyType:    row.KeyType,
-			Name:       row.Name,
-			KeyPrefix:  row.KeyPrefix,
-			KeySuffix:  row.KeySuffix,
-			Scopes:     row.Scopes,
-			AppID:      pgtypeUUIDToPtr(row.AppID),
-			AppName:    row.AppName,
-			TenantName: row.TenantName,
-			ExpiresAt:  timestamptzToTimePtr(row.ExpiresAt),
-			LastUsedAt: timestamptzToTimePtr(row.LastUsedAt),
-			IsRevoked:  row.IsRevoked,
-			CreatedAt:  row.CreatedAt,
+			ID:               row.ID,
+			KeyType:          row.KeyType,
+			Name:             row.Name,
+			KeyPrefix:        row.KeyPrefix,
+			KeySuffix:        row.KeySuffix,
+			Scopes:           row.Scopes,
+			OperatorRoleName: row.OperatorRoleName,
+			AppID:            pgtypeUUIDToPtr(row.AppID),
+			AppName:          row.AppName,
+			TenantName:       row.TenantName,
+			ExpiresAt:        timestamptzToTimePtr(row.ExpiresAt),
+			LastUsedAt:       timestamptzToTimePtr(row.LastUsedAt),
+			IsRevoked:        row.IsRevoked,
+			CreatedAt:        row.CreatedAt,
 		}
 	}
 	return items, total, nil
@@ -1503,18 +1506,29 @@ func (r *Repository) UpdateApiKeyLastUsed(id uuid.UUID) {
 	_ = r.queries.AdminUpdateApiKeyLastUsed(context.Background(), id)
 }
 
-// UpdateApiKeyScopes updates the name, description, and scopes for an existing key.
-func (r *Repository) UpdateApiKeyScopes(id string, name, description, scopes string) error {
+// UpdateApiKey updates name, description, leftover scopes, operator role, and expiry.
+func (r *Repository) UpdateApiKey(id string, name, description, scopes string, operatorRoleID *uuid.UUID, expiresAt *time.Time) error {
 	uid, err := uuid.Parse(id)
 	if err != nil {
 		return err
 	}
-	return r.queries.AdminUpdateApiKeyScopes(context.Background(), sqlcgen.AdminUpdateApiKeyScopesParams{
-		ID:          uid,
-		Name:        name,
-		Description: description,
-		Scopes:      scopes,
+	return r.queries.AdminUpdateApiKey(context.Background(), sqlcgen.AdminUpdateApiKeyParams{
+		ID:             uid,
+		Name:           name,
+		Description:    description,
+		Scopes:         scopes,
+		OperatorRoleID: uuidPtrToPgtype(operatorRoleID),
+		ExpiresAt:      timePtrToTimestamptz(expiresAt),
 	})
+}
+
+// UpdateApiKeyScopes updates the name, description, and scopes for an existing key.
+func (r *Repository) UpdateApiKeyScopes(id string, name, description, scopes string) error {
+	existing, err := r.GetApiKeyByID(id)
+	if err != nil {
+		return err
+	}
+	return r.UpdateApiKey(id, name, description, scopes, existing.OperatorRoleID, existing.ExpiresAt)
 }
 
 // GetKeysExpiringWithin returns all active (non-revoked) API keys expiring within `days` days.
@@ -2217,6 +2231,7 @@ func sqlcApiKeyToModel(row sqlcgen.ApiKey) models.ApiKey {
 		KeySuffix:       row.KeySuffix,
 		AppID:           pgtypeUUIDToPtr(row.AppID),
 		Scopes:          row.Scopes,
+		OperatorRoleID:  pgtypeUUIDToPtr(row.OperatorRoleID),
 		ExpiresAt:       timestamptzToTimePtr(row.ExpiresAt),
 		LastUsedAt:      timestamptzToTimePtr(row.LastUsedAt),
 		Notified7DaysAt: timestamptzToTimePtr(row.Notified7DaysAt),
