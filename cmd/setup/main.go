@@ -13,6 +13,7 @@ import (
 
 	"github.com/MrF1ow/go-core/internal/admin"
 	"github.com/MrF1ow/go-core/internal/database"
+	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
@@ -67,6 +68,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to check existing admin accounts: %v", err)
 	}
+	operatorRoleID := admin.RoleIDForSetupAccount(count)
 
 	if count > 0 {
 		accounts, err := repo.ListAll()
@@ -168,9 +170,10 @@ func main() {
 
 	// Create admin account
 	account := &models.AdminAccount{
-		Username:     adminUsername,
-		Email:        adminEmail,
-		PasswordHash: string(hashedPassword),
+		Username:       adminUsername,
+		Email:          adminEmail,
+		PasswordHash:   string(hashedPassword),
+		OperatorRoleID: operatorRoleID,
 	}
 
 	if err := repo.Create(account); err != nil {
@@ -180,6 +183,11 @@ func main() {
 	fmt.Println()
 	fmt.Println("===========================================")
 	fmt.Printf("  Admin account '%s' created successfully!\n", adminUsername)
+	roleName := operator.RoleViewer
+	if operatorRoleID == operator.RoleIDSuperadmin {
+		roleName = operator.RoleSuperadmin
+	}
+	fmt.Printf("  Operator role: %s\n", roleName)
 	if adminEmail != "" {
 		fmt.Printf("  Email: %s\n", adminEmail)
 	}

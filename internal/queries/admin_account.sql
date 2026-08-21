@@ -1,6 +1,6 @@
 -- name: CreateAdminAccount :one
-INSERT INTO admin_accounts (username, email, password_hash)
-VALUES ($1, $2, $3)
+INSERT INTO admin_accounts (username, email, password_hash, operator_role_id)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetAdminAccountByUsername :one

@@ -34,25 +34,32 @@ func (q *Queries) CountAdminAccounts(ctx context.Context) (int64, error) {
 }
 
 const createAdminAccount = `-- name: CreateAdminAccount :one
-INSERT INTO admin_accounts (username, email, password_hash)
-VALUES ($1, $2, $3)
-RETURNING id, username, email, password_hash, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at
+INSERT INTO admin_accounts (username, email, password_hash, operator_role_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at
 `
 
 type CreateAdminAccountParams struct {
-	Username     string  `json:"username"`
-	Email        *string `json:"email"`
-	PasswordHash string  `json:"password_hash"`
+	Username       string    `json:"username"`
+	Email          *string   `json:"email"`
+	PasswordHash   string    `json:"password_hash"`
+	OperatorRoleID uuid.UUID `json:"operator_role_id"`
 }
 
 func (q *Queries) CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) (AdminAccount, error) {
-	row := q.db.QueryRow(ctx, createAdminAccount, arg.Username, arg.Email, arg.PasswordHash)
+	row := q.db.QueryRow(ctx, createAdminAccount,
+		arg.Username,
+		arg.Email,
+		arg.PasswordHash,
+		arg.OperatorRoleID,
+	)
 	var i AdminAccount
 	err := row.Scan(
 		&i.ID,
 		&i.Username,
 		&i.Email,
 		&i.PasswordHash,
+		&i.OperatorRoleID,
 		&i.TwoFaEnabled,
 		&i.TwoFaMethod,
 		&i.TwoFaSecret,
@@ -120,7 +127,7 @@ func (q *Queries) EnableAdminAccount2FA(ctx context.Context, arg EnableAdminAcco
 }
 
 const getAdminAccountByEmail = `-- name: GetAdminAccountByEmail :one
-SELECT id, username, email, password_hash, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
 WHERE email = $1
 `
 
@@ -132,6 +139,7 @@ func (q *Queries) GetAdminAccountByEmail(ctx context.Context, email *string) (Ad
 		&i.Username,
 		&i.Email,
 		&i.PasswordHash,
+		&i.OperatorRoleID,
 		&i.TwoFaEnabled,
 		&i.TwoFaMethod,
 		&i.TwoFaSecret,
@@ -147,7 +155,7 @@ func (q *Queries) GetAdminAccountByEmail(ctx context.Context, email *string) (Ad
 }
 
 const getAdminAccountByID = `-- name: GetAdminAccountByID :one
-SELECT id, username, email, password_hash, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
 WHERE id = $1
 `
 
@@ -159,6 +167,7 @@ func (q *Queries) GetAdminAccountByID(ctx context.Context, id uuid.UUID) (AdminA
 		&i.Username,
 		&i.Email,
 		&i.PasswordHash,
+		&i.OperatorRoleID,
 		&i.TwoFaEnabled,
 		&i.TwoFaMethod,
 		&i.TwoFaSecret,
@@ -174,7 +183,7 @@ func (q *Queries) GetAdminAccountByID(ctx context.Context, id uuid.UUID) (AdminA
 }
 
 const getAdminAccountByUsername = `-- name: GetAdminAccountByUsername :one
-SELECT id, username, email, password_hash, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
 WHERE username = $1
 `
 
@@ -186,6 +195,7 @@ func (q *Queries) GetAdminAccountByUsername(ctx context.Context, username string
 		&i.Username,
 		&i.Email,
 		&i.PasswordHash,
+		&i.OperatorRoleID,
 		&i.TwoFaEnabled,
 		&i.TwoFaMethod,
 		&i.TwoFaSecret,
@@ -201,7 +211,7 @@ func (q *Queries) GetAdminAccountByUsername(ctx context.Context, username string
 }
 
 const getAdminAccountByUsernameOrEmail = `-- name: GetAdminAccountByUsernameOrEmail :one
-SELECT id, username, email, password_hash, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
 WHERE username = $1 OR email = $1
 `
 
@@ -213,6 +223,7 @@ func (q *Queries) GetAdminAccountByUsernameOrEmail(ctx context.Context, username
 		&i.Username,
 		&i.Email,
 		&i.PasswordHash,
+		&i.OperatorRoleID,
 		&i.TwoFaEnabled,
 		&i.TwoFaMethod,
 		&i.TwoFaSecret,
@@ -228,7 +239,7 @@ func (q *Queries) GetAdminAccountByUsernameOrEmail(ctx context.Context, username
 }
 
 const listAllAdminAccounts = `-- name: ListAllAdminAccounts :many
-SELECT id, username, email, password_hash, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
 ORDER BY created_at ASC
 `
 
@@ -246,6 +257,7 @@ func (q *Queries) ListAllAdminAccounts(ctx context.Context) ([]AdminAccount, err
 			&i.Username,
 			&i.Email,
 			&i.PasswordHash,
+			&i.OperatorRoleID,
 			&i.TwoFaEnabled,
 			&i.TwoFaMethod,
 			&i.TwoFaSecret,
