@@ -1089,7 +1089,7 @@ func isRemoteAssetURL(s string) bool {
 }
 
 func readBrandingFile(path string) ([]byte, string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- path is AdminBrandingConfig LogoURL/FaviconURL, validated by validateBrandingFile at app.New.
 	if err != nil {
 		return nil, "", err
 	}
