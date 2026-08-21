@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -137,8 +138,44 @@ func (r *Renderer) applyBranding(data interface{}) interface{} {
 	case *TemplateData:
 		inject(td)
 		return td
+	case gin.H:
+		r.fillMapBranding(map[string]any(td))
+		return td
+	case map[string]any:
+		r.fillMapBranding(td)
+		return td
 	default:
 		return data
+	}
+}
+
+func mapValueEmpty(m map[string]any, key string) bool {
+	v, ok := m[key]
+	if !ok || v == nil {
+		return true
+	}
+	switch t := v.(type) {
+	case string:
+		return t == ""
+	case template.CSS:
+		return t == ""
+	default:
+		return false
+	}
+}
+
+func (r *Renderer) fillMapBranding(m map[string]any) {
+	if mapValueEmpty(m, "FaviconURL") {
+		m["FaviconURL"] = r.branding.FaviconURL
+	}
+	if mapValueEmpty(m, "CustomCSS") {
+		m["CustomCSS"] = template.CSS(r.branding.CustomCSS) // #nosec G203 -- validated in validateBranding before SetBranding.
+	}
+	if mapValueEmpty(m, "PrimaryColor") {
+		m["PrimaryColor"] = r.branding.PrimaryColor
+	}
+	if mapValueEmpty(m, "BorderRadius") {
+		m["BorderRadius"] = r.branding.BorderRadius
 	}
 }
 
