@@ -9,8 +9,9 @@ Every `admin_accounts` row has an operator role. First `cmd/setup` account is `s
 ## Changes
 
 - `admin_accounts.operator_role_id` NOT NULL after backfill. Existing accounts → `superadmin` (today they are gods). New accounts → `viewer`.
+- Extra GUI operators are CLI-only today (`cmd/setup`). There is no `/gui/admins` route. `AccountRepository.Create` is not used by the GUI.
 - `cmd/setup`: if count is 0, assign `superadmin`. Else assign `viewer`. Optional `--role` only if we need an escape hatch; default is no flag, to keep lowest privilege. Prefer no flag in v1.
-- JSON create-account `POST /admin/operator/accounts` with `admin_iam:write` (username, email, password). Default role `viewer`.
+- JSON create-account `POST /admin/operator/accounts` with `admin_iam:write` (username, email, password). Default role `viewer`. That is the first non-CLI way to add an operator.
 - JSON `PUT /admin/operator/accounts/:id/role` with `admin_iam:write`. Refuse if it would leave zero `superadmin` accounts.
 - `GUIAuthMiddleware` loads principal from the account’s role (same `OperatorPrincipal` kind `gui_account`). Do not enforce route permissions yet (phase 10). Setting principal now lets access log (phase 8) record GUI once phase 10 wires the check.
 - Roster lists accounts.

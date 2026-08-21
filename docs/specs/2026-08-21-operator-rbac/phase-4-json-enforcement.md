@@ -22,6 +22,9 @@ Every admin JSON route declares a permission. A viewer DB key cannot create a te
   - `/admin/activity-logs` → `logs` (`read`)
   - `/metrics` → `monitoring` (`read`)
 - Session groups have no JSON admin group today. Skip until GUI phase or add later. Do not invent JSON routes.
+- API keys have no `/admin` JSON CRUD. Leave create/edit on `/gui/api-keys` until phase 5 and 10.
+- Do not wrap `HasScope` for these routes. That helper is unused, disagrees with the GUI’s “blank = unrestricted” copy, and is not the operator catalog.
+- `internal/middleware/app_api_key_integration_test.go` still calls `AdminAuthMiddleware` with one argument. Current signature is `(adminAPIKey, keyValidator)`. Fix that file in this phase so `go test -tags=integration` compiles.
 - Integration tests in `internal/coreapp` or `internal/middleware` using a test Gin engine: viewer key GET activity-logs 200 (if the handler is stubbed) or middleware-only if full DB is too heavy. Minimum: one real route group with stub handlers proving 403 vs 200.
 - **how** this subsystem before editing `RegisterRoutes`. **interrogate** the mapping if a nested path is ambiguous (`/admin/apps/:id/email-config` is `email`, not `applications`).
 

@@ -18,6 +18,8 @@ Every admin JSON (and later GUI) permission decision can be listed: principal, r
 
 One row per checked request (with the read-allow exception above). Principal ids nullable for env key.
 
+Do not reuse `activity_logs`. That table requires `user_id` → `users(id)`. `LogActivity` already drops a nil user because of that FK. Operator principals cannot go there.
+
 ## Verification
 
 Static: `go test -count=1 ./internal/middleware ./internal/operator`.

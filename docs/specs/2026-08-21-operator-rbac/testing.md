@@ -32,3 +32,5 @@ Reuse one helper: `principal(roleName)` that attaches an `OperatorPrincipal` wit
 ## Regression
 
 Keep existing `HasScope` tests. They must not be used by `/admin/*` after phase 4. Add a test that admin auth middleware does not set `ApiKeyScopesKey` for admin keys (or that `RequireOperatorPermission` ignores it).
+
+There is no `admin_auth_test.go`. Add one in phase 3 covering env vs DB principal attachment. Fix `app_api_key_integration_test.go` middleware arity in phase 4.
