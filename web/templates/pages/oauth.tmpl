@@ -21,12 +21,14 @@
                 {{end}}
             </select>
         </div>
-        <button class="btn btn-primary btn-sm"
+        {{if .Can "oauth" "write"}}
+<button class="btn btn-primary btn-sm"
                 hx-get="{{basePath}}/oauth/new"
                 hx-target="#oauth-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Create Config
         </button>
+{{end}}
     </div>
 </div>
 

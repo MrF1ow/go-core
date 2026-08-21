@@ -9,12 +9,14 @@
     <h4 class="mb-0 fw-bold">
         <i class="bi bi-envelope-at me-2"></i>Email Server Config
     </h4>
-    <button class="btn btn-primary btn-sm"
+    {{if .Can "email" "write"}}
+<button class="btn btn-primary btn-sm"
             hx-get="{{basePath}}/email-servers/new"
             hx-target="#email-server-form-container"
             hx-swap="innerHTML">
         <i class="bi bi-plus-lg me-1"></i>Add SMTP Config
     </button>
+{{end}}
 </div>
 
 <p class="text-muted small mb-3">

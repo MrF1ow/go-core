@@ -44,6 +44,7 @@
                     <div class="form-text">Leave blank for forever. The key dies at this time on its own.</div>
                 </div>
                 <div class="col-md-4" id="adminRoleGroup">
+                    {{if .CanIAM}}
                     <label for="keyOperatorRole" class="form-label small text-muted">Operator role</label>
                     <select class="form-select" id="keyOperatorRole" name="operator_role_id">
                         {{range .OperatorRoles}}
@@ -51,6 +52,7 @@
                         {{end}}
                     </select>
                     <div class="form-text">New admin keys default to viewer.</div>
+                    {{end}}
                 </div>
                 <div class="col-md-4" id="appScopesGroup" style="display: none;">
                     <label for="keyScopes" class="form-label small text-muted">Scopes <span class="text-muted">(optional)</span></label>

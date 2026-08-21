@@ -178,12 +178,14 @@
                 {{end}}
             </select>
         </div>
-        <button class="btn btn-primary btn-sm"
+        {{if .Can "email" "write"}}
+<button class="btn btn-primary btn-sm"
                 hx-get="{{basePath}}/email-templates/new"
                 hx-target="#email-template-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Create Template
         </button>
+{{end}}
     </div>
 </div>
 

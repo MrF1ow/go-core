@@ -299,6 +299,7 @@ func (h *GUIHandler) TenantList(c *gin.Context) {
 		Page       int
 		TotalPages int
 		Total      int64
+		CanWrite   bool
 	}
 
 	c.HTML(http.StatusOK, "tenant_list", tenantListData{
@@ -306,6 +307,7 @@ func (h *GUIHandler) TenantList(c *gin.Context) {
 		Page:       page,
 		TotalPages: totalPages,
 		Total:      total,
+		CanWrite:   h.principalCan(c, operator.ResTenants, operator.ActionWrite),
 	})
 }
 
@@ -1532,6 +1534,7 @@ func (h *GUIHandler) UserList(c *gin.Context) {
 		"Total":      total,
 		"AppID":      appID,
 		"Search":     search,
+		"CanWrite":   h.principalCan(c, operator.ResUsers, operator.ActionWrite),
 	})
 }
 
@@ -1558,7 +1561,7 @@ func (h *GUIHandler) UserDetail(c *gin.Context) {
 		}
 	}
 
-	c.HTML(http.StatusOK, "user_detail", detail)
+	c.HTML(http.StatusOK, "user_detail", h.userDetailView(c, detail))
 }
 
 // UserRevokeTrustedDevice revokes a single trusted device for a user (admin action).
@@ -1946,6 +1949,7 @@ func (h *GUIHandler) ApiKeyList(c *gin.Context) {
 		"TotalPages": totalPages,
 		"Total":      total,
 		"KeyType":    keyType,
+		"CanWrite":   h.principalCan(c, operator.ResAPIKeys, operator.ActionWrite),
 	})
 }
 
@@ -1963,6 +1967,7 @@ func (h *GUIHandler) ApiKeyCreateForm(c *gin.Context) {
 		"Apps":          apps,
 		"OperatorRoles": operatorRoleOptions(),
 		"DefaultRoleID": operator.RoleIDViewer.String(),
+		"CanIAM":        h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite),
 	})
 }
 
@@ -2141,6 +2146,7 @@ func (h *GUIHandler) ApiKeyRevoke(c *gin.Context) {
 		"TotalPages": totalPages,
 		"Total":      total,
 		"KeyType":    keyType,
+		"CanWrite":   h.principalCan(c, operator.ResAPIKeys, operator.ActionWrite),
 	})
 }
 
@@ -2200,6 +2206,7 @@ func (h *GUIHandler) ApiKeyDelete(c *gin.Context) {
 		"TotalPages": totalPages,
 		"Total":      total,
 		"KeyType":    keyType,
+		"CanWrite":   h.principalCan(c, operator.ResAPIKeys, operator.ActionWrite),
 	})
 }
 
@@ -2231,6 +2238,7 @@ func (h *GUIHandler) ApiKeyEditForm(c *gin.Context) {
 		"OperatorRoleID": uuidPtrString(apiKey.OperatorRoleID),
 		"ExpiresAtLocal": formatExpiresAtLocal(apiKey.ExpiresAt),
 		"OperatorRoles":  operatorRoleOptions(),
+		"CanIAM":         h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite),
 	})
 }
 
@@ -5068,7 +5076,7 @@ func (h *GUIHandler) SocialAccountUnlink(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusOK, "user_detail", refreshed)
+	c.HTML(http.StatusOK, "user_detail", h.userDetailView(c, refreshed))
 }
 
 // PasskeyDeleteConfirm returns a confirmation dialog partial for deleting a passkey.
@@ -5143,7 +5151,7 @@ func (h *GUIHandler) PasskeyDelete(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusOK, "user_detail", refreshed)
+	c.HTML(http.StatusOK, "user_detail", h.userDetailView(c, refreshed))
 }
 
 // parseVariablesFromForm parses variable rows from the dynamic form.

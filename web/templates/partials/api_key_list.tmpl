@@ -92,6 +92,7 @@
                                title="View Usage">
                                 <i class="bi bi-bar-chart-line"></i>
                             </a>
+                            {{if $.CanWrite}}
                             <button class="btn btn-outline-primary btn-sm me-1"
                                     hx-get="{{basePath}}/api-keys/{{.ID}}/edit"
                                     hx-target="#apikey-form-container"
@@ -119,6 +120,7 @@
                                     title="Delete">
                                 <i class="bi bi-trash"></i>
                             </button>
+                            {{end}}
                         </td>
                     </tr>
                     {{end}}

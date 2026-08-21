@@ -37,3 +37,17 @@ func (h *GUIHandler) principalCan(c *gin.Context, resource, action string) bool 
 	}
 	return p.Has(resource, action)
 }
+
+type userDetailTemplate struct {
+	*UserDetail
+	CanWrite    bool
+	CanSessions bool
+}
+
+func (h *GUIHandler) userDetailView(c *gin.Context, detail *UserDetail) userDetailTemplate {
+	return userDetailTemplate{
+		UserDetail:  detail,
+		CanWrite:    h.principalCan(c, operator.ResUsers, operator.ActionWrite),
+		CanSessions: h.principalCan(c, operator.ResSessions, operator.ActionRead),
+	}
+}

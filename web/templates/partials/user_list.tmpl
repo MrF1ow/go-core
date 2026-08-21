@@ -32,6 +32,7 @@
                             {{end}}
                         </td>
                         <td class="text-center">
+                            {{if $.CanWrite}}
                             <div id="user-toggle-{{.ID}}"
                                  hx-put="{{basePath}}/users/{{.ID}}/toggle"
                                  hx-target="this"
@@ -45,6 +46,13 @@
                                 <span class="badge bg-danger bg-opacity-10 text-danger"><i class="bi bi-x-circle-fill me-1"></i>Inactive</span>
                                 {{end}}
                             </div>
+                            {{else}}
+                                {{if .IsActive}}
+                                <span class="badge bg-success bg-opacity-10 text-success"><i class="bi bi-check-circle-fill me-1"></i>Active</span>
+                                {{else}}
+                                <span class="badge bg-danger bg-opacity-10 text-danger"><i class="bi bi-x-circle-fill me-1"></i>Inactive</span>
+                                {{end}}
+                            {{end}}
                         </td>
                         <td class="text-center">
                             <span class="d-inline-flex gap-1 align-items-center">
