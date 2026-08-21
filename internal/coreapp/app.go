@@ -523,9 +523,9 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	}
 
 	// Metrics endpoint (Admin API Key required)
-	metricsGroup := r.Group("", a.adminAuth(), requireOp(operator.ResMonitoring, operator.ActionRead))
+	metricsGroup := r.Group("", a.adminAuth())
 	{
-		metricsGroup.GET("/metrics", a.healthHandler.Metrics)
+		metricsGroup.GET("/metrics", requireOp(operator.ResMonitoring, operator.ActionRead), a.healthHandler.Metrics)
 	}
 
 	// Social authentication routes
