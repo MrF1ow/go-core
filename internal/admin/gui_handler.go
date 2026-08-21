@@ -74,10 +74,11 @@ type GUIHandler struct {
 	OperatorRepo      *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
 	AbortForbidden    func(*gin.Context)             // HTML 403; wired to middleware.AbortGUIForbidden
 	AbortInternal     func(*gin.Context)             // HTML 500; wired to middleware.AbortGUIInternal
-	AdminSessionTTL   time.Duration                  // Admin session cookie TTL
-	AdminBaseURL      string                         // Base URL for admin links (e.g. magic link emails)
-	AccessTokenTTL    time.Duration                  // Access token TTL (used for session status display)
-	BasePath          string                         // URL path prefix for admin GUI (e.g. "/gui")
+	createAPIKey      func(*models.ApiKey) error
+	AdminSessionTTL   time.Duration // Admin session cookie TTL
+	AdminBaseURL      string        // Base URL for admin links (e.g. magic link emails)
+	AccessTokenTTL    time.Duration // Access token TTL (used for session status display)
+	BasePath          string        // URL path prefix for admin GUI (e.g. "/gui")
 }
 
 // NewGUIHandler creates a new GUIHandler
@@ -293,22 +294,7 @@ func (h *GUIHandler) TenantList(c *gin.Context) {
 	}
 
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-
-	type tenantListData struct {
-		Tenants    []TenantListItem
-		Page       int
-		TotalPages int
-		Total      int64
-		CanWrite   bool
-	}
-
-	c.HTML(http.StatusOK, "tenant_list", tenantListData{
-		Tenants:    tenants,
-		Page:       page,
-		TotalPages: totalPages,
-		Total:      total,
-		CanWrite:   h.principalCan(c, operator.ResTenants, operator.ActionWrite),
-	})
+	c.HTML(http.StatusOK, "tenant_list", h.tenantListView(c, tenants, page, totalPages, total))
 }
 
 // TenantCreateForm returns the empty create form HTML fragment for HTMX.
@@ -431,20 +417,7 @@ func (h *GUIHandler) TenantDelete(c *gin.Context) {
 	}
 
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
-
-	type tenantListData struct {
-		Tenants    []TenantListItem
-		Page       int
-		TotalPages int
-		Total      int64
-	}
-
-	c.HTML(http.StatusOK, "tenant_list", tenantListData{
-		Tenants:    tenants,
-		Page:       page,
-		TotalPages: totalPages,
-		Total:      total,
-	})
+	c.HTML(http.StatusOK, "tenant_list", h.tenantListView(c, tenants, page, totalPages, total))
 }
 
 // TenantFormCancel returns an empty response to clear the form container.
@@ -1487,6 +1460,13 @@ func (h *GUIHandler) abortInternal(c *gin.Context) {
 	c.AbortWithStatus(http.StatusInternalServerError)
 }
 
+func (h *GUIHandler) persistAPIKey(key *models.ApiKey) error {
+	if h.createAPIKey != nil {
+		return h.createAPIKey(key)
+	}
+	return h.Repo.CreateApiKey(key)
+}
+
 // ============================================================
 // User Management Handlers
 // ============================================================
@@ -2071,7 +2051,7 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 		AppID:          appID,
 		ExpiresAt:      expiresAt,
 	}
-	if err := h.Repo.CreateApiKey(apiKey); err != nil {
+	if err := h.persistAPIKey(apiKey); err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to create API key. Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return

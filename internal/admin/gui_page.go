@@ -51,3 +51,21 @@ func (h *GUIHandler) userDetailView(c *gin.Context, detail *UserDetail) userDeta
 		CanSessions: h.principalCan(c, operator.ResSessions, operator.ActionRead),
 	}
 }
+
+type tenantListData struct {
+	Tenants    []TenantListItem
+	Page       int
+	TotalPages int
+	Total      int64
+	CanWrite   bool
+}
+
+func (h *GUIHandler) tenantListView(c *gin.Context, tenants []TenantListItem, page, totalPages int, total int64) tenantListData {
+	return tenantListData{
+		Tenants:    tenants,
+		Page:       page,
+		TotalPages: totalPages,
+		Total:      total,
+		CanWrite:   h.principalCan(c, operator.ResTenants, operator.ActionWrite),
+	}
+}
