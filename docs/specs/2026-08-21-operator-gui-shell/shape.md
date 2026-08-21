@@ -24,6 +24,8 @@ var ErrIAMAssignmentDenied error
 
 `requireGUI` exists so the inventory AST has a stable Ident, same as `requireOp`.
 
+`buildNav` lives in `web` so `page(c)` and `AbortGUIForbidden` can both call it. `web` still does not import `operator`. Resource strings are pinned to `operator.Catalog()` by test.
+
 ## TemplateData
 
 ```go
@@ -78,3 +80,7 @@ CSRF and settings env-lock must not send it.
 - `web/templates/partials/forbidden_fragment.tmpl` for other HTMX targets
 
 Do not name either `"error"`. That template does not exist.
+
+## Implementation home
+
+Remaining work is commits on [PR #12](https://github.com/MrF1ow/go-core/pull/12). Phase files in this directory. Route pairs in [routes.md](routes.md). Do not merge until the overview merge bar is green.

@@ -1,101 +1,136 @@
 # Operator GUI shell
 
 **Date:** 2026-08-21
-**Status:** design, not implemented
-**Depends on:** [PR #10](https://github.com/MrF1ow/go-core/pull/10) (GUI principal attach). JSON `requireOp` is already on main.
+**Status:** implementation in progress on [PR #12](https://github.com/MrF1ow/go-core/pull/12)
+**Depends on:** [PR #10](https://github.com/MrF1ow/go-core/pull/10) (merged). JSON `requireOp` and GUI principal attach are on main.
 **Parent:** [PR #7](https://github.com/MrF1ow/go-core/pull/7) old phase 10.
 
-## Problem
+This directory is the rest of the work that makes #12 mergeable. A helper nobody calls is not a merge. Do not start a second implementation PR.
 
-JSON `/admin` already enforces the frozen `resource:action` catalog. GUI cookies already carry `KindGUIAccount` once #10 lands, then never call `Has`. A valid `admin_session` is still all-powerful.
+## Context
 
-The grant model is not the hard part. The HTTP and HTML adapter is. `RequireOperatorPermission` always JSON-aborts. `guiAuth` also hosts logout and `/my-account/*`, so a group-level `Use(requireOp)` is wrong. Layout pages mix `TemplateData` and `gin.H`, so a `.Can` method has no honest home. HTMX 2.0.4 does not swap 4xx, so an HTML 403 that is merely "not JSON" still leaves stale `#page-content`. Nested `/users/:id/sessions` and API-key role stamping are compound operations a single `requireOp` line cannot express.
+JSON `/admin` already enforces the frozen `resource:action` catalog. GUI cookies carry `KindGUIAccount` and still never call `Has`. A valid `admin_session` is all-powerful. Any logged-in cookie can mint a superadmin JSON key from `/gui/api-keys`.
 
-## Usage
+[PR #12](https://github.com/MrF1ow/go-core/pull/12) already landed `RequireGUIPermission`, `AbortGUIForbidden`, and `X-GUI-Forbidden: 1`. Deny bodies are still `c.String` HTML. No `guiAuth` registration calls the middleware. `base.tmpl` still paints every nav link. `resolveAdminOperatorRoleID` still stamps any system role the poster asks for.
 
-Route authors keep the JSON shape. Attach stays on `GUIAuthMiddleware`. Enforcement is `requireGUI(resource, action)` on each capability registration. Logout and `/my-account/*` omit it.
+The grant model is not the hard part. The HTTP and HTML adapter is. `guiAuth` also hosts logout and `/my-account/*`, so a group-level `Use` is wrong. Layout pages mix `TemplateData` and `gin.H`, so a `.Can` method has no honest home. HTMX 2.0.4 does not swap 4xx, so an HTML 403 that is merely "not JSON" still leaves stale `#page-content`. Nested `/users/:id/sessions` and API-key role stamping are compound operations a single middleware line cannot express.
 
-```go
-guiAuth.GET("/logout", a.guiHandler.Logout)
-guiAuth.GET("/my-account", a.guiHandler.MyAccountPage)
-guiAuth.GET("/tenants", requireGUI(operator.ResTenants, operator.ActionRead), a.guiHandler.TenantPage)
-guiAuth.GET("/tenants/new", requireGUI(operator.ResTenants, operator.ActionWrite), a.guiHandler.TenantCreateForm)
-guiAuth.GET("/users/:id/sessions", requireGUI(operator.ResSessions, operator.ActionRead), a.guiHandler.UserSessions)
-guiAuth.POST("/api-keys", requireGUI(operator.ResAPIKeys, operator.ActionWrite), a.guiHandler.ApiKeyCreate)
-```
+## Scope
 
-Every page that includes `base.tmpl` is built with one constructor. `gin.H` layout roots go away.
+Included, all on #12, as later commits:
 
-```go
-func (h *GUIHandler) UserPage(c *gin.Context) {
-    data := h.page(c)
-    data.ActivePage = "users"
-    data.Data = apps
-    c.HTML(http.StatusOK, "users", data)
-}
-```
+- `page(c)` as the only `base.tmpl` root. Unify the `gin.H` layout pages.
+- `TemplateData.Can` over an unexported func. Computed `NavGroups`. Sidebar omit.
+- `forbidden.tmpl` / `forbidden_fragment.tmpl` plus the `X-GUI-Forbidden` HTMX listener.
+- `ParseAssignedAdminRole` so `api_keys:write` cannot stamp superadmin, admin, or support without `admin_iam:write`.
+- `requireGUI` on every `guiAuth` capability registration. Inventory scan of `guiAuth` and `Group()` derivatives.
+- Write CTA omit via `Can` on the list and form templates this slice touches.
+- Role httptests that are the merge bar.
 
-API-key role assignment is not a second `requireGUI`. The page is `api_keys:write`. Stamping superadmin, admin, or support is `ParseAssignedAdminRole`. Empty post stamps viewer with no IAM. A posted non-viewer role without `admin_iam:write` is HTML 403, not a silent coerce to viewer.
+Excluded, still the parent plan or later:
 
-## Shape
+- Roster UI, IAM history, access log
+- JSON operator-account CRUD, last-superadmin, custom roles UI, `disabled_at`
+- CSRF JSON-to-HTML
+- Flipping null `api_keys.operator_role_id` off fail-open superadmin
+- Dashboard stats vs custom roles (stats stay `dashboard:read`)
 
-Same catalog. Same `Principal.Has`. No Redis grant store. No `Grants()` lattice.
+## Constraints
 
-**Three ports, one shell.**
+- Same catalog. Same `Principal.Has`. No Redis grant store. No `Grants()` lattice.
+- Never `guiAuth.Use(requireGUI)`. Logout exact `/logout` and prefix `/my-account` stay session-only.
+- JSON `RequireOperatorPermission` stays JSON. GUI deny is HTML 403 plus `X-GUI-Forbidden: 1`.
+- `web` does not import `operator`.
+- Do not name a template `"error"`. That template does not exist.
+- Form GETs that start a mutation are `:write`. Page, list, form-cancel, export, and detail are `:read`.
+- Nested exceptions, not prefix inheritance. See [shape.md](shape.md) and [routes.md](routes.md).
+- Inventory is the lever. Do not allowlist by "is it in the nav." Handler-local IAM is a dedicated test, not an AST property.
+- No control-ui in this environment. Verify with `go test` and httptest.
+- Do not merge #12 between the wiring commit and the sidebar/CTA commit. Naked 403s on every Create Tenant button are not mergeable.
 
-1. `RequireGUIPermission` is the HTML sibling of `RequireOperatorPermission`. Missing principal is 500 HTML. Deny is `AbortGUIForbidden`. Never `AbortWithStatusJSON`. Never a path-prefix switch inside the JSON middleware. `AdminBasePath` is configurable. JSON lives at `/admin` and `/metrics`.
-2. `page(c)` is the only legal `base.tmpl` root. It stamps username, CSRF, theme, `Can`, and computed `NavGroups`. Nil `Can` denies, so a forgotten `page()` paints an empty nav, not a full one. `web` does not import `operator`. `Can` is a method over an unexported func filled from `p.Has`.
-3. `ParseAssignedAdminRole` / `AssignableSystemRoles` live in `internal/operator`. They own "who may stamp which system role on an admin API key." Handlers map `ErrIAMAssignmentDenied` to the same `AbortGUIForbidden`.
+## Alternatives
 
-**Deny protocol.** HTTP 403, header `X-GUI-Forbidden: 1`, HTML body. A `htmx:beforeSwap` listener swaps only those responses. Not global 4xx swap (that would start swapping CSRF JSON 403 and settings env-lock fragments). Not `HX-Redirect` on fragments (that would blow away user detail for a nested widget).
+Already decided. Base is arena candidate 2. Grafts from candidate 1. See [shape.md](shape.md).
 
-Typed URL or `HX-Target` of `#page-content` renders `forbidden.tmpl` through `base`, so `#page-content` exists for `hx-select` and the sidebar still omits via `Can`. Any other HTMX target renders `forbidden_fragment.tmpl`. Crafted `HX-Target` is sanitized to `[A-Za-z][A-Za-z0-9_-]{0,127}` or treated as a page deny.
+Rejected and still rejected:
 
-**Nav.** `buildNav` filters a frozen `NavSpec` in Go and drops empty groups. The template ranges `NavGroups`. It does not sprinkle `{{if .Can}}` per link. Footer My Account and logout are not in `NavGroups`. First paint is the only sidebar paint. Route `Has` still applies on the next request.
+- JSON/HTML flag on `RequireOperatorPermission`
+- `guiAuth.Use(requireGUI)`
+- `HX-Redirect` every deny
+- Global HTMX 4xx swap
+- CSS-hide nav
+- Prefix heuristic for nested sessions
+- `Grants()` lattice
+- RouteSpec DSL that replaces gin
 
-**Explicit pairs.** Form GETs that start a mutation (`/new`, `/:id/edit`, delete confirm, import modal) are `:write`. Page, list, form-cancel, export, detail are `:read`. Read-only catalog rows stay read-only.
+Wiring every `guiAuth` route in one commit looks oversized against the two-to-three-file phase rule. Inventory goes red if the scan lands before the registrations. That is the reason they stay one commit. **Encode lessons in structure** plus **outcome-oriented execution**.
 
-Nested exceptions, not prefix inheritance:
+## Merge bar
 
-- `GET /users/:id/sessions` is `sessions:read`. Viewer gets user detail without the widget. Support gets rows. Crafted GET is a fragment 403.
-- `GET /dashboard/activity` is `logs:read`. Stats stay `dashboard:read`.
-- `POST /ip-rules/check` is `ip_rules:write`, same as JSON.
-- End-user `/roles` is `end_user_rbac`, not `admin_iam`.
+#12 is mergeable when all of these pass on a cookie session, not only on a unit principal:
 
-**Inventory.** Scan `guiAuth` and groups derived from it for ident `requireGUI`. Allowlist exact `/logout` and prefix `/my-account`. Do not allowlist by "is it in the nav." Handler-local IAM is a dedicated test, not an AST property.
+- Viewer GET `/gui/tenants` is 403 HTML with `X-GUI-Forbidden: 1`. Superadmin is 200.
+- Viewer sidebar includes Dashboard, Users, Activity Logs, System Health. It omits Tenants. Empty Email heading is gone.
+- Viewer cannot see Create Tenant, user Import, or the API-key operator role select.
+- Support GET `/gui/users/:id/sessions` is 200. Viewer crafted GET is fragment 403. Viewer user detail still loads.
+- Admin cookie POST `/gui/api-keys` with `operator_role_id=superadmin` is 403, no row. Omit the field and the key is viewer.
+- Logout and `/my-account` work with no `requireGUI`.
+- A new `guiAuth.GET` without `requireGUI` fails the inventory test.
 
-## Synthesis decision
+Do not merge after wiring only.
 
-Two grok 4.6 high arena candidates converged on `requireGUI` plus a single layout constructor, `sessions:read` for nested user sessions, and `admin_iam:write` as a boolean stamp gate.
+## Applicable skills
 
-**Base is candidate 2.** The `X-GUI-Forbidden` listener is a deeper HTMX adapter than enabling every 403 swap. `ParseAssignedAdminRole` belongs in `operator`, not a GUI util. Unexported `Can` makes `gin.H` layout roots dishonest. Mutating-form GETs as `:write` hides `/users/import/modal` from viewers. `POST /ip-rules/check` stays write, matching JSON.
+- `go-core` hub, then `admin-gui.md`, `route-map.md`, `security.md`
+- `how` over `GUIAuthMiddleware`, `gui_handler.go` layout roots, and the inventory AST before editing them
+- `interrogate` before marking #12 ready
+- `unslop` on docs and PR copy
+- `/deslop` before each commit
 
-**Grafted from candidate 1.** Computed `NavGroups` so empty headings cannot leak from a forgotten template `or`. Inventory tracks `Group()` derivatives so a future subgroup cannot leave the scan. `HX-Target` sanitization so a crafted id cannot land in HTML.
+## Phases
 
-**Rejected from both.** Reusing `RequireOperatorPermission` with a JSON/HTML flag. `guiAuth.Use(requireGUI)`. `HX-Redirect` every deny. CSS-hide nav. Prefix heuristic for nested sessions. A `Grants()` lattice. A RouteSpec DSL that replaces gin registrations.
+Commits on `cursor/operator-gui-shell-impl-a895`. One PR.
 
-## Tradeoffs accepted
+0. [HTML middleware](phase-0-html-middleware.md) (landed on #12)
+1. [Layout types](phase-1-layout-types.md)
+2. [page constructor](phase-2-page-constructor.md)
+3. [Forbidden templates](phase-3-forbidden-templates.md)
+4. [IAM stamp](phase-4-iam-stamp.md)
+5. [Wire routes](phase-5-wire-routes.md)
+6. [Sidebar and write CTAs](phase-6-sidebar-ctas.md)
+7. [Role httptests](phase-7-role-httptests.md)
 
-- We accept a second middleware constructor in exchange for never teaching the JSON one about HTMX.
-- We accept a 12-line `htmx:beforeSwap` listener in exchange for not swapping CSRF or env-lock 403s.
-- We accept `admin_iam:write` as a boolean gate, not a cannot-grant-above-self lattice, in exchange for leaving `perms` unexported.
-- We accept fail-closed on API-key edit of a non-viewer role without IAM in exchange for one parse function.
-- We accept first-paint-only sidebar in exchange for not re-rendering nav on every HTMX swap.
-- We accept CSRF remaining JSON 403 in this slice. Permission 403 must not copy it.
-- We accept unifying full pages onto `TemplateData` as mandatory. Viewer bookmark of `/gui/users` is a `gin.H` first paint today.
-
-## Out of this slice
-
-Roster UI, IAM history, access log, JSON operator-account CRUD, last-superadmin, custom roles UI, `disabled_at`, CSRF JSON-to-HTML.
-
-## Next implementation step
-
-Add `RequireGUIPermission` and `AbortGUIForbidden` with tests that a viewer cookie gets HTML 403 (typed URL, `#page-content`, fragment) and never JSON. Then wire `requireGUI` on `/tenants` as the first registration pair. Stack on #10. Do not land on #10 itself.
+Companion: [shape.md](shape.md), [routes.md](routes.md), [testing.md](testing.md).
 
 ## Verification
 
 ```
+gofmt -l on touched Go files (empty)
 go test -count=1 ./internal/middleware ./internal/admin ./internal/operator ./internal/coreapp ./web
 ```
 
-Viewer GET `/gui/tenants` is 403 HTML with `X-GUI-Forbidden: 1`. Superadmin is 200. Sidebar for support omits Tenants and includes Users. Admin cookie posting `operator_role_id=superadmin` on `/gui/api-keys` is 403, no row. Omit the field and the key is viewer.
+Full merge bar is phase 7. Each earlier phase has its own check. See [testing.md](testing.md).
+
+## Implementation guidance
+
+- Run **how** on `internal/coreapp/app.go` `guiAuth` registrations and `web/templates/layouts/base.tmpl` before the wiring and sidebar commits.
+- **Foundational thinking.** Types and `page(c)` before route guards. Inventory before relying on greps.
+- **Boundary discipline.** `RequireGUIPermission` stays HTML. `ParseAssignedAdminRole` stays pure in `internal/operator`. Handlers map `ErrIAMAssignmentDenied` to `AbortGUIForbidden`.
+- **Type system discipline.** Nil `Can` denies. Unexported `can` so `gin.H` cannot grow a fake one. `web` does not import `operator`.
+- **Model the domain.** Frozen `NavSpec` plus `buildNav`. Do not sprinkle `{{if .Can}}` on every sidebar link.
+- **Encode lessons in structure.** Extend the existing AST inventory. Do not write "remember requireGUI" in a comment.
+- **Build the lever.** The inventory test is the lever for ~100 registrations. The frozen map in [routes.md](routes.md) is what the implementer applies, not a second handwritten pass.
+- **Migrate callers then delete legacy APIs.** `gin.H` layout roots go away in phase 2. Do not leave `AdminUser` keys next to `page(c)`.
+- **Experience first.** Sidebar omit and write CTA omit land together. First paint is the only sidebar paint.
+- **Sequence work into verifiable units.** The commit order above is the review story.
+- **Prove it works.** httptest through `RegisterRoutes` with a viewer cookie, not only `Principal.Has` in a unit test.
+- **Laziness protocol.** Reuse `p.Has`. Do not add `Grants()`. Do not wrap `HasScope` for `/admin`.
+- **Never block on the human** for reversible internals. Do not change seeded role names or catalog rows.
+- **Interrogate** before marking #12 ready for review.
+- Cursor babysit after the PR leaves draft.
+
+## Consumer and maintainer
+
+Consumer. GUI login still works after #10. Extra `cmd/setup` accounts are viewer. Apply migration 017 before new GUI accounts. After #12 merges, a viewer cookie is actually restricted. An admin cookie can still use the GUI and mint viewer JSON keys. It cannot mint superadmin.
+
+Maintainer. Next after #12 is roster, IAM history, and access log from PR #7. Custom roles UI stays out. Null API-key role fail-open stays until a dedicated cutover.
