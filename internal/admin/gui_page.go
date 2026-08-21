@@ -14,13 +14,26 @@ func (h *GUIHandler) page(c *gin.Context) web.TemplateData {
 		AdminID:       getAdminID(c),
 		CSRFToken:     getCSRFToken(c),
 	}
-	val, ok := c.Get(web.OperatorPrincipalKey)
+	p, ok := guiPrincipal(c)
 	if !ok {
 		return data
 	}
-	p, ok := val.(*operator.Principal)
-	if !ok || p == nil {
-		return data
-	}
 	return web.AttachCan(data, h.BasePath, p.Has)
+}
+
+func guiPrincipal(c *gin.Context) (*operator.Principal, bool) {
+	val, ok := c.Get(web.OperatorPrincipalKey)
+	if !ok {
+		return nil, false
+	}
+	p, ok := val.(*operator.Principal)
+	return p, ok && p != nil
+}
+
+func (h *GUIHandler) principalCan(c *gin.Context, resource, action string) bool {
+	p, ok := guiPrincipal(c)
+	if !ok {
+		return false
+	}
+	return p.Has(resource, action)
 }

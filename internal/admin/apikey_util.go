@@ -98,27 +98,6 @@ func formatExpiresAtLocal(t *time.Time) string {
 	return t.Format("2006-01-02T15:04")
 }
 
-func resolveAdminOperatorRoleID(keyType, roleIDStr string) (*uuid.UUID, error) {
-	if keyType != KeyTypeAdmin {
-		return nil, nil
-	}
-	roleIDStr = strings.TrimSpace(roleIDStr)
-	if roleIDStr == "" {
-		id := operator.RoleIDViewer
-		return &id, nil
-	}
-	id, err := uuid.Parse(roleIDStr)
-	if err != nil {
-		return nil, err
-	}
-	switch id {
-	case operator.RoleIDSuperadmin, operator.RoleIDAdmin, operator.RoleIDSupport, operator.RoleIDViewer:
-		return &id, nil
-	default:
-		return nil, errUnknownOperatorRole
-	}
-}
-
 func uuidPtrString(id *uuid.UUID) string {
 	if id == nil {
 		return ""
@@ -141,6 +120,5 @@ func operatorRoleOptions() []operatorRoleOption {
 }
 
 var (
-	errExpiresInPast       = errors.New("expiration date must be in the future")
-	errUnknownOperatorRole = errors.New("unknown operator role")
+	errExpiresInPast = errors.New("expiration date must be in the future")
 )

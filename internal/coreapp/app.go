@@ -279,6 +279,8 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 	guiHandler.AccessTokenTTL = cfg.JWT.AccessTokenTTL
 	guiHandler.AdminSessionTTL = cfg.Admin.SessionTTL
 	guiHandler.BasePath = cfg.Admin.AdminBasePath
+	guiHandler.AbortForbidden = middleware.AbortGUIForbidden
+	guiHandler.AbortInternal = middleware.AbortGUIInternal
 
 	// Initialize SSO Handler
 	ssoHandler := ssopkg.NewHandler(adminRepo, userRepo, sessionService)

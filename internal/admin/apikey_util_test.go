@@ -6,10 +6,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
-
-	"github.com/MrF1ow/go-core/internal/operator"
 )
 
 // ---------------------------------------------------------------------------
@@ -197,33 +193,6 @@ func TestParseOptionalExpiresAtKeeping_FutureChange(t *testing.T) {
 	}
 	if got == nil || got.Year() != 2026 || got.Month() != 9 {
 		t.Fatalf("got %v", got)
-	}
-}
-
-func TestResolveAdminOperatorRoleID_DefaultsViewer(t *testing.T) {
-	id, err := resolveAdminOperatorRoleID(KeyTypeAdmin, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id == nil || *id != operator.RoleIDViewer {
-		t.Fatalf("got %v", id)
-	}
-}
-
-func TestResolveAdminOperatorRoleID_AppKeyNil(t *testing.T) {
-	id, err := resolveAdminOperatorRoleID(KeyTypeApp, operator.RoleIDSuperadmin.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id != nil {
-		t.Fatal("app keys must not carry an operator role")
-	}
-}
-
-func TestResolveAdminOperatorRoleID_UnknownRejected(t *testing.T) {
-	_, err := resolveAdminOperatorRoleID(KeyTypeAdmin, uuid.New().String())
-	if err == nil {
-		t.Fatal("unknown role id must fail")
 	}
 }
 

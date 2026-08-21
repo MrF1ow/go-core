@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -71,6 +72,8 @@ type GUIHandler struct {
 	TrustedDeviceRepo *twofa.TrustedDeviceRepository // Trusted device repository (nil = feature disabled)
 	HealthHandler     *healthpkg.Handler             // System health + metrics (nil = monitoring disabled)
 	OperatorRepo      *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
+	AbortForbidden    func(*gin.Context)             // HTML 403; wired to middleware.AbortGUIForbidden
+	AbortInternal     func(*gin.Context)             // HTML 500; wired to middleware.AbortGUIInternal
 	AdminSessionTTL   time.Duration                  // Admin session cookie TTL
 	AdminBaseURL      string                         // Base URL for admin links (e.g. magic link emails)
 	AccessTokenTTL    time.Duration                  // Access token TTL (used for session status display)
@@ -1466,6 +1469,22 @@ func getAdminID(c *gin.Context) string {
 	return ""
 }
 
+func (h *GUIHandler) abortForbidden(c *gin.Context) {
+	if h.AbortForbidden != nil {
+		h.AbortForbidden(c)
+		return
+	}
+	c.AbortWithStatus(http.StatusForbidden)
+}
+
+func (h *GUIHandler) abortInternal(c *gin.Context) {
+	if h.AbortInternal != nil {
+		h.AbortInternal(c)
+		return
+	}
+	c.AbortWithStatus(http.StatusInternalServerError)
+}
+
 // ============================================================
 // User Management Handlers
 // ============================================================
@@ -2007,7 +2026,16 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 		expiresAtDisplay = expiresAt.Format("Jan 02, 2006 15:04")
 	}
 
-	roleID, err := resolveAdminOperatorRoleID(keyType, c.PostForm("operator_role_id"))
+	p, ok := guiPrincipal(c)
+	if !ok {
+		h.abortInternal(c)
+		return
+	}
+	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), keyType)
+	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
+		h.abortForbidden(c)
+		return
+	}
 	if err != nil {
 		c.String(http.StatusBadRequest,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid operator role.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
@@ -2234,7 +2262,16 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		return
 	}
 
-	roleID, err := resolveAdminOperatorRoleID(existing.KeyType, c.PostForm("operator_role_id"))
+	p, ok := guiPrincipal(c)
+	if !ok {
+		h.abortInternal(c)
+		return
+	}
+	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), existing.KeyType)
+	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
+		h.abortForbidden(c)
+		return
+	}
 	if err != nil {
 		c.String(http.StatusBadRequest,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid operator role.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
