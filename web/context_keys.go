@@ -53,6 +53,11 @@ const (
 
 	// OperatorPrincipalKey holds *operator.Principal after AdminAuthMiddleware.
 	OperatorPrincipalKey = "operator_principal"
+
+	// GUIForbiddenHeader marks an HTML permission 403 so HTMX may swap it.
+	// CSRF and settings env-lock 403s must not send this header.
+	GUIForbiddenHeader = "X-GUI-Forbidden"
+	GUIForbiddenValue  = "1"
 )
 
 // SessionValidator is the interface used by GUI middleware to validate sessions
