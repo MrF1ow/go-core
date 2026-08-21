@@ -12,7 +12,7 @@ var (
 	borderRadiusRegex = regexp.MustCompile(`^(0|[0-9]+(\.[0-9]+)?(px|rem|em))$`)
 )
 
-const maxBrandingFileSize = 1 << 20 // 1 MiB
+const maxBrandingFileSize = 1 << 20
 
 // ValidateConfig checks that all required Config fields are set.
 // Returns a descriptive error for the first missing or invalid field.

@@ -79,7 +79,6 @@ type App struct {
 	apiKeyNotificationSvc *admin.ApiKeyNotificationService
 	expiryService         *sessiongroup.ExpiryService
 
-	// Branding assets (read once at startup, served from memory)
 	logoData           []byte
 	logoContentType    string
 	faviconData        []byte
