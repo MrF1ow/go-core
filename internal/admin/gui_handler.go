@@ -2073,10 +2073,7 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to create API key. Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
 	}
-	if apiKey.ID == uuid.Nil {
-		apiKey.ID = uuid.New()
-	}
-	if keyType == KeyTypeAdmin && apiKey.OperatorRoleID != nil {
+	if keyType == KeyTypeAdmin && apiKey.OperatorRoleID != nil && apiKey.ID != uuid.Nil {
 		keyID := apiKey.ID
 		h.writeIAMEvent(c, operator.IAMEvent{
 			TargetKind:  operator.KindAPIKey,

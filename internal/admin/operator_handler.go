@@ -156,7 +156,7 @@ func (h *Handler) listIAMEvents(ctx context.Context, limit int32, targetKeyID, t
 }
 
 type assignKeyRoleRequest struct {
-	OperatorRoleID string `json:"operator_role_id"`
+	OperatorRoleID string `json:"operator_role_id" binding:"required"`
 }
 
 // OperatorKeyRole assigns an operator role to an admin API key.
@@ -208,6 +208,10 @@ func (h *Handler) OperatorKeyRole(c *gin.Context) {
 	p, ok := jsonPrincipal(c)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "internal authentication error"})
+		return
+	}
+	if strings.TrimSpace(req.OperatorRoleID) == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
 		return
 	}
 	roleID, err := operator.ParseAssignedAdminRole(*p, req.OperatorRoleID, key.KeyType, key.OperatorRoleID)
@@ -296,7 +300,7 @@ const lastSuperadminMessage = "cannot demote or disable the last enabled superad
 type createOperatorAccountRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Email    string `json:"email"`
-	Password string `json:"password" binding:"required,min=12"`
+	Password string `json:"password" binding:"required,min=12,max=128"`
 }
 
 type operatorAccountResponse struct {
@@ -308,7 +312,7 @@ type operatorAccountResponse struct {
 }
 
 type assignAccountRoleRequest struct {
-	OperatorRoleID string `json:"operator_role_id"`
+	OperatorRoleID string `json:"operator_role_id" binding:"required"`
 }
 
 // OperatorCreateAccount creates a GUI operator as viewer.
@@ -360,7 +364,8 @@ func (h *Handler) OperatorCreateAccount(c *gin.Context) {
 		return
 	}
 	if account.ID == uuid.Nil {
-		account.ID = uuid.New()
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create operator account"})
+		return
 	}
 	accountID := account.ID
 	newRole := roleID

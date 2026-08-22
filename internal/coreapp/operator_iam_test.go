@@ -298,6 +298,21 @@ func TestOperatorKeyRole_SuperadminAssignsViewerToSupport(t *testing.T) {
 	}
 }
 
+func TestOperatorKeyRole_EmptyRoleIsBadRequest(t *testing.T) {
+	h := iamEventTestEngine(t)
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/keys/"+h.viewerKeyID.String()+"/role", accessSuperadminKey, `{}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	stored := h.keys[h.viewerKeyID]
+	if stored.OperatorRoleID == nil || *stored.OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("stored role = %v, want viewer", stored.OperatorRoleID)
+	}
+	if len(iamEventList(t, h.engine)) != 0 {
+		t.Fatal("empty role PUT must not write an IAM event")
+	}
+}
+
 func TestOperatorKeyRole_ViewerForbidden(t *testing.T) {
 	h := iamEventTestEngine(t)
 	body := `{"operator_role_id":"` + operator.RoleIDSupport.String() + `"}`
