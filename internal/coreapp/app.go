@@ -883,6 +883,12 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 			guiAuth.PUT("/operator/accounts/:id/role", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorAccountRole)
 			guiAuth.POST("/operator/accounts/:id/disable", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorDisableAccount)
 			guiAuth.PUT("/operator/keys/:id/role", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorKeyRole)
+			guiAuth.GET("/operator/roles", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorRolesList)
+			guiAuth.GET("/operator/roles/new", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorCreateRoleForm)
+			guiAuth.POST("/operator/roles", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorCreateRole)
+			guiAuth.GET("/operator/roles/:id/edit", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorEditRoleForm)
+			guiAuth.PUT("/operator/roles/:id", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorUpdateRole)
+			guiAuth.DELETE("/operator/roles/:id", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorDeleteRole)
 
 			// Settings management
 			guiAuth.GET("/settings", requireGUI(operator.ResSettings, operator.ActionRead), a.guiHandler.SettingsPage)

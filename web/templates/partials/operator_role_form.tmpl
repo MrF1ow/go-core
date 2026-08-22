@@ -1,0 +1,57 @@
+{{define "operator_role_form"}}
+<div class="card border-0 shadow-sm border-start border-primary border-3">
+    <div class="card-body">
+        <h6 class="fw-bold mb-3">
+            {{if .IsEdit}}
+            <i class="bi bi-pencil me-2"></i>Edit role
+            {{else}}
+            <i class="bi bi-plus-lg me-2"></i>Create role
+            {{end}}
+        </h6>
+        <form
+            {{if .IsEdit}}
+            hx-put="{{basePath}}/operator/roles/{{.ID}}"
+            {{else}}
+            hx-post="{{basePath}}/operator/roles"
+            {{end}}
+              hx-target="#operator-form-container"
+              hx-swap="innerHTML">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label for="operatorRoleName" class="form-label small text-muted">Name</label>
+                    <input type="text" class="form-control" id="operatorRoleName" name="name"
+                           value="{{.Name}}" required autofocus>
+                </div>
+                <div class="col-md-8">
+                    <label for="operatorRoleDescription" class="form-label small text-muted">Description</label>
+                    <input type="text" class="form-control" id="operatorRoleDescription" name="description"
+                           value="{{.Description}}">
+                </div>
+            </div>
+            <p class="text-muted small mb-2">Permissions</p>
+            {{if .Permissions}}
+            <div class="row">
+                {{range .Permissions}}
+                <div class="col-md-6 mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="grants" value="{{.Key}}"
+                               id="grant-{{.Key}}"
+                               {{if .Checked}}checked{{end}}>
+                        <label class="form-check-label" for="grant-{{.Key}}">
+                            <span class="fw-semibold">{{.Key}}</span>
+                        </label>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>{{if .IsEdit}}Save{{else}}Create{{end}}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}

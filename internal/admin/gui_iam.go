@@ -16,6 +16,7 @@ import (
 
 	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/internal/safeconv"
+	"github.com/MrF1ow/go-core/internal/sqlcgen"
 	"github.com/MrF1ow/go-core/pkg/models"
 )
 
@@ -23,6 +24,7 @@ const (
 	operatorTabRoster     = "roster"
 	operatorTabEvents     = "events"
 	operatorTabAccessLogs = "access-logs"
+	operatorTabRoles      = "roles"
 )
 
 func (h *GUIHandler) writeIAMEvent(c *gin.Context, ev operator.IAMEvent) {
@@ -72,13 +74,35 @@ func (h *GUIHandler) accountRoleName(account models.AdminAccount) string {
 }
 
 type operatorIAMView struct {
-	Tab       string
-	Entries   []rosterViewEntry
-	Truncated bool
-	Events    []operator.IAMEvent
-	Logs      []operator.AccessRecord
-	CanWrite  bool
-	Roles     []operatorRoleOption
+	Tab         string
+	Entries     []rosterViewEntry
+	Truncated   bool
+	Events      []operator.IAMEvent
+	Logs        []operator.AccessRecord
+	CanWrite    bool
+	Roles       []operatorRoleOption
+	CustomRoles []operatorRoleListRow
+}
+
+type operatorRoleListRow struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	IsSystem    bool
+	Grants      []string
+}
+
+type operatorRoleFormView struct {
+	ID          uuid.UUID
+	Name        string
+	Description string
+	IsEdit      bool
+	Permissions []operatorCatalogCheck
+}
+
+type operatorCatalogCheck struct {
+	Key     string
+	Checked bool
 }
 
 type rosterViewEntry struct {
@@ -114,7 +138,7 @@ func (h *GUIHandler) rosterView(c *gin.Context) (operatorIAMView, error) {
 		return operatorIAMView{}, err
 	}
 	view.CanWrite = h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite)
-	view.Roles = operatorRoleOptions()
+	view.Roles = h.assignableRoleOptions(c)
 	return view, nil
 }
 
@@ -618,4 +642,335 @@ func (h *GUIHandler) guiUpdateAPIKeyRole(id string, key *models.ApiKey, roleID *
 
 func (h *GUIHandler) roleExists() operator.RoleExistsFunc {
 	return operatorRoleExists(h.RoleExists, h.OperatorRepo)
+}
+
+func customRoleCatalog() []operator.Permission {
+	out := make([]operator.Permission, 0, len(operator.Catalog()))
+	for _, p := range operator.Catalog() {
+		if p.Resource == operator.ResAdminIAM {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+func assignableOperatorRoleOptions(p *operator.Principal, stored []sqlcgen.OperatorRole) []operatorRoleOption {
+	if p == nil {
+		return operatorRoleOptions()
+	}
+	out := make([]operatorRoleOption, 0, len(stored)+4)
+	for _, role := range operator.AssignableSystemRoles(*p) {
+		out = append(out, operatorRoleOption{ID: role.ID, Name: role.Name})
+	}
+	if !p.Has(operator.ResAdminIAM, operator.ActionWrite) {
+		return out
+	}
+	for _, role := range stored {
+		if role.IsSystem {
+			continue
+		}
+		out = append(out, operatorRoleOption{ID: role.ID, Name: role.Name})
+	}
+	return out
+}
+
+func (h *GUIHandler) assignableRoleOptions(c *gin.Context) []operatorRoleOption {
+	p, ok := guiPrincipal(c)
+	if !ok {
+		return operatorRoleOptions()
+	}
+	stored, err := h.listOperatorRoles(c.Request.Context())
+	if err != nil {
+		log.Printf("operator GUI list roles: %v", err)
+		return assignableOperatorRoleOptions(p, nil)
+	}
+	return assignableOperatorRoleOptions(p, stored)
+}
+
+func (h *GUIHandler) listOperatorRoles(ctx context.Context) ([]sqlcgen.OperatorRole, error) {
+	if h.ListOperatorRoles != nil {
+		return h.ListOperatorRoles(ctx)
+	}
+	if h.OperatorRepo == nil {
+		return nil, fmt.Errorf("operator roles are not configured")
+	}
+	return h.OperatorRepo.ListRoles(ctx)
+}
+
+func (h *GUIHandler) operatorRoleByID(ctx context.Context, id uuid.UUID) (sqlcgen.OperatorRole, error) {
+	if h.GetOperatorRole != nil {
+		return h.GetOperatorRole(ctx, id)
+	}
+	if h.OperatorRepo == nil {
+		return sqlcgen.OperatorRole{}, fmt.Errorf("operator roles are not configured")
+	}
+	return h.OperatorRepo.GetOperatorRoleByID(ctx, id)
+}
+
+func (h *GUIHandler) createOperatorRole(ctx context.Context, name, description string, grants []operator.Permission) (sqlcgen.OperatorRole, error) {
+	if h.CreateOperatorRole != nil {
+		return h.CreateOperatorRole(ctx, name, description, grants)
+	}
+	if h.OperatorRepo == nil {
+		return sqlcgen.OperatorRole{}, fmt.Errorf("operator roles are not configured")
+	}
+	return h.OperatorRepo.CreateCustomRole(ctx, name, description, grants)
+}
+
+func (h *GUIHandler) updateOperatorRole(ctx context.Context, id uuid.UUID, name, description string, grants []operator.Permission) error {
+	if h.UpdateOperatorRole != nil {
+		if _, err := h.UpdateOperatorRole(ctx, id, name, description); err != nil {
+			return err
+		}
+	} else if h.OperatorRepo != nil {
+		if _, err := h.OperatorRepo.UpdateCustomRole(ctx, id, name, description); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("operator roles are not configured")
+	}
+	if h.ReplaceOperatorRolePermissions != nil {
+		return h.ReplaceOperatorRolePermissions(ctx, id, grants)
+	}
+	if h.OperatorRepo == nil {
+		return fmt.Errorf("operator roles are not configured")
+	}
+	return h.OperatorRepo.ReplaceRolePermissions(ctx, id, grants)
+}
+
+func (h *GUIHandler) deleteOperatorRole(ctx context.Context, id uuid.UUID) (int64, error) {
+	if h.DeleteOperatorRole != nil {
+		return h.DeleteOperatorRole(ctx, id)
+	}
+	if h.OperatorRepo == nil {
+		return 0, fmt.Errorf("operator roles are not configured")
+	}
+	return h.OperatorRepo.DeleteCustomRole(ctx, id)
+}
+
+func (h *GUIHandler) roleGrantKeys(ctx context.Context, id uuid.UUID) ([]string, error) {
+	if h.RoleGrantKeys != nil {
+		return h.RoleGrantKeys(ctx, id)
+	}
+	if h.OperatorRepo != nil {
+		_, keys, err := h.OperatorRepo.RoleGrants(ctx, id)
+		return keys, err
+	}
+	return nil, nil
+}
+
+func (h *GUIHandler) rolesView(c *gin.Context) (operatorIAMView, error) {
+	roles, err := h.listOperatorRoles(c.Request.Context())
+	if err != nil {
+		return operatorIAMView{}, err
+	}
+	rows := make([]operatorRoleListRow, 0, len(roles))
+	for _, role := range roles {
+		keys, err := h.roleGrantKeys(c.Request.Context(), role.ID)
+		if err != nil {
+			return operatorIAMView{}, err
+		}
+		rows = append(rows, operatorRoleListRow{
+			ID:          role.ID,
+			Name:        role.Name,
+			Description: role.Description,
+			IsSystem:    role.IsSystem,
+			Grants:      keys,
+		})
+	}
+	return operatorIAMView{
+		Tab:         operatorTabRoles,
+		CanWrite:    h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite),
+		CustomRoles: rows,
+	}, nil
+}
+
+func catalogChecks(selected []string) []operatorCatalogCheck {
+	want := make(map[string]struct{}, len(selected))
+	for _, key := range selected {
+		want[key] = struct{}{}
+	}
+	perms := customRoleCatalog()
+	out := make([]operatorCatalogCheck, 0, len(perms))
+	for _, p := range perms {
+		_, checked := want[p.Key()]
+		out = append(out, operatorCatalogCheck{Key: p.Key(), Checked: checked})
+	}
+	return out
+}
+
+func parseGUICustomGrants(c *gin.Context) ([]operator.Permission, bool) {
+	grants, err := operator.ParseCustomGrants(c.PostFormArray("grants"))
+	if errors.Is(err, operator.ErrAdminIAMOnCustomRole) {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", operator.ErrAdminIAMOnCustomRole.Error())
+		return nil, false
+	}
+	if err != nil {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Invalid operator grant.")
+		return nil, false
+	}
+	return grants, true
+}
+
+func (h *GUIHandler) loadMutableGUIRole(c *gin.Context) (sqlcgen.OperatorRole, bool) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Invalid operator role ID.")
+		return sqlcgen.OperatorRole{}, false
+	}
+	role, err := h.operatorRoleByID(c.Request.Context(), id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		guiOperatorAlert(c, http.StatusNotFound, "danger", "Operator role not found.")
+		return sqlcgen.OperatorRole{}, false
+	}
+	if err != nil {
+		log.Printf("operator GUI load role: %v", err)
+		h.abortInternal(c)
+		return sqlcgen.OperatorRole{}, false
+	}
+	if role.IsSystem {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", operator.ErrSystemRoleImmutable.Error())
+		return sqlcgen.OperatorRole{}, false
+	}
+	return role, true
+}
+
+func writeGUIRoleWriteError(c *gin.Context, err error) bool {
+	switch {
+	case errors.Is(err, operator.ErrRoleAssigned), errors.Is(err, operator.ErrRoleReferenced):
+		guiOperatorAlert(c, http.StatusConflict, "danger", err.Error())
+		return true
+	case errors.Is(err, operator.ErrSystemRoleImmutable), errors.Is(err, operator.ErrReservedSystemRoleName), errors.Is(err, operator.ErrAdminIAMOnCustomRole):
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", err.Error())
+		return true
+	case errors.Is(err, operator.ErrRoleNameTaken):
+		guiOperatorAlert(c, http.StatusConflict, "danger", err.Error())
+		return true
+	default:
+		return false
+	}
+}
+
+// OperatorRolesList renders the custom roles tab.
+// GET /gui/operator/roles
+func (h *GUIHandler) OperatorRolesList(c *gin.Context) {
+	view, err := h.rolesView(c)
+	if err != nil {
+		log.Printf("operator GUI roles list: %v", err)
+		h.abortInternal(c)
+		return
+	}
+	h.operatorPanel(c, "operator_roles", view)
+}
+
+// OperatorCreateRoleForm renders the create-role form fragment.
+// GET /gui/operator/roles/new
+func (h *GUIHandler) OperatorCreateRoleForm(c *gin.Context) {
+	c.HTML(http.StatusOK, "operator_role_form", operatorRoleFormView{
+		Permissions: catalogChecks(nil),
+	})
+}
+
+// OperatorCreateRole creates a custom operator role.
+// POST /gui/operator/roles
+func (h *GUIHandler) OperatorCreateRole(c *gin.Context) {
+	name := strings.TrimSpace(c.PostForm("name"))
+	if name == "" {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", "name is required")
+		return
+	}
+	if operator.IsReservedSystemRoleName(name) {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", operator.ErrReservedSystemRoleName.Error())
+		return
+	}
+	grants, ok := parseGUICustomGrants(c)
+	if !ok {
+		return
+	}
+	if _, err := h.createOperatorRole(c.Request.Context(), name, strings.TrimSpace(c.PostForm("description")), grants); err != nil {
+		if writeGUIRoleWriteError(c, err) {
+			return
+		}
+		log.Printf("operator GUI create role: %v", err)
+		h.abortInternal(c)
+		return
+	}
+	guiOperatorAlert(c, http.StatusOK, "success", "Operator role created.")
+}
+
+// OperatorEditRoleForm renders the edit-role form fragment.
+// GET /gui/operator/roles/:id/edit
+func (h *GUIHandler) OperatorEditRoleForm(c *gin.Context) {
+	role, ok := h.loadMutableGUIRole(c)
+	if !ok {
+		return
+	}
+	keys, err := h.roleGrantKeys(c.Request.Context(), role.ID)
+	if err != nil {
+		log.Printf("operator GUI role grants: %v", err)
+		h.abortInternal(c)
+		return
+	}
+	c.HTML(http.StatusOK, "operator_role_form", operatorRoleFormView{
+		ID:          role.ID,
+		Name:        role.Name,
+		Description: role.Description,
+		IsEdit:      true,
+		Permissions: catalogChecks(keys),
+	})
+}
+
+// OperatorUpdateRole updates a custom operator role.
+// PUT /gui/operator/roles/:id
+func (h *GUIHandler) OperatorUpdateRole(c *gin.Context) {
+	role, ok := h.loadMutableGUIRole(c)
+	if !ok {
+		return
+	}
+	name := strings.TrimSpace(c.PostForm("name"))
+	if name == "" {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", "name is required")
+		return
+	}
+	if operator.IsReservedSystemRoleName(name) {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", operator.ErrReservedSystemRoleName.Error())
+		return
+	}
+	grants, ok := parseGUICustomGrants(c)
+	if !ok {
+		return
+	}
+	if err := h.updateOperatorRole(c.Request.Context(), role.ID, name, strings.TrimSpace(c.PostForm("description")), grants); err != nil {
+		if writeGUIRoleWriteError(c, err) {
+			return
+		}
+		log.Printf("operator GUI update role: %v", err)
+		h.abortInternal(c)
+		return
+	}
+	guiOperatorAlert(c, http.StatusOK, "success", "Operator role updated.")
+}
+
+// OperatorDeleteRole deletes a custom operator role.
+// DELETE /gui/operator/roles/:id
+func (h *GUIHandler) OperatorDeleteRole(c *gin.Context) {
+	role, ok := h.loadMutableGUIRole(c)
+	if !ok {
+		return
+	}
+	n, err := h.deleteOperatorRole(c.Request.Context(), role.ID)
+	if err != nil {
+		if writeGUIRoleWriteError(c, err) {
+			return
+		}
+		log.Printf("operator GUI delete role: %v", err)
+		h.abortInternal(c)
+		return
+	}
+	if n == 0 {
+		guiOperatorAlert(c, http.StatusNotFound, "danger", "Operator role not found.")
+		return
+	}
+	guiOperatorAlert(c, http.StatusOK, "success", "Operator role deleted.")
 }

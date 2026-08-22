@@ -63,6 +63,14 @@
            hx-swap="innerHTML"
            hx-push-url="true">Access logs</a>
     </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" data-tab="roles"
+           href="{{basePath}}/operator/roles"
+           hx-get="{{basePath}}/operator/roles"
+           hx-target="#operator-panel"
+           hx-swap="innerHTML"
+           hx-push-url="true">Roles</a>
+    </li>
 </ul>
 
 <div id="operator-panel">
@@ -70,6 +78,8 @@
     {{template "operator_iam_events" .Data}}
     {{else if eq .Data.Tab "access-logs"}}
     {{template "operator_access_logs" .Data}}
+    {{else if eq .Data.Tab "roles"}}
+    {{template "operator_roles" .Data}}
     {{else}}
     {{template "operator_roster" .Data}}
     {{end}}
@@ -89,8 +99,14 @@
             document.querySelectorAll('#operator-iam-tabs .nav-link').forEach(function(el) {
                 el.classList.toggle('active', el.getAttribute('data-tab') === tab);
             });
-            if (exportBtn && exports[tab]) {
+            if (!exportBtn) {
+                return;
+            }
+            if (exports[tab]) {
                 exportBtn.href = exports[tab];
+                exportBtn.classList.remove('d-none');
+            } else {
+                exportBtn.classList.add('d-none');
             }
         }
         document.querySelectorAll('#operator-iam-tabs .nav-link').forEach(function(el) {

@@ -54,3 +54,9 @@ INSERT INTO operator_role_permissions (role_id, permission_id) VALUES ($1, $2);
 SELECT id, resource, action, description, created_at
 FROM operator_permissions
 WHERE resource = $1 AND action = $2;
+
+-- name: CountAdminAccountsByOperatorRole :one
+SELECT count(*) FROM admin_accounts WHERE operator_role_id = $1;
+
+-- name: CountAPIKeysByOperatorRole :one
+SELECT count(*) FROM api_keys WHERE operator_role_id = $1;

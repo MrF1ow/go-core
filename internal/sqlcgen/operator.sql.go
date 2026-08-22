@@ -9,7 +9,30 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countAPIKeysByOperatorRole = `-- name: CountAPIKeysByOperatorRole :one
+SELECT count(*) FROM api_keys WHERE operator_role_id = $1
+`
+
+func (q *Queries) CountAPIKeysByOperatorRole(ctx context.Context, operatorRoleID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAPIKeysByOperatorRole, operatorRoleID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countAdminAccountsByOperatorRole = `-- name: CountAdminAccountsByOperatorRole :one
+SELECT count(*) FROM admin_accounts WHERE operator_role_id = $1
+`
+
+func (q *Queries) CountAdminAccountsByOperatorRole(ctx context.Context, operatorRoleID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAdminAccountsByOperatorRole, operatorRoleID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const deleteOperatorRoleIfNotSystem = `-- name: DeleteOperatorRoleIfNotSystem :execrows
 DELETE FROM operator_roles
