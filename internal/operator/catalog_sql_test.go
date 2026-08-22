@@ -18,6 +18,7 @@ var (
 	excludedResourcePattern         = regexp.MustCompile(`(?is)^WHERE\s+resource\s+<>\s+'([^']+)'\s*$`)
 	permissionTuplePattern          = regexp.MustCompile(`(?is)\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)`)
 	adminAccountRoleBackfillPattern = regexp.MustCompile(`(?is)UPDATE\s+admin_accounts\s+SET\s+operator_role_id\s+=\s+'([^']+)'`)
+	adminKeyRoleBackfillPattern     = regexp.MustCompile(`(?is)UPDATE\s+api_keys\s+SET\s+operator_role_id\s+=\s+'([^']+)'\s+WHERE\s+key_type\s+=\s+'admin'\s+AND\s+operator_role_id\s+IS\s+NULL`)
 )
 
 func TestAdminAccountRoleBackfillUsesSuperadminID(t *testing.T) {
@@ -27,6 +28,38 @@ func TestAdminAccountRoleBackfillUsesSuperadminID(t *testing.T) {
 	}
 	if err := checkAdminAccountRoleBackfill(string(sql), RoleIDSuperadmin); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAdminKeyOperatorRoleRequiredMigration(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/019_admin_key_operator_role_required.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(sql)
+	if !strings.Contains(text, "api_keys_admin_operator_role_required") {
+		t.Fatal("019 missing CHECK name")
+	}
+	if !strings.Contains(text, "CHECK (key_type <> 'admin' OR operator_role_id IS NOT NULL)") {
+		t.Fatal("019 missing admin-key CHECK")
+	}
+	match := adminKeyRoleBackfillPattern.FindStringSubmatch(text)
+	if len(match) != 2 {
+		t.Fatal("019 missing viewer backfill")
+	}
+	got, err := uuid.Parse(match[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != RoleIDViewer {
+		t.Fatalf("backfill role ID = %s, want %s", got, RoleIDViewer)
+	}
+	schema, err := os.ReadFile("../schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(schema), "api_keys_admin_operator_role_required") {
+		t.Fatal("schema.sql missing admin-key CHECK")
 	}
 }
 

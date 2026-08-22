@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -177,7 +178,7 @@ func TestAdminAuth_ViewerDBKeyNoScopesKey(t *testing.T) {
 	}
 }
 
-func TestAdminAuth_NullRoleIsSuperadmin(t *testing.T) {
+func TestAdminAuth_NullRoleIsUnauthorized(t *testing.T) {
 	store := &stubKeys{}
 	raw := "ak_admin_legacy_key_value"
 	store.put(raw, &models.ApiKey{
@@ -185,13 +186,13 @@ func TestAdminAuth_NullRoleIsSuperadmin(t *testing.T) {
 		KeyType: admin.KeyTypeAdmin,
 	})
 	w := adminGET(AdminAuthMiddleware("", store, nil), func(c *gin.Context) {
-		p := mustPrincipal(t, c)
-		if !p.Has(operator.ResAdminIAM, operator.ActionWrite) {
-			t.Fatal("null role must be treated as superadmin")
-		}
+		t.Fatal("handler must not run")
 	}, raw)
-	if w.Code != http.StatusOK {
+	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "Invalid Admin API Key") {
+		t.Fatalf("body = %s", w.Body.String())
 	}
 }
 

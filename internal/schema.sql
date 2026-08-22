@@ -271,7 +271,9 @@ CREATE TABLE api_keys (
     notified_1_day_at  TIMESTAMPTZ,
     is_revoked       BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT api_keys_admin_operator_role_required
+        CHECK (key_type <> 'admin' OR operator_role_id IS NOT NULL)
 );
 
 CREATE UNIQUE INDEX idx_api_keys_key_hash   ON api_keys(key_hash);
