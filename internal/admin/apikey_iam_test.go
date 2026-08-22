@@ -126,6 +126,7 @@ func assertPersistedRole(t *testing.T, created *models.ApiKey, want uuid.UUID) {
 type apiKeyCreateResult struct {
 	response *httptest.ResponseRecorder
 	created  *models.ApiKey
+	events   []operator.IAMEvent
 }
 
 func apiKeyCreatePOST(t *testing.T, principal operator.Principal, form url.Values) apiKeyCreateResult {
@@ -143,6 +144,7 @@ func apiKeyCreatePOST(t *testing.T, principal operator.Principal, form url.Value
 		c.Next()
 	})
 	var created *models.ApiKey
+	var events []operator.IAMEvent
 	h := &GUIHandler{
 		BasePath: "/gui",
 		AbortForbidden: func(c *gin.Context) {
@@ -153,9 +155,15 @@ func apiKeyCreatePOST(t *testing.T, principal operator.Principal, form url.Value
 			c.AbortWithStatus(http.StatusInternalServerError)
 		},
 		createAPIKey: func(key *models.ApiKey) error {
+			if key.ID == uuid.Nil {
+				key.ID = uuid.New()
+			}
 			stored := *key
 			created = &stored
 			return nil
+		},
+		RecordIAM: func(ev operator.IAMEvent) {
+			events = append(events, ev)
 		},
 	}
 	router.POST("/gui/api-keys", h.ApiKeyCreate)
@@ -164,7 +172,7 @@ func apiKeyCreatePOST(t *testing.T, principal operator.Principal, form url.Value
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
-	return apiKeyCreateResult{response: response, created: created}
+	return apiKeyCreateResult{response: response, created: created, events: events}
 }
 
 type apiKeyUpdateResult struct {
@@ -172,6 +180,7 @@ type apiKeyUpdateResult struct {
 	updated  bool
 	name     string
 	role     *uuid.UUID
+	events   []operator.IAMEvent
 }
 
 func apiKeyUpdatePUT(t *testing.T, principal operator.Principal, existing *models.ApiKey, form url.Values) apiKeyUpdateResult {
@@ -209,6 +218,9 @@ func apiKeyUpdatePUT(t *testing.T, principal operator.Principal, existing *model
 				got.role = &copied
 			}
 			return nil
+		},
+		RecordIAM: func(ev operator.IAMEvent) {
+			got.events = append(got.events, ev)
 		},
 	}
 	router.PUT("/gui/api-keys/:id", h.ApiKeyUpdate)

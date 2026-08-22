@@ -1,0 +1,136 @@
+package coreapp
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"sync"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
+	"github.com/MrF1ow/go-core/internal/admin"
+	"github.com/MrF1ow/go-core/internal/middleware"
+	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/pkg/models"
+)
+
+type iamEventMem struct {
+	mu     sync.Mutex
+	events []operator.IAMEvent
+}
+
+func (m *iamEventMem) list(_ context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]operator.IAMEvent, 0)
+	for _, ev := range m.events {
+		if targetKeyID != nil && (ev.TargetKeyID == nil || *ev.TargetKeyID != *targetKeyID) {
+			continue
+		}
+		if targetAccountID != nil && (ev.TargetAccountID == nil || *ev.TargetAccountID != *targetAccountID) {
+			continue
+		}
+		out = append(out, ev)
+		if int32(len(out)) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (m *iamEventMem) write(ev operator.IAMEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.events = append([]operator.IAMEvent{ev}, m.events...)
+	return nil
+}
+
+func iamEventTestEngine(t *testing.T) (*gin.Engine, *iamEventMem) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
+	store := &accessLogKeyStore{}
+	viewerRole := operator.RoleIDViewer
+	superRole := operator.RoleIDSuperadmin
+	store.put(accessViewerKey, &models.ApiKey{
+		ID:             uuid.New(),
+		KeyType:        admin.KeyTypeAdmin,
+		OperatorRoleID: &viewerRole,
+	})
+	store.put(accessSuperadminKey, &models.ApiKey{
+		ID:             uuid.New(),
+		KeyType:        admin.KeyTypeAdmin,
+		OperatorRoleID: &superRole,
+	})
+	grants := &accessLogGrants{byID: map[uuid.UUID]struct {
+		name string
+		keys []string
+	}{
+		viewerRole:             {name: operator.RoleViewer, keys: operator.GrantsFor(operator.RoleViewer)},
+		superRole:              {name: operator.RoleSuperadmin, keys: operator.GrantsFor(operator.RoleSuperadmin)},
+		operator.RoleIDSupport: {name: operator.RoleSupport, keys: operator.GrantsFor(operator.RoleSupport)},
+	}}
+
+	mem := &iamEventMem{}
+	handler := &admin.Handler{IAMEventList: mem.list}
+	engine := gin.New()
+	group := engine.Group("/admin")
+	group.Use(middleware.AdminAuthMiddleware(accessEnvKey, store, grants))
+	group.GET("/operator/iam-events", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorIAMEvents)
+	return engine, mem
+}
+
+func iamEventList(t *testing.T, engine *gin.Engine) []operator.IAMEvent {
+	t.Helper()
+	rec := accessLogDo(engine, http.MethodGet, "/admin/operator/iam-events", accessSuperadminKey)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Entries []operator.IAMEvent `json:"entries"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	return body.Entries
+}
+
+func TestOperatorIAMEvents_ViewerForbidden(t *testing.T) {
+	engine, _ := iamEventTestEngine(t)
+	rec := accessLogDo(engine, http.MethodGet, "/admin/operator/iam-events", accessViewerKey)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestOperatorIAMEvents_SuperadminListsNewestFirst(t *testing.T) {
+	engine, mem := iamEventTestEngine(t)
+	older := operator.IAMEvent{Action: operator.ActionCreatePrincipal, ActorKind: string(operator.KindAPIKey)}
+	newer := operator.IAMEvent{Action: operator.ActionAssign, ActorKind: string(operator.KindAPIKey)}
+	if err := mem.write(older); err != nil {
+		t.Fatal(err)
+	}
+	if err := mem.write(newer); err != nil {
+		t.Fatal(err)
+	}
+	entries := iamEventList(t, engine)
+	if len(entries) != 2 {
+		t.Fatalf("len = %d, want 2", len(entries))
+	}
+	if entries[0].Action != operator.ActionAssign {
+		t.Fatalf("first action = %q, want assign", entries[0].Action)
+	}
+	if entries[1].Action != operator.ActionCreatePrincipal {
+		t.Fatalf("second action = %q, want create_principal", entries[1].Action)
+	}
+}
+
+func TestOperatorIAMEvents_InvalidTargetKeyID(t *testing.T) {
+	engine, _ := iamEventTestEngine(t)
+	rec := accessLogDo(engine, http.MethodGet, "/admin/operator/iam-events?target_key_id=not-a-uuid", accessSuperadminKey)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}

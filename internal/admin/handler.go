@@ -32,6 +32,7 @@ type Handler struct {
 	GeoIPService      *geoip.Service                 // GeoIP service for IP access checks (nil = disabled)
 
 	AccessLogList func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
+	IAMEventList  func(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error)
 }
 
 func NewHandler(r *Repository, emailService *email.Service) *Handler {
