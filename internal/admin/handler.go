@@ -32,9 +32,18 @@ type Handler struct {
 	TrustedDeviceRepo *twofa.TrustedDeviceRepository // Optional: trusted device management (nil = disabled)
 	GeoIPService      *geoip.Service                 // GeoIP service for IP access checks (nil = disabled)
 
-	AccessLogList  func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
-	RosterKeys     func() ([]operator.RosterEntry, error)
-	RosterAccounts func() ([]operator.RosterEntry, error)
+	AccessLogList           func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
+	IAMEventList            func(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error)
+	IAMEventWrite           func(operator.IAMEvent) error
+	GetAPIKey               func(id string) (*models.ApiKey, error)
+	UpdateAPIKeyRole        func(id string, roleID *uuid.UUID) error
+	CreateAccount           func(*models.AdminAccount) error
+	GetAccount              func(id string) (*models.AdminAccount, error)
+	UpdateAccountRole       func(id uuid.UUID, roleID uuid.UUID) error
+	DisableAccount          func(id uuid.UUID) error
+	CountEnabledSuperadmins func() (int64, error)
+	RosterKeys              func() ([]operator.RosterEntry, error)
+	RosterAccounts          func() ([]operator.RosterEntry, error)
 }
 
 func NewHandler(r *Repository, emailService *email.Service) *Handler {
