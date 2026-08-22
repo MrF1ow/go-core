@@ -49,3 +49,12 @@ func (r *Repository) RoleByName(ctx context.Context, name string) (sqlcgen.Opera
 func (r *Repository) ListRoles(ctx context.Context) ([]sqlcgen.OperatorRole, error) {
 	return r.queries.ListOperatorRoles(ctx)
 }
+
+// RoleName returns the role name for id. pgx.ErrNoRows if missing.
+func (r *Repository) RoleName(ctx context.Context, id uuid.UUID) (string, error) {
+	role, err := r.queries.GetOperatorRoleByID(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return role.Name, nil
+}
