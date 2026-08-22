@@ -74,6 +74,51 @@ func TestGUIShell_SuperadminTenantsOK(t *testing.T) {
 	}
 }
 
+func TestGUIShell_ViewerOperatorIAMForbidden(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
+	response := guiGET(engine, "/gui/operator", cookie, "", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+		t.Fatalf("missing %s", web.GUIForbiddenHeader)
+	}
+	users := guiGET(engine, "/gui/users", cookie, "", "")
+	if strings.Contains(users.Body.String(), "Operator IAM") {
+		t.Fatal("viewer nav includes Operator IAM")
+	}
+}
+
+func TestGUIShell_AdminOperatorIAMForbidden(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDAdmin, operator.RoleAdmin)
+	response := guiGET(engine, "/gui/operator", cookie, "", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+		t.Fatalf("missing %s", web.GUIForbiddenHeader)
+	}
+	users := guiGET(engine, "/gui/users", cookie, "", "")
+	if strings.Contains(users.Body.String(), "Operator IAM") {
+		t.Fatal("admin nav includes Operator IAM")
+	}
+}
+
+func TestGUIShell_SuperadminOperatorIAMIncludesEnvKey(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(engine, "/gui/operator", cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, "env_key") {
+		t.Fatalf("missing env_key: %s", body)
+	}
+	if !strings.Contains(body, "Operator IAM") {
+		t.Fatal("superadmin nav missing Operator IAM")
+	}
+}
+
 func TestGUIShell_ViewerSidebarOmitsTenantsAndEmptyEmail(t *testing.T) {
 	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
 	response := guiGET(engine, "/gui/users", cookie, "", "")
@@ -261,6 +306,8 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 		BasePath:       "/gui",
 		AbortForbidden: middleware.AbortGUIForbidden,
 		AbortInternal:  middleware.AbortGUIInternal,
+		RosterKeys:     func() ([]operator.RosterEntry, error) { return nil, nil },
+		RosterAccounts: func() ([]operator.RosterEntry, error) { return nil, nil },
 	}
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -271,6 +318,9 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 	guiAuth.Use(middleware.CSRFMiddleware(sessions))
 	guiAuth.GET("/", requireGUI(operator.ResDashboard, operator.ActionRead), h.Dashboard)
 	guiAuth.GET("/tenants", requireGUI(operator.ResTenants, operator.ActionRead), h.TenantPage)
+	guiAuth.GET("/operator", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorIAMPage)
+	guiAuth.GET("/operator/roster", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorRosterList)
+	guiAuth.GET("/operator/roster/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorRosterExport)
 	guiAuth.GET("/users", requireGUI(operator.ResUsers, operator.ActionRead), func(c *gin.Context) {
 		data := shellPage(c)
 		data.ActivePage = "users"

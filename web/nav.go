@@ -40,6 +40,7 @@ var navSpec = []NavSpec{
 
 	{Heading: "System", Page: "logs", Path: "/logs", Icon: "bi-journal-text", Label: "Activity Logs", Resource: "logs", Action: "read"},
 	{Heading: "System", Page: "api-keys", Path: "/api-keys", Icon: "bi-key-fill", Label: "API Keys", Resource: "api_keys", Action: "read"},
+	{Heading: "System", Page: "operator-iam", Path: "/operator", Icon: "bi-shield-shaded", Label: "Operator IAM", Resource: "admin_iam", Action: "read"},
 	{Heading: "System", Page: "webhooks", Path: "/webhooks", Icon: "bi-broadcast", Label: "Webhooks", Resource: "webhooks", Action: "read"},
 	{Heading: "System", Page: "monitoring", Path: "/monitoring", Icon: "bi-heart-pulse", Label: "System Health", Resource: "monitoring", Action: "read"},
 	{Heading: "System", Page: "settings", Path: "/settings", Icon: "bi-gear", Label: "Settings", Resource: "settings", Action: "read"},

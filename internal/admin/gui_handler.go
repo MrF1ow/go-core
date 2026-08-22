@@ -72,6 +72,8 @@ type GUIHandler struct {
 	TrustedDeviceRepo *twofa.TrustedDeviceRepository // Trusted device repository (nil = feature disabled)
 	HealthHandler     *healthpkg.Handler             // System health + metrics (nil = monitoring disabled)
 	OperatorRepo      *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
+	RosterKeys        func() ([]operator.RosterEntry, error)
+	RosterAccounts    func() ([]operator.RosterEntry, error)
 	RecordIAM         func(operator.IAMEvent)
 	AbortForbidden    func(*gin.Context) // HTML 403; wired to middleware.AbortGUIForbidden
 	AbortInternal     func(*gin.Context) // HTML 500; wired to middleware.AbortGUIInternal

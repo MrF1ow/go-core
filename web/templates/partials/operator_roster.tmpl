@@ -1,0 +1,75 @@
+{{define "operator_roster"}}
+{{if .Truncated}}
+<div class="alert alert-warning py-2 small mb-3" role="alert">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    Roster truncated at 10,000 rows.
+</div>
+{{end}}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {{if .Entries}}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Kind</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                        <th>Last used</th>
+                        <th>Expires</th>
+                        <th class="pe-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Entries}}
+                    <tr>
+                        <td class="ps-3">
+                            <span class="badge bg-primary bg-opacity-10 text-primary">{{.Kind}}</span>
+                        </td>
+                        <td>{{.DisplayName}}</td>
+                        <td>{{if .RoleName}}{{.RoleName}}{{else}}<span class="text-muted">-</span>{{end}}</td>
+                        <td>
+                            {{if not .CreatedAt.IsZero}}
+                            <small class="text-muted" title="{{formatDateTimeFull .CreatedAt}}">{{timeAgo .CreatedAt}}</small>
+                            {{else}}
+                            <small class="text-muted">-</small>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if .LastUsedAt}}
+                            <small class="text-muted" title="{{formatDateTimeFull (deref .LastUsedAt)}}">{{timeAgo (deref .LastUsedAt)}}</small>
+                            {{else}}
+                            <small class="text-muted">-</small>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if .ExpiresAt}}
+                            <small class="text-muted">{{formatDateTime (deref .ExpiresAt)}}</small>
+                            {{else}}
+                            <small class="text-muted">-</small>
+                            {{end}}
+                        </td>
+                        <td class="pe-3">
+                            {{if eq .Status "Revoked"}}
+                            <span class="badge bg-danger bg-opacity-10 text-danger">Revoked</span>
+                            {{else if eq .Status "Disabled"}}
+                            <span class="badge bg-warning text-dark">Disabled</span>
+                            {{else}}
+                            <span class="badge bg-success bg-opacity-10 text-success">Active</span>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-shield-shaded fs-1"></i>
+            <p class="mt-2 mb-0">No operator principals found.</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}

@@ -41,6 +41,9 @@ func TestBuildNav_ViewerOmitsTenantsAndEmptyEmail(t *testing.T) {
 	if labelPresent(groups, "API Keys") {
 		t.Fatal("viewer nav includes API Keys")
 	}
+	if labelPresent(groups, "Operator IAM") {
+		t.Fatal("viewer nav includes Operator IAM")
+	}
 }
 
 func TestBuildNav_SupportIncludesSessionsOmitsTenants(t *testing.T) {
@@ -56,20 +59,34 @@ func TestBuildNav_SupportIncludesSessionsOmitsTenants(t *testing.T) {
 	}
 }
 
-func TestBuildNav_SuperadminHasEveryRowAndNoAdminIAM(t *testing.T) {
+func TestBuildNav_AdminOmitsOperatorIAM(t *testing.T) {
+	p := operator.NewPrincipal(operator.KindGUIAccount, operator.RoleAdmin, operator.GrantsFor(operator.RoleAdmin))
+	groups := buildNav("/gui", p.Has)
+	if labelPresent(groups, "Operator IAM") {
+		t.Fatal("admin nav includes Operator IAM")
+	}
+	if !labelPresent(groups, "API Keys") {
+		t.Fatal("admin nav missing API Keys")
+	}
+}
+
+func TestBuildNav_SuperadminHasEveryRowIncludingOperatorIAM(t *testing.T) {
 	p := operator.NewPrincipal(operator.KindGUIAccount, operator.RoleSuperadmin, operator.GrantsFor(operator.RoleSuperadmin))
 	groups := buildNav("/gui", p.Has)
 	got := flattenNav(groups)
 	if len(got) != len(navSpec) {
 		t.Fatalf("got %d items, want %d spec rows: %v", len(got), len(navSpec), got)
 	}
-	if labelPresent(groups, "admin_iam") {
-		t.Fatal("nav includes admin_iam")
+	if !labelPresent(groups, "Operator IAM") {
+		t.Fatal("superadmin nav missing Operator IAM")
 	}
-	for _, spec := range navSpec {
-		if spec.Resource == "admin_iam" {
-			t.Fatal("navSpec contains admin_iam")
-		}
+	if labelPresent(groups, "admin_iam") {
+		t.Fatal("nav uses resource id as label")
+	}
+	api := indexOfLabel(got, "API Keys")
+	iam := indexOfLabel(got, "Operator IAM")
+	if api < 0 || iam != api+1 {
+		t.Fatalf("Operator IAM not immediately after API Keys: %v", got)
 	}
 }
 
@@ -110,6 +127,15 @@ func flattenNav(groups []NavGroup) []string {
 		}
 	}
 	return labels
+}
+
+func indexOfLabel(labels []string, want string) int {
+	for i, label := range labels {
+		if label == want {
+			return i
+		}
+	}
+	return -1
 }
 
 func headingPresent(groups []NavGroup, heading string) bool {
