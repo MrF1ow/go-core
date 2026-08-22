@@ -24,6 +24,7 @@ import (
 
 type Handler struct {
 	Repo              *Repository
+	Accounts          *AccountRepository
 	OperatorRoles     *operator.Repository
 	EmailService      *email.Service
 	IPRuleRepo        *geoip.IPRuleRepository        // IP rule repository (nil = IP rules disabled)
@@ -36,12 +37,13 @@ type Handler struct {
 	IAMEventWrite           func(operator.IAMEvent) error
 	GetAPIKey               func(id string) (*models.ApiKey, error)
 	UpdateAPIKeyRole        func(id string, roleID *uuid.UUID) error
-	Accounts                *AccountRepository
 	CreateAccount           func(*models.AdminAccount) error
 	GetAccount              func(id string) (*models.AdminAccount, error)
 	UpdateAccountRole       func(id uuid.UUID, roleID uuid.UUID) error
 	DisableAccount          func(id uuid.UUID) error
 	CountEnabledSuperadmins func() (int64, error)
+	RosterKeys              func() ([]operator.RosterEntry, error)
+	RosterAccounts          func() ([]operator.RosterEntry, error)
 }
 
 func NewHandler(r *Repository, emailService *email.Service) *Handler {
