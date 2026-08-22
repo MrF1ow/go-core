@@ -349,23 +349,38 @@ func (h *GUIHandler) OperatorCreateAccount(c *gin.Context) {
 	guiOperatorAlert(c, http.StatusOK, "success", "Operator created successfully.")
 }
 
-// OperatorAccountRole assigns a system operator role to a GUI account.
+// OperatorAccountRole assigns an operator role to a GUI account.
 // PUT /gui/operator/accounts/:id/role
 func (h *GUIHandler) OperatorAccountRole(c *gin.Context) {
 	account, ok := h.guiLoadAccountOrAbort(c, c.Param("id"))
 	if !ok {
 		return
 	}
-	roleID, err := uuid.Parse(strings.TrimSpace(c.PostForm("operator_role_id")))
-	if err != nil || !operator.IsSystemRoleID(roleID) {
+	posted := strings.TrimSpace(c.PostForm("operator_role_id"))
+	if posted == "" {
 		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Invalid operator role.")
 		return
 	}
-	if account.OperatorRoleID == roleID {
+	p, ok := guiPrincipal(c)
+	if !ok {
+		h.abortInternal(c)
+		return
+	}
+	current := account.OperatorRoleID
+	roleID, err := operator.ParseAssignedAdminRole(*p, posted, KeyTypeAdmin, &current, h.roleExists())
+	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
+		h.abortForbidden(c)
+		return
+	}
+	if err != nil || roleID == nil {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Invalid operator role.")
+		return
+	}
+	if account.OperatorRoleID == *roleID {
 		c.Status(http.StatusNoContent)
 		return
 	}
-	if roleID != operator.RoleIDSuperadmin {
+	if *roleID != operator.RoleIDSuperadmin {
 		blocked, err := h.guiWouldLeaveLastSuperadmin(account)
 		if err != nil {
 			log.Printf("operator GUI account role: %v", err)
@@ -377,19 +392,18 @@ func (h *GUIHandler) OperatorAccountRole(c *gin.Context) {
 			return
 		}
 	}
-	if err := h.guiUpdateAccountRole(account.ID, roleID); err != nil {
+	if err := h.guiUpdateAccountRole(account.ID, *roleID); err != nil {
 		log.Printf("operator GUI account role: %v", err)
 		h.abortInternal(c)
 		return
 	}
 	oldRole := account.OperatorRoleID
-	newRole := roleID
 	accountID := account.ID
 	h.writeIAMEvent(c, operator.IAMEvent{
 		TargetKind:      operator.KindGUIAccount,
 		TargetAccountID: &accountID,
 		OldRoleID:       &oldRole,
-		NewRoleID:       &newRole,
+		NewRoleID:       roleID,
 		Action:          operator.ActionAssign,
 	})
 	guiOperatorAlert(c, http.StatusOK, "success", "Operator role updated.")
@@ -462,7 +476,7 @@ func (h *GUIHandler) OperatorKeyRole(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), key.KeyType, key.OperatorRoleID)
+	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), key.KeyType, key.OperatorRoleID, h.roleExists())
 	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 		h.abortForbidden(c)
 		return
@@ -600,4 +614,8 @@ func (h *GUIHandler) guiUpdateAPIKeyRole(id string, key *models.ApiKey, roleID *
 		return h.UpdateAPIKeyRole(id, roleID)
 	}
 	return h.persistAPIKeyUpdate(id, key.Name, key.Description, key.Scopes, roleID, key.ExpiresAt)
+}
+
+func (h *GUIHandler) roleExists() operator.RoleExistsFunc {
+	return operatorRoleExists(h.RoleExists, h.OperatorRepo)
 }

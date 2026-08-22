@@ -569,6 +569,9 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 		BasePath:       "/gui",
 		AbortForbidden: middleware.AbortGUIForbidden,
 		AbortInternal:  middleware.AbortGUIInternal,
+		RoleExists: func(id uuid.UUID) (bool, error) {
+			return operator.IsSystemRoleID(id), nil
+		},
 		RosterKeys: func() ([]operator.RosterEntry, error) {
 			id := viewerKey.ID
 			return []operator.RosterEntry{{

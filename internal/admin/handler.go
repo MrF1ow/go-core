@@ -14,6 +14,7 @@ import (
 	"github.com/MrF1ow/go-core/internal/email"
 	"github.com/MrF1ow/go-core/internal/geoip"
 	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/internal/sqlcgen"
 	"github.com/MrF1ow/go-core/internal/twofa"
 	userimport "github.com/MrF1ow/go-core/internal/user"
 	"github.com/MrF1ow/go-core/pkg/dto"
@@ -35,6 +36,9 @@ type Handler struct {
 	AccessLogList           func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
 	IAMEventList            func(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error)
 	IAMEventWrite           func(operator.IAMEvent) error
+	RoleExists              operator.RoleExistsFunc
+	GetOperatorRole         func(context.Context, uuid.UUID) (sqlcgen.OperatorRole, error)
+	CreateOperatorRole      func(context.Context, string, string, []operator.Permission) (sqlcgen.OperatorRole, error)
 	GetAPIKey               func(id string) (*models.ApiKey, error)
 	UpdateAPIKeyRole        func(id string, roleID *uuid.UUID) error
 	CreateAccount           func(*models.AdminAccount) error
