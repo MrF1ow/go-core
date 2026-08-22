@@ -238,6 +238,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 	adminRepo := admin.NewRepository(pool)
 	operatorRepo := operator.NewRepository(pool)
 	adminHandler := admin.NewHandler(adminRepo, emailService)
+	adminHandler.OperatorRoles = operatorRepo
 	middleware.SetOperatorAccessLogger(func(rec operator.AccessRecord) {
 		go func() {
 			if err := operatorRepo.InsertAccessLog(context.Background(), rec); err != nil {
@@ -646,6 +647,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	{
 		adminRoutes.GET("/activity-logs", requireOp(operator.ResLogs, operator.ActionRead), a.logHandler.GetAllActivityLogs)
 		adminRoutes.GET("/activity-logs/export", requireOp(operator.ResLogs, operator.ActionRead), a.logHandler.ExportAllActivityLogs)
+		adminRoutes.GET("/operator/access-logs", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorAccessLogs)
 
 		adminRoutes.POST("/tenants", requireOp(operator.ResTenants, operator.ActionWrite), a.adminHandler.CreateTenant)
 		adminRoutes.GET("/tenants", requireOp(operator.ResTenants, operator.ActionRead), a.adminHandler.ListTenants)
