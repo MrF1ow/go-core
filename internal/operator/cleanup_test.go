@@ -2,6 +2,7 @@ package operator
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -104,5 +105,16 @@ func TestEvidenceCleanup_BatchesUntilUnderLimit(t *testing.T) {
 	}
 	if len(store.access) != 0 {
 		t.Fatalf("remaining = %d", len(store.access))
+	}
+}
+
+func TestEvidenceCleanupSQLIsAgeDelete(t *testing.T) {
+	for _, sql := range []string{deleteAccessLogsSQL, deleteIAMEventsSQL} {
+		if !strings.Contains(sql, "at < $1") || !strings.Contains(sql, "LIMIT $2") {
+			t.Fatalf("sql = %s", sql)
+		}
+		if strings.Contains(sql, "expires_at") {
+			t.Fatalf("expires_at in %s", sql)
+		}
 	}
 }
