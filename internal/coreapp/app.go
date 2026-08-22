@@ -873,6 +873,11 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 			guiAuth.GET("/operator/iam-events/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorIAMEventsExport)
 			guiAuth.GET("/operator/access-logs", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorAccessLogs)
 			guiAuth.GET("/operator/access-logs/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorAccessLogsExport)
+			guiAuth.GET("/operator/accounts/new", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorCreateAccountForm)
+			guiAuth.POST("/operator/accounts", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorCreateAccount)
+			guiAuth.PUT("/operator/accounts/:id/role", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorAccountRole)
+			guiAuth.POST("/operator/accounts/:id/disable", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorDisableAccount)
+			guiAuth.PUT("/operator/keys/:id/role", requireGUI(operator.ResAdminIAM, operator.ActionWrite), a.guiHandler.OperatorKeyRole)
 
 			// Settings management
 			guiAuth.GET("/settings", requireGUI(operator.ResSettings, operator.ActionRead), a.guiHandler.SettingsPage)

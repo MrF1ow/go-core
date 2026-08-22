@@ -57,36 +57,44 @@ const (
 // GUIHandler serves HTML pages for the Admin GUI.
 // Separate from Handler (which serves the JSON admin API).
 type GUIHandler struct {
-	AccountService    *AccountService
-	DashboardService  *DashboardService
-	Repo              *Repository
-	SettingsService   *SettingsService
-	EmailService      *email.Service
-	RBACService       *rbac.Service
-	PasskeyService    *passkeypkg.Service
-	IPRuleRepo        *geoip.IPRuleRepository        // IP rule repository (nil = IP rules disabled)
-	IPRuleEvaluator   *geoip.IPRuleEvaluator         // IP rule evaluator for cache invalidation (nil = disabled)
-	GeoIPService      *geoip.Service                 // GeoIP service for IP lookups (nil = disabled)
-	BruteForceService *bruteforce.Service            // Brute-force protection service for account unlock (nil = disabled)
-	WebhookService    *webhook.Service               // Webhook management service (nil = webhooks disabled)
-	OIDCService       *oidcpkg.Service               // OIDC provider service (nil = OIDC disabled)
-	TrustedDeviceRepo *twofa.TrustedDeviceRepository // Trusted device repository (nil = feature disabled)
-	HealthHandler     *healthpkg.Handler             // System health + metrics (nil = monitoring disabled)
-	OperatorRepo      *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
-	RosterKeys        func() ([]operator.RosterEntry, error)
-	RosterAccounts    func() ([]operator.RosterEntry, error)
-	IAMEventList      func(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error)
-	AccessLogList     func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
-	RecordIAM         func(operator.IAMEvent)
-	AbortForbidden    func(*gin.Context) // HTML 403; wired to middleware.AbortGUIForbidden
-	AbortInternal     func(*gin.Context) // HTML 500; wired to middleware.AbortGUIInternal
-	createAPIKey      func(*models.ApiKey) error
-	getAPIKey         func(string) (*models.ApiKey, error)
-	updateAPIKey      func(id, name, description, scopes string, operatorRoleID *uuid.UUID, expiresAt *time.Time) error
-	AdminSessionTTL   time.Duration // Admin session cookie TTL
-	AdminBaseURL      string        // Base URL for admin links (e.g. magic link emails)
-	AccessTokenTTL    time.Duration // Access token TTL (used for session status display)
-	BasePath          string        // URL path prefix for admin GUI (e.g. "/gui")
+	AccountService          *AccountService
+	DashboardService        *DashboardService
+	Repo                    *Repository
+	SettingsService         *SettingsService
+	EmailService            *email.Service
+	RBACService             *rbac.Service
+	PasskeyService          *passkeypkg.Service
+	IPRuleRepo              *geoip.IPRuleRepository        // IP rule repository (nil = IP rules disabled)
+	IPRuleEvaluator         *geoip.IPRuleEvaluator         // IP rule evaluator for cache invalidation (nil = disabled)
+	GeoIPService            *geoip.Service                 // GeoIP service for IP lookups (nil = disabled)
+	BruteForceService       *bruteforce.Service            // Brute-force protection service for account unlock (nil = disabled)
+	WebhookService          *webhook.Service               // Webhook management service (nil = webhooks disabled)
+	OIDCService             *oidcpkg.Service               // OIDC provider service (nil = OIDC disabled)
+	TrustedDeviceRepo       *twofa.TrustedDeviceRepository // Trusted device repository (nil = feature disabled)
+	HealthHandler           *healthpkg.Handler             // System health + metrics (nil = monitoring disabled)
+	OperatorRepo            *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
+	RosterKeys              func() ([]operator.RosterEntry, error)
+	RosterAccounts          func() ([]operator.RosterEntry, error)
+	IAMEventList            func(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error)
+	AccessLogList           func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
+	RecordIAM               func(operator.IAMEvent)
+	CreateAccount           func(*models.AdminAccount) error
+	GetAccount              func(string) (*models.AdminAccount, error)
+	GetAccountByUsername    func(string) (*models.AdminAccount, error)
+	UpdateAccountRole       func(uuid.UUID, uuid.UUID) error
+	DisableAccount          func(uuid.UUID) error
+	CountEnabledSuperadmins func() (int64, error)
+	GetAPIKey               func(string) (*models.ApiKey, error)
+	UpdateAPIKeyRole        func(id string, roleID *uuid.UUID) error
+	AbortForbidden          func(*gin.Context) // HTML 403; wired to middleware.AbortGUIForbidden
+	AbortInternal           func(*gin.Context) // HTML 500; wired to middleware.AbortGUIInternal
+	createAPIKey            func(*models.ApiKey) error
+	getAPIKey               func(string) (*models.ApiKey, error)
+	updateAPIKey            func(id, name, description, scopes string, operatorRoleID *uuid.UUID, expiresAt *time.Time) error
+	AdminSessionTTL         time.Duration // Admin session cookie TTL
+	AdminBaseURL            string        // Base URL for admin links (e.g. magic link emails)
+	AccessTokenTTL          time.Duration // Access token TTL (used for session status display)
+	BasePath                string        // URL path prefix for admin GUI (e.g. "/gui")
 }
 
 // NewGUIHandler creates a new GUIHandler
