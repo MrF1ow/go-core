@@ -152,6 +152,49 @@ func TestOperatorRoster_SuperadminIncludesEnvKeyAndRole(t *testing.T) {
 	}
 }
 
+func TestOperatorRoster_DisabledAccountJSON(t *testing.T) {
+	accountID := uuid.New()
+	disabled := true
+	handler := &admin.Handler{
+		RosterKeys: func() ([]operator.RosterEntry, error) { return nil, nil },
+		RosterAccounts: func() ([]operator.RosterEntry, error) {
+			return []operator.RosterEntry{{
+				Kind:        string(operator.KindGUIAccount),
+				DisplayName: "bob",
+				RoleName:    operator.RoleViewer,
+				AccountID:   &accountID,
+				Disabled:    &disabled,
+			}}, nil
+		},
+	}
+	engine := rosterTestEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin, handler)
+	rec := rosterGET(engine, "/admin/operator/roster")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Entries []operator.RosterEntry `json:"entries"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Entries[0].Disabled != nil {
+		t.Fatalf("env disabled = %+v", body.Entries[0])
+	}
+	found := false
+	for _, entry := range body.Entries {
+		if entry.AccountID != nil && *entry.AccountID == accountID {
+			found = true
+			if entry.Disabled == nil || !*entry.Disabled {
+				t.Fatalf("account = %+v", entry)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("missing account in %#v", body.Entries)
+	}
+}
+
 func TestOperatorRosterExport_CSVAndTruncationHeader(t *testing.T) {
 	handler := &admin.Handler{
 		RosterKeys:     func() ([]operator.RosterEntry, error) { return nil, nil },

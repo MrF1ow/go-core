@@ -1,11 +1,26 @@
 package operator
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+func TestEnvKeyRosterEntry_JSONOmitsDisabled(t *testing.T) {
+	if EnvKeyRosterEntry().Disabled != nil {
+		t.Fatal("env key must omit disabled")
+	}
+	raw, err := json.Marshal(EnvKeyRosterEntry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "disabled") {
+		t.Fatalf("env key JSON included disabled: %s", raw)
+	}
+}
 
 func TestBuildRoster_PrependsEnvThenKeysThenAccounts(t *testing.T) {
 	keyID := uuid.New()
