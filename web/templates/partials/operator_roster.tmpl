@@ -18,17 +18,49 @@
                         <th>Created</th>
                         <th>Last used</th>
                         <th>Expires</th>
-                        <th class="pe-3">Status</th>
+                        <th>Status</th>
+                        <th class="pe-3 text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {{range .Entries}}
+                    {{$row := .}}
                     <tr>
                         <td class="ps-3">
                             <span class="badge bg-primary bg-opacity-10 text-primary">{{.Kind}}</span>
                         </td>
                         <td>{{.DisplayName}}</td>
-                        <td>{{if .RoleName}}{{.RoleName}}{{else}}<span class="text-muted">-</span>{{end}}</td>
+                        <td>
+                            {{if and $.CanWrite (eq .Status "Active") (eq .Kind "gui_account") .AccountID}}
+                            <form class="d-flex gap-1 align-items-center"
+                                  hx-put="{{basePath}}/operator/accounts/{{.AccountID}}/role"
+                                  hx-target="#operator-flash"
+                                  hx-swap="innerHTML">
+                                <select class="form-select form-select-sm" name="operator_role_id">
+                                    {{range $.Roles}}
+                                    <option value="{{.ID}}" {{if eq .Name $row.RoleName}}selected{{end}}>{{.Name}}</option>
+                                    {{end}}
+                                </select>
+                                <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
+                            </form>
+                            {{else if and $.CanWrite (eq .Status "Active") (eq .Kind "api_key") .KeyID}}
+                            <form class="d-flex gap-1 align-items-center"
+                                  hx-put="{{basePath}}/operator/keys/{{.KeyID}}/role"
+                                  hx-target="#operator-flash"
+                                  hx-swap="innerHTML">
+                                <select class="form-select form-select-sm" name="operator_role_id">
+                                    {{range $.Roles}}
+                                    <option value="{{.ID}}" {{if eq .Name $row.RoleName}}selected{{end}}>{{.Name}}</option>
+                                    {{end}}
+                                </select>
+                                <button type="submit" class="btn btn-outline-primary btn-sm">Save</button>
+                            </form>
+                            {{else if .RoleName}}
+                            {{.RoleName}}
+                            {{else}}
+                            <span class="text-muted">-</span>
+                            {{end}}
+                        </td>
                         <td>
                             {{if not .CreatedAt.IsZero}}
                             <small class="text-muted" title="{{formatDateTimeFull .CreatedAt}}">{{timeAgo .CreatedAt}}</small>
@@ -50,13 +82,23 @@
                             <small class="text-muted">-</small>
                             {{end}}
                         </td>
-                        <td class="pe-3">
+                        <td>
                             {{if eq .Status "Revoked"}}
                             <span class="badge bg-danger bg-opacity-10 text-danger">Revoked</span>
                             {{else if eq .Status "Disabled"}}
                             <span class="badge bg-warning text-dark">Disabled</span>
                             {{else}}
                             <span class="badge bg-success bg-opacity-10 text-success">Active</span>
+                            {{end}}
+                        </td>
+                        <td class="pe-3 text-end">
+                            {{if and (eq .Kind "gui_account") (eq .Status "Active") $.CanWrite .AccountID}}
+                            <button class="btn btn-outline-danger btn-sm"
+                                    hx-post="{{basePath}}/operator/accounts/{{.AccountID}}/disable"
+                                    hx-target="#operator-flash"
+                                    hx-swap="innerHTML">
+                                Disable
+                            </button>
                             {{end}}
                         </td>
                     </tr>

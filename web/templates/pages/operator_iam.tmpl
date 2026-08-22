@@ -9,11 +9,24 @@
     <h4 class="mb-0 fw-bold">
         <i class="bi bi-shield-shaded me-2"></i>Operator IAM
     </h4>
-    <a id="operatorExportBtn" href="{{basePath}}/operator/roster/export"
-       class="btn btn-sm btn-outline-success">
-        <i class="bi bi-filetype-csv me-1"></i>Export CSV
-    </a>
+    <div class="d-flex gap-2">
+        {{if .Can "admin_iam" "write"}}
+        <button class="btn btn-primary btn-sm"
+                hx-get="{{basePath}}/operator/accounts/new"
+                hx-target="#operator-form-container"
+                hx-swap="innerHTML">
+            <i class="bi bi-plus-lg me-1"></i>Create operator
+        </button>
+        {{end}}
+        <a id="operatorExportBtn" href="{{basePath}}/operator/roster/export"
+           class="btn btn-sm btn-outline-success">
+            <i class="bi bi-filetype-csv me-1"></i>Export CSV
+        </a>
+    </div>
 </div>
+
+<div id="operator-form-container" class="mb-3"></div>
+<div id="operator-flash" class="mb-3"></div>
 
 <div class="alert alert-info alert-dismissible fade show py-2 small mb-3" role="alert">
     <i class="bi bi-info-circle me-1"></i>
