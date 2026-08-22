@@ -6,6 +6,7 @@
 package coreapp
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -237,6 +238,13 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 	adminRepo := admin.NewRepository(pool)
 	operatorRepo := operator.NewRepository(pool)
 	adminHandler := admin.NewHandler(adminRepo, emailService)
+	middleware.SetOperatorAccessLogger(func(rec operator.AccessRecord) {
+		go func() {
+			if err := operatorRepo.InsertAccessLog(context.Background(), rec); err != nil {
+				log.Printf("operator access log insert: %v", err)
+			}
+		}()
+	})
 
 	// Wire resolver callbacks so the email variable resolver can look up email types, users, and apps
 	emailService.Resolver().LookupEmailType = emailRepo.GetEmailTypeByCode
