@@ -237,6 +237,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 	adminRepo := admin.NewRepository(pool)
 	operatorRepo := operator.NewRepository(pool)
 	adminHandler := admin.NewHandler(adminRepo, emailService)
+	adminHandler.OperatorRoles = operatorRepo
 
 	// Wire resolver callbacks so the email variable resolver can look up email types, users, and apps
 	emailService.Resolver().LookupEmailType = emailRepo.GetEmailTypeByCode
@@ -265,6 +266,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 
 	// Initialize Admin GUI Services and Handler
 	accountRepo := admin.NewAccountRepository(pool)
+	adminHandler.Accounts = accountRepo
 	accountService := admin.NewAccountService(accountRepo, emailService, cfg.Admin.SessionTTL)
 	dashboardService := admin.NewDashboardService(pool)
 	settingsRepo := admin.NewSettingsRepository(pool)
@@ -638,6 +640,9 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	{
 		adminRoutes.GET("/activity-logs", requireOp(operator.ResLogs, operator.ActionRead), a.logHandler.GetAllActivityLogs)
 		adminRoutes.GET("/activity-logs/export", requireOp(operator.ResLogs, operator.ActionRead), a.logHandler.ExportAllActivityLogs)
+
+		adminRoutes.GET("/operator/roster", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorRoster)
+		adminRoutes.GET("/operator/roster/export", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorRosterExport)
 
 		adminRoutes.POST("/tenants", requireOp(operator.ResTenants, operator.ActionWrite), a.adminHandler.CreateTenant)
 		adminRoutes.GET("/tenants", requireOp(operator.ResTenants, operator.ActionRead), a.adminHandler.ListTenants)

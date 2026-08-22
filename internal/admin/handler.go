@@ -12,6 +12,7 @@ import (
 
 	"github.com/MrF1ow/go-core/internal/email"
 	"github.com/MrF1ow/go-core/internal/geoip"
+	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/internal/twofa"
 	userimport "github.com/MrF1ow/go-core/internal/user"
 	"github.com/MrF1ow/go-core/pkg/dto"
@@ -22,11 +23,16 @@ import (
 
 type Handler struct {
 	Repo              *Repository
+	Accounts          *AccountRepository
+	OperatorRoles     *operator.Repository
 	EmailService      *email.Service
 	IPRuleRepo        *geoip.IPRuleRepository        // IP rule repository (nil = IP rules disabled)
 	IPRuleEvaluator   *geoip.IPRuleEvaluator         // IP rule evaluator for cache invalidation (nil = disabled)
 	TrustedDeviceRepo *twofa.TrustedDeviceRepository // Optional: trusted device management (nil = disabled)
 	GeoIPService      *geoip.Service                 // GeoIP service for IP access checks (nil = disabled)
+
+	RosterKeys     func() ([]operator.RosterEntry, error)
+	RosterAccounts func() ([]operator.RosterEntry, error)
 }
 
 func NewHandler(r *Repository, emailService *email.Service) *Handler {
