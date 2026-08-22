@@ -18,7 +18,7 @@ func (h *GUIHandler) page(c *gin.Context) web.TemplateData
 
 // internal/operator
 func AssignableSystemRoles(p Principal) []SystemRole
-func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string) (*uuid.UUID, error)
+func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string, current *uuid.UUID) (*uuid.UUID, error)
 var ErrIAMAssignmentDenied error
 ```
 

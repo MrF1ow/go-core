@@ -31,6 +31,7 @@
                             <small class="text-muted" title="{{formatDateTimeFull .UpdatedAt}}">{{timeAgo .UpdatedAt}}</small>
                         </td>
                         <td class="pe-3 text-end">
+                            {{if $.CanWrite}}
                             <button class="btn btn-outline-primary btn-sm me-1"
                                     hx-get="{{basePath}}/tenants/{{.ID}}/edit"
                                     hx-target="#tenant-form-container"
@@ -47,6 +48,7 @@
                                     title="Delete">
                                 <i class="bi bi-trash"></i>
                             </button>
+                            {{end}}
                         </td>
                     </tr>
                     {{end}}

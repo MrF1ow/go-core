@@ -2,7 +2,7 @@
 {{template "base" .}}
 {{end}}
 
-{{define "title"}}API Key Usage — {{.ApiKey.Name}}{{end}}
+{{define "title"}}API Key Usage — {{.Data.ApiKey.Name}}{{end}}
 
 {{define "content"}}
 <div class="d-flex align-items-center justify-content-between mb-4">
@@ -14,9 +14,9 @@
             <i class="bi bi-bar-chart-line me-2"></i>Usage Analytics
         </h4>
         <p class="text-muted small mb-0">
-            <code>{{.ApiKey.KeyPrefix}}...{{.ApiKey.KeySuffix}}</code>
-            &mdash; {{.ApiKey.Name}}
-            {{if eq .ApiKey.KeyType "admin"}}
+            <code>{{.Data.ApiKey.KeyPrefix}}...{{.Data.ApiKey.KeySuffix}}</code>
+            &mdash; {{.Data.ApiKey.Name}}
+            {{if eq .Data.ApiKey.KeyType "admin"}}
             <span class="badge bg-danger bg-opacity-10 text-danger ms-1"><i class="bi bi-shield-lock me-1"></i>Admin</span>
             {{else}}
             <span class="badge bg-info bg-opacity-10 text-info ms-1"><i class="bi bi-app-indicator me-1"></i>App</span>
@@ -24,15 +24,15 @@
         </p>
     </div>
     <div class="text-end">
-        <div class="display-6 fw-bold text-primary">{{.TotalRequests}}</div>
+        <div class="display-6 fw-bold text-primary">{{.Data.TotalRequests}}</div>
         <div class="small text-muted">lifetime requests</div>
     </div>
 </div>
 
-{{if .ApiKey.Scopes}}
+{{if .Data.ApiKey.Scopes}}
 <div class="mb-4">
     <span class="small text-muted me-2">Scopes:</span>
-    {{range (splitScopes .ApiKey.Scopes)}}
+    {{range (splitScopes .Data.ApiKey.Scopes)}}
     <span class="badge bg-secondary bg-opacity-10 text-secondary font-monospace me-1">{{.}}</span>
     {{end}}
 </div>
@@ -40,10 +40,10 @@
 
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-body-tertiary border-bottom">
-        <span class="fw-semibold">Requests per day — last {{.Days}} days</span>
+        <span class="fw-semibold">Requests per day — last {{.Data.Days}} days</span>
     </div>
     <div class="card-body">
-        {{if .Labels}}
+        {{if .Data.Labels}}
         <canvas id="usageChart" height="80"></canvas>
         {{else}}
         <div class="text-center py-5 text-muted">
@@ -56,11 +56,11 @@
 {{end}}
 
 {{define "scripts"}}
-{{if .Labels}}
+{{if .Data.Labels}}
 <script>
 (function() {
-    var labels = {{.Labels | toJSON}};
-    var counts = {{.Counts | toJSON}};
+    var labels = {{.Data.Labels | toJSON}};
+    var counts = {{.Data.Counts | toJSON}};
 
     function drawChart() {
         var el = document.getElementById('usageChart');

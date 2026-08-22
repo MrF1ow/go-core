@@ -32,7 +32,7 @@
                 <label for="sessionAppFilter" class="form-label mb-1 small text-muted">Application</label>
                 <select class="form-select form-select-sm" id="sessionAppFilter">
                     <option value="">All Apps</option>
-                    {{range .Apps}}
+                    {{range .Data.Apps}}
                     <option value="{{.ID}}">{{.Name}} ({{.TenantName}})</option>
                     {{end}}
                 </select>

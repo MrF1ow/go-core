@@ -64,6 +64,25 @@ type TemplateData struct {
 
 	// Page-specific data (each page can put arbitrary data here)
 	Data interface{}
+
+	NavGroups []NavGroup
+	can       func(resource, action string) bool
+}
+
+// Can reports a resource:action grant. Nil can denies, so a forgotten
+// page() constructor paints an empty nav instead of a full one.
+func (td TemplateData) Can(resource, action string) bool {
+	if td.can == nil {
+		return false
+	}
+	return td.can(resource, action)
+}
+
+// AttachCan stamps the grant checker and computed nav onto a layout root.
+func AttachCan(td TemplateData, basePath string, can func(string, string) bool) TemplateData {
+	td.can = can
+	td.NavGroups = buildNav(basePath, can)
+	return td
 }
 
 // Renderer implements gin's render.HTMLRender interface using embedded templates.

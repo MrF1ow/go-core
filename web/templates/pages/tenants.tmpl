@@ -9,12 +9,14 @@
     <h4 class="mb-0 fw-bold">
         <i class="bi bi-building me-2"></i>Tenants
     </h4>
-    <button class="btn btn-primary btn-sm"
+    {{if .Can "tenants" "write"}}
+<button class="btn btn-primary btn-sm"
             hx-get="{{basePath}}/tenants/new"
             hx-target="#tenant-form-container"
             hx-swap="innerHTML">
         <i class="bi bi-plus-lg me-1"></i>Create Tenant
     </button>
+{{end}}
 </div>
 
 <!-- Form container (populated by HTMX when creating/editing) -->

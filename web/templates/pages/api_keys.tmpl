@@ -19,12 +19,14 @@
                 <option value="app">App Keys</option>
             </select>
         </div>
-        <button class="btn btn-primary btn-sm"
+        {{if .Can "api_keys" "write"}}
+<button class="btn btn-primary btn-sm"
                 hx-get="{{basePath}}/api-keys/new"
                 hx-target="#apikey-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Create API Key
         </button>
+{{end}}
     </div>
 </div>
 

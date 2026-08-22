@@ -17,12 +17,14 @@
                 <option value="">All Applications</option>
             </select>
         </div>
-        <button class="btn btn-primary btn-sm"
+        {{if .Can "webhooks" "write"}}
+<button class="btn btn-primary btn-sm"
                 hx-get="{{basePath}}/webhooks/new"
                 hx-target="#webhook-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Register Webhook
         </button>
+{{end}}
     </div>
 </div>
 

@@ -37,12 +37,13 @@
            class="btn btn-outline-secondary btn-sm text-nowrap">
             <i class="bi bi-file-earmark-code me-1"></i>Export JSON
         </a>
-        <!-- Import button -->
+        {{if .Can "users" "write"}}
         <button type="button"
                 class="btn btn-outline-primary btn-sm text-nowrap"
                 onclick="openImportModal()">
             <i class="bi bi-upload me-1"></i>Import
         </button>
+        {{end}}
     </div>
 </div>
 
@@ -99,6 +100,7 @@
     </div>
 </div>
 
+{{if .Can "users" "write"}}
 <!-- Import users modal -->
 <div class="modal fade" id="importUsersModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -112,6 +114,7 @@
         </div>
     </div>
 </div>
+{{end}}
 {{end}}
 
 {{define "scripts"}}

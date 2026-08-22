@@ -39,6 +39,7 @@
                     <div class="form-text">Leave blank for forever.</div>
                 </div>
                 {{if eq .KeyType "admin"}}
+                {{if .CanIAM}}
                 <div class="col-md-4">
                     <label for="editKeyOperatorRole" class="form-label small text-muted">Operator role</label>
                     <select class="form-select" id="editKeyOperatorRole" name="operator_role_id">
@@ -47,6 +48,9 @@
                         {{end}}
                     </select>
                 </div>
+                {{else}}
+                <input type="hidden" name="operator_role_id" value="{{.OperatorRoleID}}">
+                {{end}}
                 {{else}}
                 <div class="col-md-8">
                     <label for="editKeyScopes" class="form-label small text-muted">Scopes <span class="text-muted">(optional)</span></label>

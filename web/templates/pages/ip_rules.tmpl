@@ -20,19 +20,21 @@
                 {{end}}
             </select>
         </div>
+        {{if .Can "ip_rules" "write"}}
         <button class="btn btn-primary btn-sm" id="btnCreateRule" disabled
                 hx-get="{{basePath}}/ip-rules/new"
                 hx-target="#iprule-form-container"
                 hx-swap="innerHTML">
             <i class="bi bi-plus-lg me-1"></i>Create Rule
         </button>
+        {{end}}
     </div>
 </div>
 
 <!-- Form container (populated by HTMX when creating/editing) -->
 <div id="iprule-form-container" class="mb-3"></div>
 
-<!-- IP access check tool -->
+{{if .Can "ip_rules" "write"}}
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
         <form id="ipCheckForm" class="d-flex align-items-center gap-3"
@@ -50,6 +52,7 @@
     </div>
 </div>
 <div id="ip-check-result" class="mb-3"></div>
+{{end}}
 
 <!-- IP rules table (loaded via HTMX) -->
 <div id="iprule-table"
@@ -95,20 +98,22 @@
     var btnCheck = document.getElementById('btnCheckIP');
     var checkAppId = document.getElementById('checkAppId');
 
-    // When app filter changes, reload the list and update button states
     appFilter.addEventListener('change', function() {
         var appId = this.value;
-        btnCreate.disabled = !appId;
-        btnCheck.disabled = !appId;
-        checkAppId.value = appId;
-
-        // Update the create button to include the app_id
-        if (appId) {
-            btnCreate.setAttribute('hx-get', '{{basePath}}/ip-rules/new?app_id=' + appId);
+        if (btnCreate) {
+            btnCreate.disabled = !appId;
+            if (appId) {
+                btnCreate.setAttribute('hx-get', '{{basePath}}/ip-rules/new?app_id=' + appId);
+            }
+            htmx.process(btnCreate);
         }
-        htmx.process(btnCreate);
+        if (btnCheck) {
+            btnCheck.disabled = !appId;
+        }
+        if (checkAppId) {
+            checkAppId.value = appId;
+        }
 
-        // Reload the list
         var url = '{{basePath}}/ip-rules/list';
         if (appId) {
             url += '?app_id=' + appId;

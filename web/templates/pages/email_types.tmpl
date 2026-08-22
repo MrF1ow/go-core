@@ -9,12 +9,14 @@
     <h4 class="mb-0 fw-bold">
         <i class="bi bi-list-check me-2"></i>Email Types
     </h4>
-    <button class="btn btn-primary btn-sm"
+    {{if .Can "email" "write"}}
+<button class="btn btn-primary btn-sm"
             hx-get="{{basePath}}/email-types/new"
             hx-target="#email-type-form-container"
             hx-swap="innerHTML">
         <i class="bi bi-plus-lg me-1"></i>Add Email Type
     </button>
+{{end}}
 </div>
 
 <p class="text-muted small mb-3">

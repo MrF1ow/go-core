@@ -81,6 +81,7 @@ func GUIAuthMiddleware(sessionValidator web.SessionValidator, grants operator.Gr
 		c.Set(web.GUIAdminIDKey, account.ID.String())
 		c.Set(web.GUIAdminUsernameKey, account.Username)
 		c.Set(web.GUISessionIDKey, sessionID)
+		c.Set(web.GUIAdminBasePathKey, basePath)
 
 		c.Next()
 	}

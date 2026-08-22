@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/MrF1ow/go-core/web"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -85,13 +84,9 @@ func (h *GUIHandler) OIDCClientsPage(c *gin.Context) {
 		apps = nil // Degrade gracefully
 	}
 
-	data := web.TemplateData{
-		ActivePage:    "oidc-clients",
-		AdminUsername: getAdminUsername(c),
-		AdminID:       getAdminID(c),
-		CSRFToken:     getCSRFToken(c),
-		Data:          apps,
-	}
+	data := h.page(c)
+	data.ActivePage = "oidc-clients"
+	data.Data = apps
 	c.HTML(http.StatusOK, "oidc_clients", data)
 }
 
