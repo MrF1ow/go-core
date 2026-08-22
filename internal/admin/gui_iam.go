@@ -196,7 +196,7 @@ func (h *GUIHandler) OperatorIAMEvents(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	h.operatorIAMHTML(c, operatorIAMView{Tab: operatorTabEvents, Events: entries})
+	c.HTML(http.StatusOK, "operator_iam_events", operatorIAMView{Tab: operatorTabEvents, Events: entries})
 }
 
 // OperatorIAMEventsExport streams IAM events as CSV.
@@ -230,7 +230,7 @@ func (h *GUIHandler) OperatorAccessLogs(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	h.operatorIAMHTML(c, operatorIAMView{Tab: operatorTabAccessLogs, Logs: entries})
+	c.HTML(http.StatusOK, "operator_access_logs", operatorIAMView{Tab: operatorTabAccessLogs, Logs: entries})
 }
 
 // OperatorAccessLogsExport streams access logs as CSV.
