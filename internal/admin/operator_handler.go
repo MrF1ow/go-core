@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,9 +10,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/web"
 )
 
 type accessLogResponse struct {
@@ -146,4 +150,140 @@ func (h *Handler) listIAMEvents(ctx context.Context, limit int32, targetKeyID, t
 		return nil, fmt.Errorf("operator repository is not configured")
 	}
 	return h.OperatorRoles.ListIAMEvents(ctx, limit, 0, targetKeyID, targetAccountID)
+}
+
+type assignKeyRoleRequest struct {
+	OperatorRoleID string `json:"operator_role_id"`
+}
+
+// OperatorKeyRole assigns an operator role to an admin API key.
+// @Summary Assign operator role on an admin API key
+// @Description Stamp operator_role_id on an existing admin key. Same role is 204 with no event.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param id path string true "API key UUID"
+// @Param request body assignKeyRoleRequest true "Role assignment"
+// @Success 204 "Role assigned or unchanged"
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/keys/{id}/role [put]
+func (h *Handler) OperatorKeyRole(c *gin.Context) {
+	id := c.Param("id")
+	var req assignKeyRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	key, err := h.loadOperatorAPIKey(id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "API key not found"})
+			return
+		}
+		if _, parseErr := uuid.Parse(id); parseErr != nil {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid API key ID"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to load API key"})
+		return
+	}
+	if key == nil {
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "API key not found"})
+		return
+	}
+	if key.KeyType != KeyTypeAdmin {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "operator role applies to admin keys only"})
+		return
+	}
+
+	p, ok := jsonPrincipal(c)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "internal authentication error"})
+		return
+	}
+	roleID, err := operator.ParseAssignedAdminRole(*p, req.OperatorRoleID, key.KeyType, key.OperatorRoleID)
+	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
+		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "insufficient permissions"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
+		return
+	}
+	if uuidPtrsEqual(key.OperatorRoleID, roleID) {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	var oldRole *uuid.UUID
+	if key.OperatorRoleID != nil {
+		copied := *key.OperatorRoleID
+		oldRole = &copied
+	}
+	if err := h.updateOperatorAPIKeyRole(id, key, roleID); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to update API key role"})
+		return
+	}
+	keyID := key.ID
+	h.writeJSONIAMEvent(c, operator.IAMEvent{
+		TargetKind:  operator.KindAPIKey,
+		TargetKeyID: &keyID,
+		OldRoleID:   oldRole,
+		NewRoleID:   roleID,
+		Action:      operator.ActionAssign,
+	})
+	c.Status(http.StatusNoContent)
+}
+
+func jsonPrincipal(c *gin.Context) (*operator.Principal, bool) {
+	val, ok := c.Get(web.OperatorPrincipalKey)
+	if !ok {
+		return nil, false
+	}
+	p, ok := val.(*operator.Principal)
+	return p, ok && p != nil
+}
+
+func (h *Handler) writeJSONIAMEvent(c *gin.Context, ev operator.IAMEvent) {
+	if ev.ActorKind == "" {
+		if p, ok := jsonPrincipal(c); ok {
+			ev.ActorKind = string(p.Kind)
+			ev.ActorKeyID = p.KeyID
+			ev.ActorAccountID = p.AccountID
+		}
+	}
+	var err error
+	if h.IAMEventWrite != nil {
+		err = h.IAMEventWrite(ev)
+	} else if h.OperatorRoles != nil {
+		err = h.OperatorRoles.InsertIAMEvent(context.Background(), ev)
+	}
+	if err != nil {
+		log.Printf("operator IAM event insert: %v", err)
+	}
+}
+
+func (h *Handler) loadOperatorAPIKey(id string) (*models.ApiKey, error) {
+	if h.GetAPIKey != nil {
+		return h.GetAPIKey(id)
+	}
+	if h.Repo != nil {
+		return h.Repo.GetApiKeyByID(id)
+	}
+	return nil, fmt.Errorf("api key repository is not configured")
+}
+
+func (h *Handler) updateOperatorAPIKeyRole(id string, key *models.ApiKey, roleID *uuid.UUID) error {
+	if h.UpdateAPIKeyRole != nil {
+		return h.UpdateAPIKeyRole(id, roleID)
+	}
+	if h.Repo == nil {
+		return fmt.Errorf("api key repository is not configured")
+	}
+	return h.Repo.UpdateApiKey(id, key.Name, key.Description, key.Scopes, roleID, key.ExpiresAt)
 }
