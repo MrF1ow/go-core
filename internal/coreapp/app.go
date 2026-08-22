@@ -79,6 +79,7 @@ type App struct {
 	// Background services (for graceful shutdown)
 	webhookService        *webhook.Service
 	cleanupService        *logService.CleanupService
+	evidenceCleanup       *operator.EvidenceCleanup
 	apiKeyNotificationSvc *admin.ApiKeyNotificationService
 	expiryService         *sessiongroup.ExpiryService
 
@@ -164,6 +165,8 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 
 	// Initialize Activity Log Cleanup Service
 	cleanupService := logService.InitializeCleanupService(pool)
+	evidenceCleanup := operator.NewEvidenceCleanup(pool)
+	evidenceCleanup.Start()
 
 	// Initialize Services and Handlers
 	userRepo := user.NewRepository(pool)
@@ -437,6 +440,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 		settingsService:       settingsService,
 		webhookService:        webhookService,
 		cleanupService:        cleanupService,
+		evidenceCleanup:       evidenceCleanup,
 		apiKeyNotificationSvc: apiKeyNotificationSvc,
 		logoData:              logoData,
 		logoContentType:       logoContentType,
@@ -1106,6 +1110,9 @@ func (a *App) Close() {
 	}
 	if a.cleanupService != nil {
 		a.cleanupService.Shutdown()
+	}
+	if a.evidenceCleanup != nil {
+		a.evidenceCleanup.Shutdown()
 	}
 	if a.expiryService != nil {
 		a.expiryService.Stop()

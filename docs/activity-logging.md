@@ -45,3 +45,18 @@ Sampling (`LOG_SAMPLE_TOKEN_REFRESH`, `LOG_SAMPLE_PROFILE_ACCESS`) only applies 
 - `GET /admin/activity-logs/export`: all logs (`X-Admin-API-Key`)
 
 Query filters match the list endpoints (dates, event type, severity).
+
+## Operator evidence
+
+Operator permission decisions go to `operator_access_logs`. Role assignment and principal lifecycle go to `operator_iam_events`. These are not `activity_logs`.
+
+Access insert policy: deny always, write allow always, env-key allow always, ordinary read allows skip.
+
+Retention is 365 days for both tables, the same window as critical activity logs. Cleanup deletes `WHERE at < now() - 365 days` in 1000-row batches. There is no `expires_at`.
+
+Export (`admin_iam:read`):
+
+- `GET /admin/operator/access-logs/export`
+- `GET /admin/operator/iam-events/export`
+
+JSON list max is 1000. Export cap is 10,000.
