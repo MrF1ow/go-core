@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/MrF1ow/go-core/internal/sqlcgen"
@@ -119,10 +120,29 @@ func (r *Repository) UpdateCustomRole(ctx context.Context, id uuid.UUID, name, d
 	return role, nil
 }
 
+func (r *Repository) CountRoleAssignments(ctx context.Context, id uuid.UUID) (int64, error) {
+	accounts, err := r.queries.CountAdminAccountsByOperatorRole(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	keys, err := r.queries.CountAPIKeysByOperatorRole(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	if err != nil {
+		return 0, err
+	}
+	return accounts + keys, nil
+}
+
 func (r *Repository) DeleteCustomRole(ctx context.Context, id uuid.UUID) (int64, error) {
 	existing, err := r.GetOperatorRoleByID(ctx, id)
 	if err := rejectImmutableOperatorRole(existing, err); err != nil {
 		return 0, err
+	}
+	assigned, err := r.CountRoleAssignments(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	if assigned > 0 {
+		return 0, ErrRoleAssigned
 	}
 	n, err := r.queries.DeleteOperatorRoleIfNotSystem(ctx, id)
 	if err != nil {

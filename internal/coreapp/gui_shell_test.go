@@ -17,6 +17,7 @@ import (
 	"github.com/MrF1ow/go-core/internal/admin"
 	"github.com/MrF1ow/go-core/internal/middleware"
 	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/internal/sqlcgen"
 	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/MrF1ow/go-core/web"
 )
@@ -351,6 +352,121 @@ func TestGUIShell_SuperadminOperatorIAMShowsWriteCTAs(t *testing.T) {
 	}
 }
 
+func TestGUIShell_SuperadminOperatorIAMIncludesRolesTab(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(fx.engine, "/gui/operator", fx.cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `data-tab="roles"`) {
+		t.Fatal("superadmin missing Roles tab")
+	}
+}
+
+func TestGUIShell_ViewerOperatorRolesForbidden(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDViewer, operator.RoleViewer)
+	response := guiGET(fx.engine, "/gui/operator/roles", fx.cookie, "", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestGUIShell_SuperadminCreateCustomRoleAndAssign(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	formPage := guiGET(fx.engine, "/gui/operator/roles/new", fx.cookie, "", "")
+	if formPage.Code != http.StatusOK {
+		t.Fatalf("form status = %d, body = %s", formPage.Code, formPage.Body.String())
+	}
+	formBody := formPage.Body.String()
+	if strings.Contains(formBody, operator.ResAdminIAM) {
+		t.Fatal("custom role form includes admin_iam")
+	}
+	if !strings.Contains(formBody, `value="logs:read"`) {
+		t.Fatalf("missing logs:read checkbox: %s", formBody)
+	}
+
+	created := guiPOST(fx.engine, "/gui/operator/roles", fx.cookie, url.Values{
+		"name":   {"auditor"},
+		"grants": {"logs:read"},
+	})
+	if created.Code != http.StatusOK {
+		t.Fatalf("create status = %d, body = %s", created.Code, created.Body.String())
+	}
+	var auditorID uuid.UUID
+	for id, role := range fx.roles {
+		if role.Name == "auditor" && !role.IsSystem {
+			auditorID = id
+		}
+	}
+	if auditorID == uuid.Nil {
+		t.Fatal("auditor role was not stored")
+	}
+	p := operator.NewPrincipal(operator.KindAPIKey, "auditor", fx.roleGrants[auditorID])
+	if !p.Has(operator.ResLogs, operator.ActionRead) {
+		t.Fatal("auditor missing logs:read")
+	}
+	if p.Has(operator.ResTenants, operator.ActionWrite) {
+		t.Fatal("auditor has tenants:write")
+	}
+	if p.Has(operator.ResAdminIAM, operator.ActionWrite) {
+		t.Fatal("auditor has admin_iam:write")
+	}
+
+	assign := guiPUT(fx.engine, "/gui/operator/accounts/"+fx.viewerAccount.ID.String()+"/role", fx.cookie, url.Values{
+		"operator_role_id": {auditorID.String()},
+	})
+	if assign.Code != http.StatusOK {
+		t.Fatalf("assign status = %d, body = %s", assign.Code, assign.Body.String())
+	}
+	if fx.accounts[fx.viewerAccount.ID].OperatorRoleID != auditorID {
+		t.Fatalf("assigned role = %s, want auditor", fx.accounts[fx.viewerAccount.ID].OperatorRoleID)
+	}
+
+	blocked := guiDELETE(fx.engine, "/gui/operator/roles/"+auditorID.String(), fx.cookie)
+	if blocked.Code != http.StatusConflict {
+		t.Fatalf("assigned delete status = %d, body = %s", blocked.Code, blocked.Body.String())
+	}
+
+	reassign := guiPUT(fx.engine, "/gui/operator/accounts/"+fx.viewerAccount.ID.String()+"/role", fx.cookie, url.Values{
+		"operator_role_id": {operator.RoleIDViewer.String()},
+	})
+	if reassign.Code != http.StatusOK {
+		t.Fatalf("reassign status = %d, body = %s", reassign.Code, reassign.Body.String())
+	}
+	deleted := guiDELETE(fx.engine, "/gui/operator/roles/"+auditorID.String(), fx.cookie)
+	if deleted.Code != http.StatusOK {
+		t.Fatalf("delete status = %d, body = %s", deleted.Code, deleted.Body.String())
+	}
+	if _, ok := fx.roles[auditorID]; ok {
+		t.Fatal("auditor role still present after delete")
+	}
+}
+
+func TestGUIShell_SuperadminCannotEditAdminRole(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(fx.engine, "/gui/operator/roles/"+operator.RoleIDAdmin.String()+"/edit", fx.cookie, "", "")
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), operator.ErrSystemRoleImmutable.Error()) {
+		t.Fatalf("body = %s", response.Body.String())
+	}
+}
+
+func TestGUIShell_TamperedAdminIAMGrantRejected(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiPOST(fx.engine, "/gui/operator/roles", fx.cookie, url.Values{
+		"name":   {"rogue"},
+		"grants": {"logs:read", "admin_iam:write"},
+	})
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), operator.ErrAdminIAMOnCustomRole.Error()) {
+		t.Fatalf("body = %s", response.Body.String())
+	}
+}
+
 func TestGUIShell_SuperadminOperatorAccountForm(t *testing.T) {
 	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
 	response := guiGET(fx.engine, "/gui/operator/accounts/new", fx.cookie, "", "")
@@ -513,6 +629,8 @@ type guiShell struct {
 	created       []*models.AdminAccount
 	disabled      []uuid.UUID
 	events        []operator.IAMEvent
+	roles         map[uuid.UUID]sqlcgen.OperatorRole
+	roleGrants    map[uuid.UUID][]string
 }
 
 func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engine, *http.Cookie) {
@@ -555,6 +673,18 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 		viewerKey:     viewerKey,
 		accounts:      accounts,
 		cookie:        &http.Cookie{Name: web.AdminSessionCookie, Value: "session-id"},
+		roles: map[uuid.UUID]sqlcgen.OperatorRole{
+			operator.RoleIDViewer:     {ID: operator.RoleIDViewer, Name: operator.RoleViewer, IsSystem: true},
+			operator.RoleIDSupport:    {ID: operator.RoleIDSupport, Name: operator.RoleSupport, IsSystem: true},
+			operator.RoleIDAdmin:      {ID: operator.RoleIDAdmin, Name: operator.RoleAdmin, IsSystem: true},
+			operator.RoleIDSuperadmin: {ID: operator.RoleIDSuperadmin, Name: operator.RoleSuperadmin, IsSystem: true},
+		},
+		roleGrants: map[uuid.UUID][]string{
+			operator.RoleIDViewer:     operator.GrantsFor(operator.RoleViewer),
+			operator.RoleIDSupport:    operator.GrantsFor(operator.RoleSupport),
+			operator.RoleIDAdmin:      operator.GrantsFor(operator.RoleAdmin),
+			operator.RoleIDSuperadmin: operator.GrantsFor(operator.RoleSuperadmin),
+		},
 	}
 	sessions := &stubGUISessions{account: account}
 	grants := &stubGUIGrants{byID: map[uuid.UUID]struct {
@@ -570,7 +700,83 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 		AbortForbidden: middleware.AbortGUIForbidden,
 		AbortInternal:  middleware.AbortGUIInternal,
 		RoleExists: func(id uuid.UUID) (bool, error) {
-			return operator.IsSystemRoleID(id), nil
+			_, ok := fx.roles[id]
+			return ok, nil
+		},
+		ListOperatorRoles: func(_ context.Context) ([]sqlcgen.OperatorRole, error) {
+			out := make([]sqlcgen.OperatorRole, 0, len(fx.roles))
+			for _, role := range fx.roles {
+				out = append(out, role)
+			}
+			return out, nil
+		},
+		GetOperatorRole: func(_ context.Context, id uuid.UUID) (sqlcgen.OperatorRole, error) {
+			role, ok := fx.roles[id]
+			if !ok {
+				return sqlcgen.OperatorRole{}, pgx.ErrNoRows
+			}
+			return role, nil
+		},
+		CreateOperatorRole: func(_ context.Context, name, description string, grantsList []operator.Permission) (sqlcgen.OperatorRole, error) {
+			role := sqlcgen.OperatorRole{ID: uuid.New(), Name: name, Description: description, IsSystem: false}
+			fx.roles[role.ID] = role
+			keys := make([]string, 0, len(grantsList))
+			for _, g := range grantsList {
+				keys = append(keys, g.Key())
+			}
+			fx.roleGrants[role.ID] = keys
+			grants.byID[role.ID] = struct {
+				name string
+				keys []string
+			}{name: name, keys: keys}
+			return role, nil
+		},
+		UpdateOperatorRole: func(_ context.Context, id uuid.UUID, name, description string) (sqlcgen.OperatorRole, error) {
+			role, ok := fx.roles[id]
+			if !ok {
+				return sqlcgen.OperatorRole{}, pgx.ErrNoRows
+			}
+			if role.IsSystem {
+				return sqlcgen.OperatorRole{}, operator.ErrSystemRoleImmutable
+			}
+			role.Name = name
+			role.Description = description
+			fx.roles[id] = role
+			return role, nil
+		},
+		ReplaceOperatorRolePermissions: func(_ context.Context, id uuid.UUID, grants []operator.Permission) error {
+			if _, ok := fx.roles[id]; !ok {
+				return pgx.ErrNoRows
+			}
+			keys := make([]string, 0, len(grants))
+			for _, g := range grants {
+				keys = append(keys, g.Key())
+			}
+			fx.roleGrants[id] = keys
+			return nil
+		},
+		DeleteOperatorRole: func(_ context.Context, id uuid.UUID) (int64, error) {
+			role, ok := fx.roles[id]
+			if !ok {
+				return 0, pgx.ErrNoRows
+			}
+			if role.IsSystem {
+				return 0, operator.ErrSystemRoleImmutable
+			}
+			for _, account := range fx.accounts {
+				if account.OperatorRoleID == id {
+					return 0, operator.ErrRoleAssigned
+				}
+			}
+			if fx.viewerKey.OperatorRoleID != nil && *fx.viewerKey.OperatorRoleID == id {
+				return 0, operator.ErrRoleAssigned
+			}
+			delete(fx.roles, id)
+			delete(fx.roleGrants, id)
+			return 1, nil
+		},
+		RoleGrantKeys: func(_ context.Context, id uuid.UUID) ([]string, error) {
+			return fx.roleGrants[id], nil
 		},
 		RosterKeys: func() ([]operator.RosterEntry, error) {
 			id := viewerKey.ID
@@ -731,6 +937,12 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 	guiAuth.PUT("/operator/accounts/:id/role", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorAccountRole)
 	guiAuth.POST("/operator/accounts/:id/disable", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorDisableAccount)
 	guiAuth.PUT("/operator/keys/:id/role", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorKeyRole)
+	guiAuth.GET("/operator/roles", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorRolesList)
+	guiAuth.GET("/operator/roles/new", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorCreateRoleForm)
+	guiAuth.POST("/operator/roles", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorCreateRole)
+	guiAuth.GET("/operator/roles/:id/edit", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorEditRoleForm)
+	guiAuth.PUT("/operator/roles/:id", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorUpdateRole)
+	guiAuth.DELETE("/operator/roles/:id", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorDeleteRole)
 	guiAuth.GET("/users", requireGUI(operator.ResUsers, operator.ActionRead), func(c *gin.Context) {
 		data := shellPage(c)
 		data.ActivePage = "users"
@@ -839,6 +1051,10 @@ func guiPOSTNoCSRF(engine *gin.Engine, path string, cookie *http.Cookie, form ur
 
 func guiPUT(engine *gin.Engine, path string, cookie *http.Cookie, form url.Values) *httptest.ResponseRecorder {
 	return guiForm(engine, http.MethodPut, path, cookie, form, "csrf-token")
+}
+
+func guiDELETE(engine *gin.Engine, path string, cookie *http.Cookie) *httptest.ResponseRecorder {
+	return guiForm(engine, http.MethodDelete, path, cookie, url.Values{}, "csrf-token")
 }
 
 func guiForm(engine *gin.Engine, method, path string, cookie *http.Cookie, form url.Values, csrf string) *httptest.ResponseRecorder {
