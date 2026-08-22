@@ -82,3 +82,17 @@ WHERE id = $1;
 UPDATE admin_accounts
 SET backup_email = '', backup_email_verified = FALSE, updated_at = NOW()
 WHERE id = $1;
+
+-- name: UpdateAdminAccountOperatorRole :exec
+UPDATE admin_accounts
+SET operator_role_id = $2, updated_at = NOW()
+WHERE id = $1;
+
+-- name: SetAdminAccountDisabledAt :exec
+UPDATE admin_accounts
+SET disabled_at = $2, updated_at = NOW()
+WHERE id = $1;
+
+-- name: CountEnabledSuperadminAccounts :one
+SELECT COUNT(*) FROM admin_accounts
+WHERE operator_role_id = $1 AND disabled_at IS NULL;

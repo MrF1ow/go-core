@@ -42,6 +42,7 @@ type AdminAccount struct {
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
 	LastLoginAt         pgtype.Timestamptz `json:"last_login_at"`
+	DisabledAt          pgtype.Timestamptz `json:"disabled_at"`
 }
 
 type ApiKey struct {
@@ -236,6 +237,35 @@ type OidcClient struct {
 	LoginPrimaryColor string    `json:"login_primary_color"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+type OperatorAccessLog struct {
+	ID        uuid.UUID   `json:"id"`
+	At        time.Time   `json:"at"`
+	Kind      string      `json:"kind"`
+	KeyID     pgtype.UUID `json:"key_id"`
+	AccountID pgtype.UUID `json:"account_id"`
+	RoleName  string      `json:"role_name"`
+	Method    string      `json:"method"`
+	Path      string      `json:"path"`
+	Decision  string      `json:"decision"`
+	Resource  string      `json:"resource"`
+	Action    string      `json:"action"`
+	Status    int32       `json:"status"`
+}
+
+type OperatorIamEvent struct {
+	ID              uuid.UUID   `json:"id"`
+	At              time.Time   `json:"at"`
+	ActorKind       string      `json:"actor_kind"`
+	ActorKeyID      pgtype.UUID `json:"actor_key_id"`
+	ActorAccountID  pgtype.UUID `json:"actor_account_id"`
+	TargetKind      string      `json:"target_kind"`
+	TargetKeyID     pgtype.UUID `json:"target_key_id"`
+	TargetAccountID pgtype.UUID `json:"target_account_id"`
+	OldRoleID       pgtype.UUID `json:"old_role_id"`
+	NewRoleID       pgtype.UUID `json:"new_role_id"`
+	Action          string      `json:"action"`
 }
 
 type OperatorPermission struct {

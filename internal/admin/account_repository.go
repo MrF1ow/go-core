@@ -259,6 +259,10 @@ func rowToModel(row sqlcgen.AdminAccount) models.AdminAccount {
 	if row.LastLoginAt.Valid {
 		lastLogin = &row.LastLoginAt.Time
 	}
+	var disabledAt *time.Time
+	if row.DisabledAt.Valid {
+		disabledAt = &row.DisabledAt.Time
+	}
 
 	return models.AdminAccount{
 		ID:                  row.ID,
@@ -276,6 +280,7 @@ func rowToModel(row sqlcgen.AdminAccount) models.AdminAccount {
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 		LastLoginAt:         lastLogin,
+		DisabledAt:          disabledAt,
 	}
 }
 

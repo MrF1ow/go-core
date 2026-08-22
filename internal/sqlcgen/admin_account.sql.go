@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const clearAdminAccountBackupEmail = `-- name: ClearAdminAccountBackupEmail :exec
@@ -33,10 +34,22 @@ func (q *Queries) CountAdminAccounts(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countEnabledSuperadminAccounts = `-- name: CountEnabledSuperadminAccounts :one
+SELECT COUNT(*) FROM admin_accounts
+WHERE operator_role_id = $1 AND disabled_at IS NULL
+`
+
+func (q *Queries) CountEnabledSuperadminAccounts(ctx context.Context, operatorRoleID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countEnabledSuperadminAccounts, operatorRoleID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAdminAccount = `-- name: CreateAdminAccount :one
 INSERT INTO admin_accounts (username, email, password_hash, operator_role_id)
 VALUES ($1, $2, $3, $4)
-RETURNING id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at
+RETURNING id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at, disabled_at
 `
 
 type CreateAdminAccountParams struct {
@@ -70,6 +83,7 @@ func (q *Queries) CreateAdminAccount(ctx context.Context, arg CreateAdminAccount
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
 	)
 	return i, err
 }
@@ -127,7 +141,7 @@ func (q *Queries) EnableAdminAccount2FA(ctx context.Context, arg EnableAdminAcco
 }
 
 const getAdminAccountByEmail = `-- name: GetAdminAccountByEmail :one
-SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at, disabled_at FROM admin_accounts
 WHERE email = $1
 `
 
@@ -150,12 +164,13 @@ func (q *Queries) GetAdminAccountByEmail(ctx context.Context, email *string) (Ad
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
 const getAdminAccountByID = `-- name: GetAdminAccountByID :one
-SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at, disabled_at FROM admin_accounts
 WHERE id = $1
 `
 
@@ -178,12 +193,13 @@ func (q *Queries) GetAdminAccountByID(ctx context.Context, id uuid.UUID) (AdminA
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
 const getAdminAccountByUsername = `-- name: GetAdminAccountByUsername :one
-SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at, disabled_at FROM admin_accounts
 WHERE username = $1
 `
 
@@ -206,12 +222,13 @@ func (q *Queries) GetAdminAccountByUsername(ctx context.Context, username string
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
 const getAdminAccountByUsernameOrEmail = `-- name: GetAdminAccountByUsernameOrEmail :one
-SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at, disabled_at FROM admin_accounts
 WHERE username = $1 OR email = $1
 `
 
@@ -234,12 +251,13 @@ func (q *Queries) GetAdminAccountByUsernameOrEmail(ctx context.Context, username
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
 const listAllAdminAccounts = `-- name: ListAllAdminAccounts :many
-SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at FROM admin_accounts
+SELECT id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at, disabled_at FROM admin_accounts
 ORDER BY created_at ASC
 `
 
@@ -268,6 +286,7 @@ func (q *Queries) ListAllAdminAccounts(ctx context.Context) ([]AdminAccount, err
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LastLoginAt,
+			&i.DisabledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -292,6 +311,22 @@ type SetAdminAccountBackupEmailParams struct {
 
 func (q *Queries) SetAdminAccountBackupEmail(ctx context.Context, arg SetAdminAccountBackupEmailParams) error {
 	_, err := q.db.Exec(ctx, setAdminAccountBackupEmail, arg.ID, arg.BackupEmail)
+	return err
+}
+
+const setAdminAccountDisabledAt = `-- name: SetAdminAccountDisabledAt :exec
+UPDATE admin_accounts
+SET disabled_at = $2, updated_at = NOW()
+WHERE id = $1
+`
+
+type SetAdminAccountDisabledAtParams struct {
+	ID         uuid.UUID          `json:"id"`
+	DisabledAt pgtype.Timestamptz `json:"disabled_at"`
+}
+
+func (q *Queries) SetAdminAccountDisabledAt(ctx context.Context, arg SetAdminAccountDisabledAtParams) error {
+	_, err := q.db.Exec(ctx, setAdminAccountDisabledAt, arg.ID, arg.DisabledAt)
 	return err
 }
 
@@ -335,6 +370,22 @@ type UpdateAdminAccountMagicLinkEnabledParams struct {
 
 func (q *Queries) UpdateAdminAccountMagicLinkEnabled(ctx context.Context, arg UpdateAdminAccountMagicLinkEnabledParams) error {
 	_, err := q.db.Exec(ctx, updateAdminAccountMagicLinkEnabled, arg.ID, arg.MagicLinkEnabled)
+	return err
+}
+
+const updateAdminAccountOperatorRole = `-- name: UpdateAdminAccountOperatorRole :exec
+UPDATE admin_accounts
+SET operator_role_id = $2, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateAdminAccountOperatorRoleParams struct {
+	ID             uuid.UUID `json:"id"`
+	OperatorRoleID uuid.UUID `json:"operator_role_id"`
+}
+
+func (q *Queries) UpdateAdminAccountOperatorRole(ctx context.Context, arg UpdateAdminAccountOperatorRoleParams) error {
+	_, err := q.db.Exec(ctx, updateAdminAccountOperatorRole, arg.ID, arg.OperatorRoleID)
 	return err
 }
 
