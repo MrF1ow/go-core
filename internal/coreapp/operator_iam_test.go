@@ -2,6 +2,7 @@ package coreapp
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -193,6 +194,7 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 	group := engine.Group("/admin")
 	group.Use(middleware.AdminAuthMiddleware(accessEnvKey, store, grants))
 	group.GET("/operator/iam-events", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorIAMEvents)
+	group.GET("/operator/iam-events/export", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorIAMEventsExport)
 	group.PUT("/operator/keys/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorKeyRole)
 	group.POST("/operator/accounts", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorCreateAccount)
 	group.PUT("/operator/accounts/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorAccountRole)
@@ -238,6 +240,115 @@ func TestOperatorIAMEvents_ViewerForbidden(t *testing.T) {
 	rec := accessLogDo(h.engine, http.MethodGet, "/admin/operator/iam-events", accessViewerKey)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestOperatorIAMEventsExport_ViewerForbiddenJSON(t *testing.T) {
+	h := iamEventTestEngine(t)
+	rec := accessLogDo(h.engine, http.MethodGet, "/admin/operator/iam-events/export", accessViewerKey)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content-type = %q", rec.Header().Get("Content-Type"))
+	}
+}
+
+func TestOperatorIAMEventsExport_SuperadminCSV(t *testing.T) {
+	h := iamEventTestEngine(t)
+	keyID := uuid.New()
+	if err := h.mem.write(operator.IAMEvent{
+		Action:      operator.ActionAssign,
+		ActorKind:   string(operator.KindAPIKey),
+		TargetKind:  operator.KindAPIKey,
+		TargetKeyID: &keyID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rec := accessLogDo(h.engine, http.MethodGet, "/admin/operator/iam-events/export", accessSuperadminKey)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if rec.Header().Get("X-Export-Truncated") != "false" {
+		t.Fatalf("truncated = %q", rec.Header().Get("X-Export-Truncated"))
+	}
+	if !strings.Contains(rec.Header().Get("Content-Disposition"), "operator-iam-events.csv") {
+		t.Fatalf("disposition = %q", rec.Header().Get("Content-Disposition"))
+	}
+	body := rec.Body.Bytes()
+	if len(body) >= 3 && body[0] == 0xef && body[1] == 0xbb && body[2] == 0xbf {
+		t.Fatal("utf-8 BOM present")
+	}
+	rows, err := csv.NewReader(strings.NewReader(rec.Body.String())).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantHeader := []string{
+		"id", "at", "actor_kind", "actor_key_id", "actor_account_id",
+		"target_kind", "target_key_id", "target_account_id", "old_role_id", "new_role_id", "action",
+	}
+	if len(rows) < 2 {
+		t.Fatalf("csv rows = %#v", rows)
+	}
+	if strings.Join(rows[0], ",") != strings.Join(wantHeader, ",") {
+		t.Fatalf("header = %#v", rows[0])
+	}
+	found := false
+	for _, row := range rows[1:] {
+		if len(row) != len(wantHeader) {
+			t.Fatalf("row width = %d, want %d: %#v", len(row), len(wantHeader), row)
+		}
+		if row[10] == operator.ActionAssign && row[6] == keyID.String() {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("missing assign row in %#v", rows)
+	}
+}
+
+func TestOperatorIAMEventsExport_TruncatesAtExportMaxRows(t *testing.T) {
+	h := iamEventTestEngine(t)
+	for i := 0; i < operator.ExportMaxRows+1; i++ {
+		if err := h.mem.write(operator.IAMEvent{Action: operator.ActionAssign, ActorKind: string(operator.KindAPIKey)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rec := accessLogDo(h.engine, http.MethodGet, "/admin/operator/iam-events/export", accessSuperadminKey)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if rec.Header().Get("X-Export-Truncated") != "true" {
+		t.Fatalf("truncated = %q", rec.Header().Get("X-Export-Truncated"))
+	}
+	rows, err := csv.NewReader(strings.NewReader(rec.Body.String())).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != operator.ExportMaxRows+1 {
+		t.Fatalf("csv rows = %d, want %d (header + cap)", len(rows), operator.ExportMaxRows+1)
+	}
+}
+
+func TestOperatorIAMEvents_ListLimitStillCapsAt1000(t *testing.T) {
+	h := iamEventTestEngine(t)
+	for i := 0; i < 1500; i++ {
+		if err := h.mem.write(operator.IAMEvent{Action: operator.ActionAssign, ActorKind: string(operator.KindAPIKey)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rec := accessLogDo(h.engine, http.MethodGet, "/admin/operator/iam-events?limit=5000", accessSuperadminKey)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Entries []operator.IAMEvent `json:"entries"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Entries) != 1000 {
+		t.Fatalf("len = %d, want 1000", len(body.Entries))
 	}
 }
 

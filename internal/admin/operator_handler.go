@@ -215,6 +215,95 @@ func csvTimePtr(value *time.Time) string {
 	return csvTime(*value)
 }
 
+func csvUUID(id uuid.UUID) string {
+	if id == uuid.Nil {
+		return ""
+	}
+	return id.String()
+}
+
+func csvUUIDPtr(id *uuid.UUID) string {
+	if id == nil {
+		return ""
+	}
+	return id.String()
+}
+
+func capExport[T any](items []T) ([]T, bool) {
+	if len(items) > operator.ExportMaxRows {
+		return items[:operator.ExportMaxRows], true
+	}
+	return items, false
+}
+
+func writeOperatorCSV(c *gin.Context, filename string, truncated bool, header []string, rows [][]string) {
+	if truncated {
+		c.Header("X-Export-Truncated", "true")
+	} else {
+		c.Header("X-Export-Truncated", "false")
+	}
+	c.Header("Content-Disposition", `attachment; filename="`+filename+`"`)
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Status(http.StatusOK)
+	writer := csv.NewWriter(c.Writer)
+	if err := writer.Write(header); err != nil {
+		log.Printf("operator csv header %s: %v", filename, err)
+		return
+	}
+	for _, row := range rows {
+		if err := writer.Write(row); err != nil {
+			log.Printf("operator csv row %s: %v", filename, err)
+			return
+		}
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		log.Printf("operator csv flush %s: %v", filename, err)
+	}
+}
+
+var accessLogCSVHeader = []string{
+	"id", "at", "kind", "key_id", "account_id", "role_name", "method", "path", "decision", "resource", "action", "status",
+}
+
+func accessLogCSVRow(rec operator.AccessRecord) []string {
+	return []string{
+		csvUUID(rec.ID),
+		csvTime(rec.At),
+		string(rec.Kind),
+		csvUUIDPtr(rec.KeyID),
+		csvUUIDPtr(rec.AccountID),
+		rec.RoleName,
+		rec.Method,
+		rec.Path,
+		rec.Decision,
+		rec.Resource,
+		rec.Action,
+		strconv.Itoa(rec.Status),
+	}
+}
+
+var iamEventCSVHeader = []string{
+	"id", "at", "actor_kind", "actor_key_id", "actor_account_id",
+	"target_kind", "target_key_id", "target_account_id", "old_role_id", "new_role_id", "action",
+}
+
+func iamEventCSVRow(ev operator.IAMEvent) []string {
+	return []string{
+		csvUUID(ev.ID),
+		csvTime(ev.At),
+		ev.ActorKind,
+		csvUUIDPtr(ev.ActorKeyID),
+		csvUUIDPtr(ev.ActorAccountID),
+		string(ev.TargetKind),
+		csvUUIDPtr(ev.TargetKeyID),
+		csvUUIDPtr(ev.TargetAccountID),
+		csvUUIDPtr(ev.OldRoleID),
+		csvUUIDPtr(ev.NewRoleID),
+		ev.Action,
+	}
+}
+
 type accessLogResponse struct {
 	Entries []operator.AccessRecord `json:"entries"`
 }
@@ -270,6 +359,31 @@ func (h *Handler) OperatorAccessLogs(c *gin.Context) {
 		entries = []operator.AccessRecord{}
 	}
 	c.JSON(http.StatusOK, accessLogResponse{Entries: entries})
+}
+
+// OperatorAccessLogsExport exports access logs as CSV.
+// @Summary Export operator access logs
+// @Tags Admin
+// @Produce text/csv
+// @Success 200 {string} string "CSV export"
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/access-logs/export [get]
+func (h *Handler) OperatorAccessLogsExport(c *gin.Context) {
+	entries, err := h.listAccessLogs(c.Request.Context(), safeconv.ToInt32(operator.ExportMaxRows+1), nil)
+	if err != nil {
+		log.Printf("operator access logs export: %v", err)
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to list operator access logs"})
+		return
+	}
+	entries, truncated := capExport(entries)
+	rows := make([][]string, 0, len(entries))
+	for _, rec := range entries {
+		rows = append(rows, accessLogCSVRow(rec))
+	}
+	writeOperatorCSV(c, "operator-access-logs.csv", truncated, accessLogCSVHeader, rows)
 }
 
 func (h *Handler) listAccessLogs(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error) {
@@ -334,6 +448,31 @@ func (h *Handler) OperatorIAMEvents(c *gin.Context) {
 		entries = []operator.IAMEvent{}
 	}
 	c.JSON(http.StatusOK, iamEventResponse{Entries: entries})
+}
+
+// OperatorIAMEventsExport exports IAM events as CSV.
+// @Summary Export operator IAM events
+// @Tags Admin
+// @Produce text/csv
+// @Success 200 {string} string "CSV export"
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/iam-events/export [get]
+func (h *Handler) OperatorIAMEventsExport(c *gin.Context) {
+	entries, err := h.listIAMEvents(c.Request.Context(), safeconv.ToInt32(operator.ExportMaxRows+1), nil, nil)
+	if err != nil {
+		log.Printf("operator IAM events export: %v", err)
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to list operator IAM events"})
+		return
+	}
+	entries, truncated := capExport(entries)
+	rows := make([][]string, 0, len(entries))
+	for _, ev := range entries {
+		rows = append(rows, iamEventCSVRow(ev))
+	}
+	writeOperatorCSV(c, "operator-iam-events.csv", truncated, iamEventCSVHeader, rows)
 }
 
 func (h *Handler) listIAMEvents(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error) {
