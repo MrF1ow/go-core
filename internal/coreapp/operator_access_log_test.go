@@ -3,10 +3,12 @@ package coreapp
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -129,6 +131,7 @@ func accessLogTestEngine(t *testing.T) (*gin.Engine, *accessLogMem) {
 		c.Status(http.StatusOK)
 	})
 	group.GET("/operator/access-logs", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorAccessLogs)
+	group.GET("/operator/access-logs/export", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorAccessLogsExport)
 	return engine, mem
 }
 
@@ -209,5 +212,102 @@ func TestOperatorAccessLog_ViewerListForbidden(t *testing.T) {
 	rec := accessLogDo(engine, http.MethodGet, "/admin/operator/access-logs", accessViewerKey)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestOperatorAccessLogExport_ViewerForbiddenJSON(t *testing.T) {
+	engine, _ := accessLogTestEngine(t)
+	rec := accessLogDo(engine, http.MethodGet, "/admin/operator/access-logs/export", accessViewerKey)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content-type = %q", rec.Header().Get("Content-Type"))
+	}
+}
+
+func TestOperatorAccessLogExport_SuperadminCSV(t *testing.T) {
+	engine, _ := accessLogTestEngine(t)
+	deny := accessLogDo(engine, http.MethodPost, "/admin/tenants", accessViewerKey)
+	if deny.Code != http.StatusForbidden {
+		t.Fatalf("deny status = %d", deny.Code)
+	}
+	rec := accessLogDo(engine, http.MethodGet, "/admin/operator/access-logs/export", accessSuperadminKey)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if rec.Header().Get("X-Export-Truncated") != "false" {
+		t.Fatalf("truncated = %q", rec.Header().Get("X-Export-Truncated"))
+	}
+	if !strings.Contains(rec.Header().Get("Content-Disposition"), "operator-access-logs.csv") {
+		t.Fatalf("disposition = %q", rec.Header().Get("Content-Disposition"))
+	}
+	body := rec.Body.Bytes()
+	if len(body) >= 3 && body[0] == 0xef && body[1] == 0xbb && body[2] == 0xbf {
+		t.Fatal("utf-8 BOM present")
+	}
+	rows, err := csv.NewReader(strings.NewReader(rec.Body.String())).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) < 2 {
+		t.Fatalf("csv rows = %#v", rows)
+	}
+	wantHeader := []string{"id", "at", "kind", "key_id", "account_id", "role_name", "method", "path", "decision", "resource", "action", "status"}
+	if strings.Join(rows[0], ",") != strings.Join(wantHeader, ",") {
+		t.Fatalf("header = %#v", rows[0])
+	}
+	found := false
+	for _, row := range rows[1:] {
+		if len(row) != len(wantHeader) {
+			t.Fatalf("row width = %d, want %d: %#v", len(row), len(wantHeader), row)
+		}
+		if row[7] == "/admin/tenants" && row[8] == operator.DecisionDeny {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("missing deny tenants row in %#v", rows)
+	}
+}
+
+func TestOperatorAccessLogExport_TruncatesAtExportMaxRows(t *testing.T) {
+	engine, mem := accessLogTestEngine(t)
+	for i := 0; i < operator.ExportMaxRows+1; i++ {
+		mem.append(operator.AccessRecord{Decision: operator.DecisionDeny, Path: "/admin/tenants"})
+	}
+	rec := accessLogDo(engine, http.MethodGet, "/admin/operator/access-logs/export", accessSuperadminKey)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if rec.Header().Get("X-Export-Truncated") != "true" {
+		t.Fatalf("truncated = %q", rec.Header().Get("X-Export-Truncated"))
+	}
+	rows, err := csv.NewReader(strings.NewReader(rec.Body.String())).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != operator.ExportMaxRows+1 {
+		t.Fatalf("csv rows = %d, want %d (header + cap)", len(rows), operator.ExportMaxRows+1)
+	}
+}
+
+func TestOperatorAccessLogs_ListLimitStillCapsAt1000(t *testing.T) {
+	engine, mem := accessLogTestEngine(t)
+	for i := 0; i < 1500; i++ {
+		mem.append(operator.AccessRecord{Decision: operator.DecisionDeny, Path: "/admin/tenants"})
+	}
+	rec := accessLogDo(engine, http.MethodGet, "/admin/operator/access-logs?limit=5000", accessSuperadminKey)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Entries []operator.AccessRecord `json:"entries"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Entries) != 1000 {
+		t.Fatalf("len = %d, want 1000", len(body.Entries))
 	}
 }

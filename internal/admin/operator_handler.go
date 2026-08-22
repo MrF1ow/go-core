@@ -272,6 +272,9 @@ func (h *Handler) OperatorAccessLogs(c *gin.Context) {
 	c.JSON(http.StatusOK, accessLogResponse{Entries: entries})
 }
 
+// OperatorAccessLogsExport exports access logs as CSV.
+func (h *Handler) OperatorAccessLogsExport(c *gin.Context) {}
+
 func (h *Handler) listAccessLogs(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error) {
 	if h.AccessLogList != nil {
 		return h.AccessLogList(ctx, limit, decision)
@@ -335,6 +338,9 @@ func (h *Handler) OperatorIAMEvents(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, iamEventResponse{Entries: entries})
 }
+
+// OperatorIAMEventsExport exports IAM events as CSV.
+func (h *Handler) OperatorIAMEventsExport(c *gin.Context) {}
 
 func (h *Handler) listIAMEvents(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error) {
 	if h.IAMEventList != nil {
