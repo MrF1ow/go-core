@@ -40,6 +40,8 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | [Custom CSS spec](specs/2026-08-20-admin-custom-css-design.md) | Admin GUI extra stylesheet |
 | [Favicon spec](specs/2026-08-20-admin-favicon-design.md) | Admin GUI tab icon |
 | [OIDC branding spec](specs/2026-08-21-oidc-admin-branding-design.md) | Admin branding fallback on OIDC pages |
+| [Operator IAM leftover](specs/2026-08-22-operator-iam-leftover/overview.md) | Shipped JSON roster, evidence, accounts |
+| [Operator IAM next](specs/2026-08-22-operator-next/overview.md) | Build order after leftover: fail-open, logs, CSRF, GUI, custom roles |
 | [Changelog](../CHANGELOG.md) | Release history |
 | [Security policy](../SECURITY.md) | Vulnerability reporting |
 

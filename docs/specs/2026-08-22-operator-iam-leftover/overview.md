@@ -1,9 +1,10 @@
 # Operator IAM leftover
 
 **Date:** 2026-08-22
-**Status:** plan, not implemented
+**Status:** shipped on main ([#14](https://github.com/MrF1ow/go-core/pull/14)–[#19](https://github.com/MrF1ow/go-core/pull/19)). Do not implement this directory again.
 **Depends on:** [PR #12](https://github.com/MrF1ow/go-core/pull/12) (merged). JSON `requireOp` and GUI `requireGUI` are on main.
-**Parent:** [PR #7](https://github.com/MrF1ow/go-core/pull/7) old phases 6 through 9. Do not implement those files. This directory replaces them.
+**Parent:** [PR #7](https://github.com/MrF1ow/go-core/pull/7) old phases 6 through 9. Do not implement those files. This directory replaced them.
+**Next:** [2026-08-22 operator next](../2026-08-22-operator-next/overview.md)
 
 The doors are locked. This directory is who has which operator role, who changed it, and which admin calls were allowed or denied.
 
@@ -156,4 +157,4 @@ Full leftover merge bar is in [testing.md](testing.md). Each phase has its own c
 
 Consumer. After Roster, a superadmin key can `GET /admin/operator/roster` and see the env key, DB keys, and GUI accounts. After Accounts, that key can add a viewer operator without `cmd/setup`, and cannot demote the last superadmin. After Access log, env-key writes show up as `kind=env_key`.
 
-Maintainer. Next after this leftover is custom roles UI or the null-key fail-open cutover, each its own spec. Do not fold either into wave 2.
+Maintainer. This leftover shipped. Next is [operator IAM next](../2026-08-22-operator-next/overview.md): fail-open cutover first, not custom roles. Do not implement PR #7.
