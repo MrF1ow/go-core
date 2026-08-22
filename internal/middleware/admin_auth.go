@@ -17,8 +17,8 @@ import (
 
 // AdminAuthMiddleware validates the Admin API Key header.
 // The env key is a synthetic superadmin principal. A DB admin key loads its
-// operator role. Expired and revoked keys are 401, same as unknown.
-// If grants is nil, only the env key and legacy null-role DB keys can proceed.
+// operator role. Expired, revoked, unknown, and null-role admin keys are 401.
+// If grants is nil, only the env key can proceed.
 func AdminAuthMiddleware(adminAPIKey string, keyValidator web.ApiKeyValidator, grants operator.GrantLookup) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey := c.GetHeader("X-Admin-API-Key")
@@ -68,10 +68,8 @@ func AdminAuthMiddleware(adminAPIKey string, keyValidator web.ApiKeyValidator, g
 
 func principalForDBKey(c *gin.Context, foundKey *models.ApiKey, grants operator.GrantLookup) (*operator.Principal, bool) {
 	if foundKey.OperatorRoleID == nil {
-		p := operator.SuperadminPrincipal(operator.KindAPIKey)
-		id := foundKey.ID
-		p.KeyID = &id
-		return &p, true
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Admin API Key"})
+		return nil, false
 	}
 	if grants == nil {
 		log.Printf("operator grant lookup is not configured")
