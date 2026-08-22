@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -329,7 +330,198 @@ func TestGUIShell_SuperadminSidebarHasTenants(t *testing.T) {
 	}
 }
 
+const lastSuperadminGUIMessage = "cannot demote or disable the last enabled superadmin"
+
+func TestGUIShell_SuperadminOperatorIAMShowsWriteCTAs(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(fx.engine, "/gui/operator", fx.cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, "Create operator") {
+		t.Fatal("superadmin missing Create operator")
+	}
+	disablePath := "/gui/operator/accounts/" + fx.account.ID.String() + "/disable"
+	if !strings.Contains(body, disablePath) {
+		t.Fatalf("superadmin missing Disable for account: %s", body)
+	}
+	if strings.Contains(body, "/gui/operator/accounts//disable") {
+		t.Fatal("env_key row has a Disable action")
+	}
+}
+
+func TestGUIShell_SuperadminOperatorAccountForm(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(fx.engine, "/gui/operator/accounts/new", fx.cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, `name="username"`) || !strings.Contains(body, `name="password"`) {
+		t.Fatalf("missing form fields: %s", body)
+	}
+}
+
+func TestGUIShell_ViewerOperatorAccountFormForbidden(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDViewer, operator.RoleViewer)
+	response := guiGET(fx.engine, "/gui/operator/accounts/new", fx.cookie, "", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+		t.Fatalf("missing %s", web.GUIForbiddenHeader)
+	}
+}
+
+func TestGUIShell_SuperadminCreatesViewerOperator(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	form := url.Values{
+		"username":         {"newviewer"},
+		"email":            {"new@example.com"},
+		"password":         {"twelvechars!!"},
+		"operator_role_id": {operator.RoleIDSuperadmin.String()},
+	}
+	response := guiPOST(fx.engine, "/gui/operator/accounts", fx.cookie, form)
+	if response.Code != http.StatusOK && response.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if len(fx.created) != 1 {
+		t.Fatalf("created = %d, want 1", len(fx.created))
+	}
+	if fx.created[0].OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("role = %s, want viewer", fx.created[0].OperatorRoleID)
+	}
+	if fx.created[0].PasswordHash == "" || fx.created[0].PasswordHash == "twelvechars!!" {
+		t.Fatal("password was not hashed")
+	}
+	if len(fx.events) != 1 || fx.events[0].Action != operator.ActionCreatePrincipal {
+		t.Fatalf("events = %+v", fx.events)
+	}
+	if fx.events[0].ActorKind != string(operator.KindGUIAccount) {
+		t.Fatalf("actor_kind = %q", fx.events[0].ActorKind)
+	}
+	if fx.events[0].ActorAccountID == nil || *fx.events[0].ActorAccountID != fx.account.ID {
+		t.Fatalf("actor_account_id = %v", fx.events[0].ActorAccountID)
+	}
+}
+
+func TestGUIShell_LastSuperadminDisableIsHTML409(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiPOST(fx.engine, "/gui/operator/accounts/"+fx.account.ID.String()+"/disable", fx.cookie, url.Values{})
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content type = %q", response.Header().Get("Content-Type"))
+	}
+	body := response.Body.String()
+	if strings.HasPrefix(strings.TrimSpace(body), "{") {
+		t.Fatalf("JSON body = %s", body)
+	}
+	if !strings.Contains(body, lastSuperadminGUIMessage) {
+		t.Fatalf("body = %s", body)
+	}
+	if len(fx.disabled) != 0 {
+		t.Fatal("last superadmin was disabled")
+	}
+}
+
+func TestGUIShell_ViewerOperatorCreateForbidden(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDViewer, operator.RoleViewer)
+	form := url.Values{
+		"username": {"newviewer"},
+		"password": {"twelvechars!!"},
+	}
+	response := guiPOST(fx.engine, "/gui/operator/accounts", fx.cookie, form)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+		t.Fatalf("missing %s", web.GUIForbiddenHeader)
+	}
+	if len(fx.created) != 0 {
+		t.Fatal("viewer created an operator")
+	}
+	if len(fx.events) != 0 {
+		t.Fatalf("viewer wrote IAM event: %+v", fx.events)
+	}
+}
+
+func TestGUIShell_OperatorCreateMissingCSRFIsHTMLWithoutGUIHeader(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	form := url.Values{
+		"username": {"newviewer"},
+		"password": {"twelvechars!!"},
+	}
+	response := guiPOSTNoCSRF(fx.engine, "/gui/operator/accounts", fx.cookie, form)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != "" {
+		t.Fatalf("CSRF 403 sent %s", web.GUIForbiddenHeader)
+	}
+	body := response.Body.String()
+	if strings.HasPrefix(strings.TrimSpace(body), "{") {
+		t.Fatalf("JSON body = %s", body)
+	}
+	if !strings.Contains(body, "Reload this page and submit the form again.") {
+		t.Fatalf("body = %s", body)
+	}
+	if len(fx.created) != 0 {
+		t.Fatal("CSRF-missing POST created an operator")
+	}
+}
+
+func TestGUIShell_SuperadminAssignsAccountRole(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	form := url.Values{"operator_role_id": {operator.RoleIDSupport.String()}}
+	response := guiPUT(fx.engine, "/gui/operator/accounts/"+fx.viewerAccount.ID.String()+"/role", fx.cookie, form)
+	if response.Code != http.StatusOK && response.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if fx.accounts[fx.viewerAccount.ID].OperatorRoleID != operator.RoleIDSupport {
+		t.Fatalf("role = %s", fx.accounts[fx.viewerAccount.ID].OperatorRoleID)
+	}
+	if len(fx.events) != 1 || fx.events[0].Action != operator.ActionAssign {
+		t.Fatalf("events = %+v", fx.events)
+	}
+}
+
+func TestGUIShell_SuperadminAssignsKeyRole(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	form := url.Values{"operator_role_id": {operator.RoleIDSupport.String()}}
+	response := guiPUT(fx.engine, "/gui/operator/keys/"+fx.viewerKey.ID.String()+"/role", fx.cookie, form)
+	if response.Code != http.StatusOK && response.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if fx.viewerKey.OperatorRoleID == nil || *fx.viewerKey.OperatorRoleID != operator.RoleIDSupport {
+		t.Fatalf("key role = %v", fx.viewerKey.OperatorRoleID)
+	}
+	if len(fx.events) != 1 || fx.events[0].Action != operator.ActionAssign {
+		t.Fatalf("events = %+v", fx.events)
+	}
+}
+
+type guiShell struct {
+	engine        *gin.Engine
+	cookie        *http.Cookie
+	account       *models.AdminAccount
+	viewerAccount *models.AdminAccount
+	viewerKey     *models.ApiKey
+	accounts      map[uuid.UUID]*models.AdminAccount
+	created       []*models.AdminAccount
+	disabled      []uuid.UUID
+	events        []operator.IAMEvent
+}
+
 func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engine, *http.Cookie) {
+	t.Helper()
+	fx := newGUIShell(t, roleID, roleName)
+	return fx.engine, fx.cookie
+}
+
+func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	renderer, err := web.NewRenderer("/gui")
@@ -341,19 +533,69 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 		Username:       roleName,
 		OperatorRoleID: roleID,
 	}
+	viewerAccount := &models.AdminAccount{
+		ID:             uuid.New(),
+		Username:       "ada",
+		OperatorRoleID: operator.RoleIDViewer,
+	}
+	viewerRole := operator.RoleIDViewer
+	viewerKey := &models.ApiKey{
+		ID:             uuid.New(),
+		KeyType:        admin.KeyTypeAdmin,
+		Name:           "ops",
+		OperatorRoleID: &viewerRole,
+	}
+	accounts := map[uuid.UUID]*models.AdminAccount{
+		account.ID:       account,
+		viewerAccount.ID: viewerAccount,
+	}
+	fx := &guiShell{
+		account:       account,
+		viewerAccount: viewerAccount,
+		viewerKey:     viewerKey,
+		accounts:      accounts,
+		cookie:        &http.Cookie{Name: web.AdminSessionCookie, Value: "session-id"},
+	}
 	sessions := &stubGUISessions{account: account}
 	grants := &stubGUIGrants{byID: map[uuid.UUID]struct {
 		name string
 		keys []string
 	}{
-		roleID: {name: roleName, keys: operator.GrantsFor(roleName)},
+		roleID:                 {name: roleName, keys: operator.GrantsFor(roleName)},
+		operator.RoleIDViewer:  {name: operator.RoleViewer, keys: operator.GrantsFor(operator.RoleViewer)},
+		operator.RoleIDSupport: {name: operator.RoleSupport, keys: operator.GrantsFor(operator.RoleSupport)},
 	}}
 	h := &admin.GUIHandler{
 		BasePath:       "/gui",
 		AbortForbidden: middleware.AbortGUIForbidden,
 		AbortInternal:  middleware.AbortGUIInternal,
-		RosterKeys:     func() ([]operator.RosterEntry, error) { return nil, nil },
-		RosterAccounts: func() ([]operator.RosterEntry, error) { return nil, nil },
+		RosterKeys: func() ([]operator.RosterEntry, error) {
+			id := viewerKey.ID
+			return []operator.RosterEntry{{
+				Kind:        string(operator.KindAPIKey),
+				DisplayName: viewerKey.Name,
+				RoleName:    operator.RoleViewer,
+				KeyID:       &id,
+			}}, nil
+		},
+		RosterAccounts: func() ([]operator.RosterEntry, error) {
+			sessionID := account.ID
+			viewerID := viewerAccount.ID
+			return []operator.RosterEntry{
+				{
+					Kind:        string(operator.KindGUIAccount),
+					DisplayName: account.Username,
+					RoleName:    roleName,
+					AccountID:   &sessionID,
+				},
+				{
+					Kind:        string(operator.KindGUIAccount),
+					DisplayName: viewerAccount.Username,
+					RoleName:    operator.RoleViewer,
+					AccountID:   &viewerID,
+				},
+			}, nil
+		},
 		IAMEventList: func(_ context.Context, _ int32, _, _ *uuid.UUID) ([]operator.IAMEvent, error) {
 			return []operator.IAMEvent{
 				{Action: operator.ActionAssign, ActorKind: string(operator.KindAPIKey)},
@@ -367,6 +609,102 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 				return []operator.AccessRecord{deny}, nil
 			}
 			return []operator.AccessRecord{deny, allow}, nil
+		},
+		RecordIAM: func(ev operator.IAMEvent) {
+			fx.events = append(fx.events, ev)
+		},
+		CreateAccount: func(created *models.AdminAccount) error {
+			if created.ID == uuid.Nil {
+				created.ID = uuid.New()
+			}
+			copied := *created
+			accounts[copied.ID] = &copied
+			fx.created = append(fx.created, &copied)
+			*created = copied
+			return nil
+		},
+		GetAccount: func(id string) (*models.AdminAccount, error) {
+			parsed, err := uuid.Parse(id)
+			if err != nil {
+				return nil, err
+			}
+			stored, ok := accounts[parsed]
+			if !ok {
+				return nil, nil
+			}
+			copied := *stored
+			if stored.DisabledAt != nil {
+				disabled := *stored.DisabledAt
+				copied.DisabledAt = &disabled
+			}
+			return &copied, nil
+		},
+		GetAccountByUsername: func(username string) (*models.AdminAccount, error) {
+			for _, stored := range accounts {
+				if stored.Username == username {
+					copied := *stored
+					return &copied, nil
+				}
+			}
+			return nil, nil
+		},
+		UpdateAccountRole: func(id uuid.UUID, next uuid.UUID) error {
+			stored, ok := accounts[id]
+			if !ok {
+				return pgx.ErrNoRows
+			}
+			stored.OperatorRoleID = next
+			return nil
+		},
+		DisableAccount: func(id uuid.UUID) error {
+			stored, ok := accounts[id]
+			if !ok {
+				return pgx.ErrNoRows
+			}
+			now := time.Now().UTC()
+			stored.DisabledAt = &now
+			fx.disabled = append(fx.disabled, id)
+			return nil
+		},
+		CountEnabledSuperadmins: func() (int64, error) {
+			var n int64
+			for _, stored := range accounts {
+				if stored.DisabledAt == nil && stored.OperatorRoleID == operator.RoleIDSuperadmin {
+					n++
+				}
+			}
+			return n, nil
+		},
+		GetAPIKey: func(id string) (*models.ApiKey, error) {
+			parsed, err := uuid.Parse(id)
+			if err != nil {
+				return nil, err
+			}
+			if parsed != viewerKey.ID {
+				return nil, pgx.ErrNoRows
+			}
+			copied := *viewerKey
+			if viewerKey.OperatorRoleID != nil {
+				role := *viewerKey.OperatorRoleID
+				copied.OperatorRoleID = &role
+			}
+			return &copied, nil
+		},
+		UpdateAPIKeyRole: func(id string, next *uuid.UUID) error {
+			parsed, err := uuid.Parse(id)
+			if err != nil {
+				return err
+			}
+			if parsed != viewerKey.ID {
+				return pgx.ErrNoRows
+			}
+			if next == nil {
+				viewerKey.OperatorRoleID = nil
+				return nil
+			}
+			role := *next
+			viewerKey.OperatorRoleID = &role
+			return nil
 		},
 	}
 	router := gin.New()
@@ -385,6 +723,11 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 	guiAuth.GET("/operator/iam-events/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorIAMEventsExport)
 	guiAuth.GET("/operator/access-logs", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorAccessLogs)
 	guiAuth.GET("/operator/access-logs/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorAccessLogsExport)
+	guiAuth.GET("/operator/accounts/new", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorCreateAccountForm)
+	guiAuth.POST("/operator/accounts", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorCreateAccount)
+	guiAuth.PUT("/operator/accounts/:id/role", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorAccountRole)
+	guiAuth.POST("/operator/accounts/:id/disable", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorDisableAccount)
+	guiAuth.PUT("/operator/keys/:id/role", requireGUI(operator.ResAdminIAM, operator.ActionWrite), h.OperatorKeyRole)
 	guiAuth.GET("/users", requireGUI(operator.ResUsers, operator.ActionRead), func(c *gin.Context) {
 		data := shellPage(c)
 		data.ActivePage = "users"
@@ -449,7 +792,8 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 		}
 		c.String(http.StatusOK, roleID.String())
 	})
-	return router, &http.Cookie{Name: web.AdminSessionCookie, Value: "session-id"}
+	fx.engine = router
+	return fx
 }
 
 func shellPage(c *gin.Context) web.TemplateData {
@@ -483,10 +827,24 @@ func guiGET(engine *gin.Engine, path string, cookie *http.Cookie, hxRequest, hxT
 }
 
 func guiPOST(engine *gin.Engine, path string, cookie *http.Cookie, form url.Values) *httptest.ResponseRecorder {
-	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
+	return guiForm(engine, http.MethodPost, path, cookie, form, "csrf-token")
+}
+
+func guiPOSTNoCSRF(engine *gin.Engine, path string, cookie *http.Cookie, form url.Values) *httptest.ResponseRecorder {
+	return guiForm(engine, http.MethodPost, path, cookie, form, "")
+}
+
+func guiPUT(engine *gin.Engine, path string, cookie *http.Cookie, form url.Values) *httptest.ResponseRecorder {
+	return guiForm(engine, http.MethodPut, path, cookie, form, "csrf-token")
+}
+
+func guiForm(engine *gin.Engine, method, path string, cookie *http.Cookie, form url.Values, csrf string) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(method, path, strings.NewReader(form.Encode()))
 	request.AddCookie(cookie)
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("X-CSRF-Token", "csrf-token")
+	if csrf != "" {
+		request.Header.Set("X-CSRF-Token", csrf)
+	}
 	response := httptest.NewRecorder()
 	engine.ServeHTTP(response, request)
 	return response
