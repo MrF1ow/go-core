@@ -17,7 +17,11 @@
 
 <div class="alert alert-info alert-dismissible fade show py-2 small mb-3" role="alert">
     <i class="bi bi-info-circle me-1"></i>
+    {{if eq .Data.Tab "roster"}}
     Exports are capped at <strong>10,000 rows</strong>. The env_key break-glass principal is always listed first.
+    {{else}}
+    Exports are capped at <strong>10,000 rows</strong>.
+    {{end}}
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding-top: 0.5rem;"></button>
 </div>
 
@@ -27,21 +31,24 @@
            href="{{basePath}}/operator/roster"
            hx-get="{{basePath}}/operator/roster"
            hx-target="#operator-panel"
-           hx-swap="innerHTML">Roster</a>
+           hx-swap="innerHTML"
+           hx-push-url="{{basePath}}/operator">Roster</a>
     </li>
     <li class="nav-item" role="presentation">
         <a class="nav-link" data-tab="events"
            href="{{basePath}}/operator/iam-events"
            hx-get="{{basePath}}/operator/iam-events"
            hx-target="#operator-panel"
-           hx-swap="innerHTML">Events</a>
+           hx-swap="innerHTML"
+           hx-push-url="true">Events</a>
     </li>
     <li class="nav-item" role="presentation">
         <a class="nav-link" data-tab="access-logs"
            href="{{basePath}}/operator/access-logs"
            hx-get="{{basePath}}/operator/access-logs"
            hx-target="#operator-panel"
-           hx-swap="innerHTML">Access logs</a>
+           hx-swap="innerHTML"
+           hx-push-url="true">Access logs</a>
     </li>
 </ul>
 

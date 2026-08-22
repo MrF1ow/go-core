@@ -145,6 +145,9 @@ func TestGUIShell_SuperadminOperatorIAMEventsNewestFirst(t *testing.T) {
 	if assignAt > createAt {
 		t.Fatal("events are not newest first")
 	}
+	if !strings.Contains(body, "Operator IAM") {
+		t.Fatal("typed events URL missing page chrome")
+	}
 }
 
 func TestGUIShell_SuperadminAccessLogsDenyFilter(t *testing.T) {
@@ -157,7 +160,7 @@ func TestGUIShell_SuperadminAccessLogsDenyFilter(t *testing.T) {
 	if !strings.Contains(body, "/gui/tenants") {
 		t.Fatalf("missing deny path: %s", body)
 	}
-	if strings.Contains(body, "/gui/users") {
+	if strings.Contains(body, "<td>/gui/users</td>") {
 		t.Fatal("deny filter included an allow row")
 	}
 }

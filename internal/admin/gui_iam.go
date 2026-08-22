@@ -108,6 +108,14 @@ func (h *GUIHandler) operatorIAMHTML(c *gin.Context, view operatorIAMView) {
 	c.HTML(http.StatusOK, "operator_iam", data)
 }
 
+func (h *GUIHandler) operatorPanel(c *gin.Context, fragment string, view operatorIAMView) {
+	if c.GetHeader("HX-Request") == "true" {
+		c.HTML(http.StatusOK, fragment, view)
+		return
+	}
+	h.operatorIAMHTML(c, view)
+}
+
 func (h *GUIHandler) listIAMEvents(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error) {
 	return listOperatorIAMEvents(ctx, h.IAMEventList, h.OperatorRepo, limit, targetKeyID, targetAccountID)
 }
@@ -196,7 +204,7 @@ func (h *GUIHandler) OperatorIAMEvents(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	c.HTML(http.StatusOK, "operator_iam_events", operatorIAMView{Tab: operatorTabEvents, Events: entries})
+	h.operatorPanel(c, "operator_iam_events", operatorIAMView{Tab: operatorTabEvents, Events: entries})
 }
 
 // OperatorIAMEventsExport streams IAM events as CSV.
@@ -230,7 +238,7 @@ func (h *GUIHandler) OperatorAccessLogs(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	c.HTML(http.StatusOK, "operator_access_logs", operatorIAMView{Tab: operatorTabAccessLogs, Logs: entries})
+	h.operatorPanel(c, "operator_access_logs", operatorIAMView{Tab: operatorTabAccessLogs, Logs: entries})
 }
 
 // OperatorAccessLogsExport streams access logs as CSV.
