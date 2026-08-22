@@ -13,14 +13,20 @@ type SystemRole struct {
 	Name string
 }
 
-// ErrIAMAssignmentDenied is returned when a principal without admin_iam:write
-// tries to stamp a non-viewer role on an admin API key.
-var ErrIAMAssignmentDenied = errors.New("operator IAM assignment denied")
+var (
+	// ErrIAMAssignmentDenied is returned when a principal without admin_iam:write
+	// tries to stamp a non-viewer role on an admin API key.
+	ErrIAMAssignmentDenied = errors.New("operator IAM assignment denied")
+	// ErrAdminIAMOnCustomRole is returned when a custom role grant list includes admin_iam.
+	ErrAdminIAMOnCustomRole   = errors.New("custom roles cannot grant admin_iam")
+	ErrReservedSystemRoleName = errors.New("system role names cannot be reused")
+	ErrSystemRoleImmutable    = errors.New("system operator roles cannot be modified")
+	ErrRoleNameTaken          = errors.New("operator role name already exists")
+	ErrRoleAssigned           = errors.New("operator role is assigned")
 
-var errUnknownOperatorRole = errors.New("unknown operator role")
-
-// ErrAdminIAMOnCustomRole is returned when a custom role grant list includes admin_iam.
-var ErrAdminIAMOnCustomRole = errors.New("custom roles cannot grant admin_iam")
+	errUnknownOperatorRole  = errors.New("unknown operator role")
+	errUnknownOperatorGrant = errors.New("unknown operator grant")
+)
 
 // RoleExistsFunc reports whether a role id exists in operator_roles.
 type RoleExistsFunc func(id uuid.UUID) (bool, error)
@@ -48,9 +54,10 @@ func AssignableSystemRoles(p Principal) []SystemRole {
 // ParseAssignedAdminRole maps a posted operator_role_id onto an admin API key.
 // App keys always return a nil role. Empty posted role stamps viewer and does
 // not require IAM. Posted non-viewer without IAM is ErrIAMAssignmentDenied,
-// not a silent coerce. Unknown UUIDs stay errors. current is the key's existing
-// role on update; nil on create. Posting the same role as current is a no-op
-// and does not require IAM.
+// not a silent coerce. System ids skip exists. A non-system id is valid when
+// exists reports true; missing or nil lookup is errUnknownOperatorRole.
+// current is the key's existing role on update; nil on create. Posting the
+// same role as current is a no-op and does not require IAM.
 func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string, current *uuid.UUID, exists ...RoleExistsFunc) (*uuid.UUID, error) {
 	if keyType != adminAPIKeyType {
 		return nil, nil
@@ -65,7 +72,20 @@ func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string, current *
 		return nil, err
 	}
 	if !IsSystemRoleID(id) {
-		return nil, errUnknownOperatorRole
+		var lookup RoleExistsFunc
+		if len(exists) > 0 {
+			lookup = exists[0]
+		}
+		if lookup == nil {
+			return nil, errUnknownOperatorRole
+		}
+		ok, err := lookup(id)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, errUnknownOperatorRole
+		}
 	}
 	if current != nil && id == *current {
 		return current, nil
@@ -97,5 +117,41 @@ func SystemRoleName(id uuid.UUID) string {
 // ParseCustomGrants maps posted resource:action keys onto catalog permissions.
 // Unknown pairs are errors. admin_iam on a custom role is ErrAdminIAMOnCustomRole.
 func ParseCustomGrants(keys []string) ([]Permission, error) {
-	return nil, errUnknownOperatorRole
+	out := make([]Permission, 0, len(keys))
+	seen := make(map[string]struct{}, len(keys))
+	for _, raw := range keys {
+		key := strings.TrimSpace(raw)
+		resource, action, ok := strings.Cut(key, ":")
+		if !ok || resource == "" || action == "" {
+			return nil, errUnknownOperatorGrant
+		}
+		if resource == ResAdminIAM {
+			return nil, ErrAdminIAMOnCustomRole
+		}
+		var found *Permission
+		for i := range catalog {
+			if catalog[i].Resource == resource && catalog[i].Action == action {
+				found = &catalog[i]
+				break
+			}
+		}
+		if found == nil {
+			return nil, errUnknownOperatorGrant
+		}
+		if _, dup := seen[found.Key()]; dup {
+			continue
+		}
+		seen[found.Key()] = struct{}{}
+		out = append(out, *found)
+	}
+	return out, nil
+}
+
+func IsReservedSystemRoleName(name string) bool {
+	for _, reserved := range SystemRoleNames() {
+		if name == reserved {
+			return true
+		}
+	}
+	return false
 }

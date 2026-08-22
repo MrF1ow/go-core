@@ -35,6 +35,7 @@ type Handler struct {
 	AccessLogList           func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
 	IAMEventList            func(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error)
 	IAMEventWrite           func(operator.IAMEvent) error
+	RoleExists              operator.RoleExistsFunc
 	GetAPIKey               func(id string) (*models.ApiKey, error)
 	UpdateAPIKeyRole        func(id string, roleID *uuid.UUID) error
 	CreateAccount           func(*models.AdminAccount) error

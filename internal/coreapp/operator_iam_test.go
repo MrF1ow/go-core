@@ -59,6 +59,7 @@ type iamEventHarness struct {
 	keys           map[uuid.UUID]*models.ApiKey
 	superAccountID uuid.UUID
 	accounts       map[uuid.UUID]*models.AdminAccount
+	customRoleID   uuid.UUID
 }
 
 func iamEventTestEngine(t *testing.T) *iamEventHarness {
@@ -94,9 +95,13 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 	}}
 
 	mem := &iamEventMem{}
+	customRoleID := uuid.New()
 	handler := &admin.Handler{
 		IAMEventList:  mem.list,
 		IAMEventWrite: mem.write,
+		RoleExists: func(id uuid.UUID) (bool, error) {
+			return id == customRoleID, nil
+		},
 		GetAPIKey: func(id string) (*models.ApiKey, error) {
 			parsed, err := uuid.Parse(id)
 			if err != nil {
@@ -199,6 +204,11 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 	group.POST("/operator/accounts", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorCreateAccount)
 	group.PUT("/operator/accounts/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorAccountRole)
 	group.POST("/operator/accounts/:id/disable", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorDisableAccount)
+	group.GET("/operator/roles", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorListRoles)
+	group.POST("/operator/roles", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorCreateRole)
+	group.PUT("/operator/roles/:id", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorUpdateRole)
+	group.PUT("/operator/roles/:id/permissions", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorReplaceRolePermissions)
+	group.DELETE("/operator/roles/:id", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorDeleteRole)
 	return &iamEventHarness{
 		engine:         engine,
 		mem:            mem,
@@ -206,6 +216,7 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 		keys:           keys,
 		superAccountID: superAccount.ID,
 		accounts:       accounts,
+		customRoleID:   customRoleID,
 	}
 }
 
@@ -549,5 +560,107 @@ func TestOperatorDisableAccount_ViewerIdempotent(t *testing.T) {
 	}
 	if disableCount != 1 {
 		t.Fatalf("disable events = %d, want 1", disableCount)
+	}
+}
+
+func TestOperatorKeyRole_SuperadminStampsExistingCustomRole(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"operator_role_id":"` + h.customRoleID.String() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/keys/"+h.viewerKeyID.String()+"/role", accessSuperadminKey, body)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	stored := h.keys[h.viewerKeyID]
+	if stored.OperatorRoleID == nil || *stored.OperatorRoleID != h.customRoleID {
+		t.Fatalf("stored role = %v, want custom", stored.OperatorRoleID)
+	}
+}
+
+func TestOperatorKeyRole_RandomUUIDRejected(t *testing.T) {
+	h := iamEventTestEngine(t)
+	unknown := uuid.New()
+	body := `{"operator_role_id":"` + unknown.String() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/keys/"+h.viewerKeyID.String()+"/role", accessSuperadminKey, body)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	stored := h.keys[h.viewerKeyID]
+	if stored.OperatorRoleID == nil || *stored.OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("stored role = %v, want viewer", stored.OperatorRoleID)
+	}
+}
+
+func TestOperatorKeyRole_ViewerStampCustomForbidden(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"operator_role_id":"` + h.customRoleID.String() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/keys/"+h.viewerKeyID.String()+"/role", accessViewerKey, body)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	stored := h.keys[h.viewerKeyID]
+	if stored.OperatorRoleID == nil || *stored.OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("stored role = %v, want viewer", stored.OperatorRoleID)
+	}
+}
+
+func TestOperatorAccountRole_StampsExistingCustomRole(t *testing.T) {
+	h := iamEventTestEngine(t)
+	created := iamEventDo(h.engine, http.MethodPost, "/admin/operator/accounts", accessSuperadminKey, `{"username":"ops-custom","email":"ops@example.com","password":"twelvechars!!"}`)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, body = %s", created.Code, created.Body.String())
+	}
+	var got struct {
+		ID uuid.UUID `json:"id"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	body := `{"operator_role_id":"` + h.customRoleID.String() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/accounts/"+got.ID.String()+"/role", accessSuperadminKey, body)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	stored := h.accounts[got.ID]
+	if stored.OperatorRoleID != h.customRoleID {
+		t.Fatalf("role = %s, want custom", stored.OperatorRoleID)
+	}
+}
+
+func TestOperatorAccountRole_EmptyRoleIsBadRequest(t *testing.T) {
+	h := iamEventTestEngine(t)
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/accounts/"+h.superAccountID.String()+"/role", accessSuperadminKey, `{"operator_role_id":""}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	stored := h.accounts[h.superAccountID]
+	if stored.OperatorRoleID != operator.RoleIDSuperadmin {
+		t.Fatalf("role = %s, want superadmin", stored.OperatorRoleID)
+	}
+}
+
+func TestOperatorAccountRole_LastSuperadminStillJSONConflict(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"operator_role_id":"` + operator.RoleIDAdmin.String() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/accounts/"+h.superAccountID.String()+"/role", accessSuperadminKey, body)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content-type = %q", rec.Header().Get("Content-Type"))
+	}
+	if stored := h.accounts[h.superAccountID]; stored.OperatorRoleID != operator.RoleIDSuperadmin {
+		t.Fatalf("role = %s, want superadmin", stored.OperatorRoleID)
+	}
+}
+
+func TestOperatorCreateRole_AdminIAMGrantRejected(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"name":"auditor","grants":["users:read","admin_iam:write"]}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/roles", accessSuperadminKey, body)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), operator.ErrAdminIAMOnCustomRole.Error()) {
+		t.Fatalf("body = %s", rec.Body.String())
 	}
 }

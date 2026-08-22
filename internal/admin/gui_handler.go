@@ -73,6 +73,7 @@ type GUIHandler struct {
 	TrustedDeviceRepo       *twofa.TrustedDeviceRepository // Trusted device repository (nil = feature disabled)
 	HealthHandler           *healthpkg.Handler             // System health + metrics (nil = monitoring disabled)
 	OperatorRepo            *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
+	RoleExists              operator.RoleExistsFunc
 	RosterKeys              func() ([]operator.RosterEntry, error)
 	RosterAccounts          func() ([]operator.RosterEntry, error)
 	IAMEventList            func(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error)
@@ -2046,7 +2047,7 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), keyType, nil)
+	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), keyType, nil, h.roleExists())
 	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 		h.abortForbidden(c)
 		return
@@ -2306,7 +2307,7 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), existing.KeyType, existing.OperatorRoleID)
+	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), existing.KeyType, existing.OperatorRoleID, h.roleExists())
 	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 		h.abortForbidden(c)
 		return

@@ -556,7 +556,7 @@ func (h *Handler) OperatorKeyRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
 		return
 	}
-	roleID, err := operator.ParseAssignedAdminRole(*p, req.OperatorRoleID, key.KeyType, key.OperatorRoleID)
+	roleID, err := operator.ParseAssignedAdminRole(*p, req.OperatorRoleID, key.KeyType, key.OperatorRoleID, h.roleExists())
 	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "insufficient permissions"})
 		return
@@ -726,7 +726,7 @@ func (h *Handler) OperatorCreateAccount(c *gin.Context) {
 	})
 }
 
-// OperatorAccountRole assigns a system operator role to a GUI account.
+// OperatorAccountRole assigns an operator role to a GUI account.
 // @Summary Assign operator role on a GUI account
 // @Description Refuses with 409 when the change would leave zero enabled superadmin accounts
 // @Tags Admin
@@ -750,20 +750,38 @@ func (h *Handler) OperatorAccountRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
+	if strings.TrimSpace(req.OperatorRoleID) == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
+		return
+	}
 	account, ok := h.loadOperatorAccountOrAbort(c, id)
 	if !ok {
 		return
 	}
-	roleID, err := uuid.Parse(strings.TrimSpace(req.OperatorRoleID))
-	if err != nil || !operator.IsSystemRoleID(roleID) {
+	p, ok := jsonPrincipal(c)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "internal authentication error"})
+		return
+	}
+	current := account.OperatorRoleID
+	roleID, err := operator.ParseAssignedAdminRole(*p, req.OperatorRoleID, KeyTypeAdmin, &current, h.roleExists())
+	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
+		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "insufficient permissions"})
+		return
+	}
+	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
 		return
 	}
-	if account.OperatorRoleID == roleID {
+	if roleID == nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
+		return
+	}
+	if account.OperatorRoleID == *roleID {
 		c.Status(http.StatusNoContent)
 		return
 	}
-	if roleID != operator.RoleIDSuperadmin {
+	if *roleID != operator.RoleIDSuperadmin {
 		blocked, err := h.wouldLeaveLastSuperadmin(account)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to update operator account"})
@@ -774,18 +792,17 @@ func (h *Handler) OperatorAccountRole(c *gin.Context) {
 			return
 		}
 	}
-	if err := h.updateOperatorAccountRole(account.ID, roleID); err != nil {
+	if err := h.updateOperatorAccountRole(account.ID, *roleID); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to update operator account"})
 		return
 	}
 	oldRole := account.OperatorRoleID
-	newRole := roleID
 	accountID := account.ID
 	h.writeJSONIAMEvent(c, operator.IAMEvent{
 		TargetKind:      operator.KindGUIAccount,
 		TargetAccountID: &accountID,
 		OldRoleID:       &oldRole,
-		NewRoleID:       &newRole,
+		NewRoleID:       roleID,
 		Action:          operator.ActionAssign,
 	})
 	c.Status(http.StatusNoContent)
@@ -834,6 +851,239 @@ func (h *Handler) OperatorDisableAccount(c *gin.Context) {
 		TargetAccountID: &accountID,
 		Action:          operator.ActionDisablePrincipal,
 	})
+	c.Status(http.StatusNoContent)
+}
+
+type operatorRoleListResponse struct {
+	Roles []operatorRoleJSON `json:"roles"`
+}
+
+type operatorRoleJSON struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IsSystem    bool      `json:"is_system"`
+	Grants      []string  `json:"grants,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type createOperatorRoleRequest struct {
+	Name        string   `json:"name" binding:"required"`
+	Description string   `json:"description"`
+	Grants      []string `json:"grants"`
+}
+
+type updateOperatorRoleRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+}
+
+type replaceOperatorRolePermissionsRequest struct {
+	Grants []string `json:"grants"`
+}
+
+// OperatorListRoles lists seeded and custom operator roles.
+// @Summary List operator roles
+// @Tags Admin
+// @Produce json
+// @Success 200 {object} operatorRoleListResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/roles [get]
+func (h *Handler) OperatorListRoles(c *gin.Context) {
+	if h.OperatorRoles == nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to list operator roles"})
+		return
+	}
+	roles, err := h.OperatorRoles.ListRoles(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to list operator roles"})
+		return
+	}
+	out := make([]operatorRoleJSON, 0, len(roles))
+	for _, role := range roles {
+		out = append(out, operatorRoleJSON{
+			ID:          role.ID,
+			Name:        role.Name,
+			Description: role.Description,
+			IsSystem:    role.IsSystem,
+			CreatedAt:   role.CreatedAt,
+			UpdatedAt:   role.UpdatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, operatorRoleListResponse{Roles: out})
+}
+
+// OperatorCreateRole creates a custom operator role.
+// @Summary Create a custom operator role
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param request body createOperatorRoleRequest true "Role"
+// @Success 201 {object} operatorRoleJSON
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 409 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/roles [post]
+func (h *Handler) OperatorCreateRole(c *gin.Context) {
+	var req createOperatorRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "name is required"})
+		return
+	}
+	if operator.IsReservedSystemRoleName(name) {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: operator.ErrReservedSystemRoleName.Error()})
+		return
+	}
+	grants, ok := parsePostedCustomGrants(c, req.Grants)
+	if !ok {
+		return
+	}
+	if h.OperatorRoles == nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create operator role"})
+		return
+	}
+	role, err := h.OperatorRoles.CreateCustomRole(c.Request.Context(), name, strings.TrimSpace(req.Description), grants)
+	if err != nil {
+		writeOperatorRoleWriteError(c, err, "Failed to create operator role")
+		return
+	}
+	c.JSON(http.StatusCreated, operatorRoleJSON{
+		ID:          role.ID,
+		Name:        role.Name,
+		Description: role.Description,
+		IsSystem:    role.IsSystem,
+		Grants:      grantKeys(grants),
+		CreatedAt:   role.CreatedAt,
+		UpdatedAt:   role.UpdatedAt,
+	})
+}
+
+// OperatorUpdateRole updates name and description on a custom operator role.
+// @Summary Update a custom operator role
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param id path string true "Role UUID"
+// @Param request body updateOperatorRoleRequest true "Role"
+// @Success 200 {object} operatorRoleJSON
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 409 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/roles/{id} [put]
+func (h *Handler) OperatorUpdateRole(c *gin.Context) {
+	id, ok := h.loadMutableOperatorRole(c)
+	if !ok {
+		return
+	}
+	var req updateOperatorRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "name is required"})
+		return
+	}
+	if operator.IsReservedSystemRoleName(name) {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: operator.ErrReservedSystemRoleName.Error()})
+		return
+	}
+	updated, err := h.OperatorRoles.UpdateCustomRole(c.Request.Context(), id, name, strings.TrimSpace(req.Description))
+	if err != nil {
+		writeOperatorRoleWriteError(c, err, "Failed to update operator role")
+		return
+	}
+	c.JSON(http.StatusOK, operatorRoleJSON{
+		ID:          updated.ID,
+		Name:        updated.Name,
+		Description: updated.Description,
+		IsSystem:    updated.IsSystem,
+		CreatedAt:   updated.CreatedAt,
+		UpdatedAt:   updated.UpdatedAt,
+	})
+}
+
+// OperatorReplaceRolePermissions replaces grants on a custom operator role.
+// @Summary Replace custom operator role grants
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param id path string true "Role UUID"
+// @Param request body replaceOperatorRolePermissionsRequest true "Grants"
+// @Success 204 "Grants replaced"
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/roles/{id}/permissions [put]
+func (h *Handler) OperatorReplaceRolePermissions(c *gin.Context) {
+	id, ok := h.loadMutableOperatorRole(c)
+	if !ok {
+		return
+	}
+	var req replaceOperatorRolePermissionsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+	grants, ok := parsePostedCustomGrants(c, req.Grants)
+	if !ok {
+		return
+	}
+	if err := h.OperatorRoles.ReplaceRolePermissions(c.Request.Context(), id, grants); err != nil {
+		writeOperatorRoleWriteError(c, err, "Failed to update operator role grants")
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// OperatorDeleteRole deletes a custom operator role.
+// @Summary Delete a custom operator role
+// @Tags Admin
+// @Produce json
+// @Param id path string true "Role UUID"
+// @Success 204 "Deleted"
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 409 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/roles/{id} [delete]
+func (h *Handler) OperatorDeleteRole(c *gin.Context) {
+	id, ok := h.loadMutableOperatorRole(c)
+	if !ok {
+		return
+	}
+	n, err := h.OperatorRoles.DeleteCustomRole(c.Request.Context(), id)
+	if err != nil {
+		writeOperatorRoleWriteError(c, err, "Failed to delete operator role")
+		return
+	}
+	if n == 0 {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: operator.ErrSystemRoleImmutable.Error()})
+		return
+	}
 	c.Status(http.StatusNoContent)
 }
 
@@ -919,4 +1169,90 @@ func (h *Handler) countEnabledSuperadmins() (int64, error) {
 		return 0, fmt.Errorf("account repository is not configured")
 	}
 	return h.Accounts.CountEnabledSuperadmins(context.Background())
+}
+
+func (h *Handler) roleExists() operator.RoleExistsFunc {
+	return operatorRoleExists(h.RoleExists, h.OperatorRoles)
+}
+
+func operatorRoleExists(override operator.RoleExistsFunc, repo *operator.Repository) operator.RoleExistsFunc {
+	if override != nil {
+		return override
+	}
+	if repo == nil {
+		return nil
+	}
+	return func(id uuid.UUID) (bool, error) {
+		_, err := repo.GetOperatorRoleByID(context.Background(), id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+}
+
+func (h *Handler) loadMutableOperatorRole(c *gin.Context) (uuid.UUID, bool) {
+	if h.OperatorRoles == nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to load operator role"})
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role ID"})
+		return uuid.Nil, false
+	}
+	role, err := h.OperatorRoles.GetOperatorRoleByID(c.Request.Context(), id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Operator role not found"})
+		return uuid.Nil, false
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to load operator role"})
+		return uuid.Nil, false
+	}
+	if role.IsSystem {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: operator.ErrSystemRoleImmutable.Error()})
+		return uuid.Nil, false
+	}
+	return role.ID, true
+}
+
+func parsePostedCustomGrants(c *gin.Context, keys []string) ([]operator.Permission, bool) {
+	grants, err := operator.ParseCustomGrants(keys)
+	if errors.Is(err, operator.ErrAdminIAMOnCustomRole) {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: operator.ErrAdminIAMOnCustomRole.Error()})
+		return nil, false
+	}
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator grant"})
+		return nil, false
+	}
+	return grants, true
+}
+
+func grantKeys(grants []operator.Permission) []string {
+	keys := make([]string, len(grants))
+	for i, g := range grants {
+		keys[i] = g.Key()
+	}
+	return keys
+}
+
+func writeOperatorRoleWriteError(c *gin.Context, err error, fallback string) {
+	switch {
+	case errors.Is(err, operator.ErrRoleNameTaken):
+		c.JSON(http.StatusConflict, dto.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, operator.ErrRoleAssigned):
+		c.JSON(http.StatusConflict, dto.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, operator.ErrSystemRoleImmutable):
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, pgx.ErrNoRows):
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Operator role not found"})
+	default:
+		log.Printf("operator role write: %v", err)
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: fallback})
+	}
 }

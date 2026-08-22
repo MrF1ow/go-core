@@ -167,6 +167,23 @@ func TestParseCustomGrants_KnownPairsOK(t *testing.T) {
 	}
 }
 
+func TestParseCustomGrants_EmptyOK(t *testing.T) {
+	got, err := ParseCustomGrants(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("len = %d, want 0", len(got))
+	}
+	got, err = ParseCustomGrants([]string{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("len = %d, want 0", len(got))
+	}
+}
+
 func TestPrincipalHas_ZeroGrantsDenies(t *testing.T) {
 	p := NewPrincipal(KindAPIKey, "auditor", nil)
 	if p.Has(ResUsers, ActionRead) {

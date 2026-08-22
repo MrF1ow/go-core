@@ -660,6 +660,11 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 		adminRoutes.POST("/operator/accounts", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorCreateAccount)
 		adminRoutes.PUT("/operator/accounts/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorAccountRole)
 		adminRoutes.POST("/operator/accounts/:id/disable", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorDisableAccount)
+		adminRoutes.GET("/operator/roles", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorListRoles)
+		adminRoutes.POST("/operator/roles", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorCreateRole)
+		adminRoutes.PUT("/operator/roles/:id", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorUpdateRole)
+		adminRoutes.PUT("/operator/roles/:id/permissions", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorReplaceRolePermissions)
+		adminRoutes.DELETE("/operator/roles/:id", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorDeleteRole)
 
 		adminRoutes.GET("/operator/roster", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorRoster)
 		adminRoutes.GET("/operator/roster/export", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorRosterExport)

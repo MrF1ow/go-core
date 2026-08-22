@@ -3,9 +3,11 @@ package operator
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/MrF1ow/go-core/internal/sqlcgen"
@@ -13,11 +15,12 @@ import (
 
 // Repository loads operator roles and grants from Postgres.
 type Repository struct {
+	pool    *pgxpool.Pool
 	queries *sqlcgen.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{queries: sqlcgen.New(pool)}
+	return &Repository{pool: pool, queries: sqlcgen.New(pool)}
 }
 
 // RoleGrants implements GrantLookup.
@@ -45,6 +48,11 @@ func (r *Repository) RoleByName(ctx context.Context, name string) (sqlcgen.Opera
 	return r.queries.GetOperatorRoleByName(ctx, name)
 }
 
+// GetOperatorRoleByID returns a role row by id.
+func (r *Repository) GetOperatorRoleByID(ctx context.Context, id uuid.UUID) (sqlcgen.OperatorRole, error) {
+	return r.queries.GetOperatorRoleByID(ctx, id)
+}
+
 // ListRoles returns every operator role.
 func (r *Repository) ListRoles(ctx context.Context) ([]sqlcgen.OperatorRole, error) {
 	return r.queries.ListOperatorRoles(ctx)
@@ -57,4 +65,105 @@ func (r *Repository) RoleName(ctx context.Context, id uuid.UUID) (string, error)
 		return "", err
 	}
 	return role.Name, nil
+}
+
+func (r *Repository) CreateCustomRole(ctx context.Context, name, description string, grants []Permission) (sqlcgen.OperatorRole, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return sqlcgen.OperatorRole{}, err
+	}
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+			log.Printf("operator role create rollback: %v", rbErr)
+		}
+	}()
+	qtx := r.queries.WithTx(tx)
+	role, err := qtx.InsertOperatorRole(ctx, sqlcgen.InsertOperatorRoleParams{
+		Name:        name,
+		Description: description,
+	})
+	if err != nil {
+		return sqlcgen.OperatorRole{}, mapRoleWriteError(err)
+	}
+	if err := insertRoleGrants(ctx, qtx, role.ID, grants); err != nil {
+		return sqlcgen.OperatorRole{}, mapRoleWriteError(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return sqlcgen.OperatorRole{}, err
+	}
+	return role, nil
+}
+
+func (r *Repository) UpdateCustomRole(ctx context.Context, id uuid.UUID, name, description string) (sqlcgen.OperatorRole, error) {
+	role, err := r.queries.UpdateOperatorRoleIfNotSystem(ctx, sqlcgen.UpdateOperatorRoleIfNotSystemParams{
+		ID:          id,
+		Name:        name,
+		Description: description,
+	})
+	if err != nil {
+		return sqlcgen.OperatorRole{}, mapRoleWriteError(err)
+	}
+	return role, nil
+}
+
+func (r *Repository) DeleteCustomRole(ctx context.Context, id uuid.UUID) (int64, error) {
+	n, err := r.queries.DeleteOperatorRoleIfNotSystem(ctx, id)
+	if err != nil {
+		return 0, mapRoleWriteError(err)
+	}
+	return n, nil
+}
+
+func (r *Repository) ReplaceRolePermissions(ctx context.Context, roleID uuid.UUID, grants []Permission) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+			log.Printf("operator role permissions rollback: %v", rbErr)
+		}
+	}()
+	qtx := r.queries.WithTx(tx)
+	if err := qtx.DeleteOperatorRolePermissions(ctx, roleID); err != nil {
+		return err
+	}
+	if err := insertRoleGrants(ctx, qtx, roleID, grants); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func insertRoleGrants(ctx context.Context, q *sqlcgen.Queries, roleID uuid.UUID, grants []Permission) error {
+	for _, g := range grants {
+		perm, err := q.GetOperatorPermissionByResourceAction(ctx, sqlcgen.GetOperatorPermissionByResourceActionParams{
+			Resource: g.Resource,
+			Action:   g.Action,
+		})
+		if err != nil {
+			return err
+		}
+		if err := q.InsertOperatorRolePermission(ctx, sqlcgen.InsertOperatorRolePermissionParams{
+			RoleID:       roleID,
+			PermissionID: perm.ID,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func mapRoleWriteError(err error) error {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		return err
+	}
+	switch pgErr.Code {
+	case "23505":
+		return ErrRoleNameTaken
+	case "23503":
+		return ErrRoleAssigned
+	default:
+		return err
+	}
 }

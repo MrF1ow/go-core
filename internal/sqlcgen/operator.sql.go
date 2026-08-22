@@ -11,6 +11,52 @@ import (
 	"github.com/google/uuid"
 )
 
+const deleteOperatorRoleIfNotSystem = `-- name: DeleteOperatorRoleIfNotSystem :execrows
+DELETE FROM operator_roles
+WHERE id = $1 AND is_system = false
+`
+
+func (q *Queries) DeleteOperatorRoleIfNotSystem(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOperatorRoleIfNotSystem, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteOperatorRolePermissions = `-- name: DeleteOperatorRolePermissions :exec
+DELETE FROM operator_role_permissions WHERE role_id = $1
+`
+
+func (q *Queries) DeleteOperatorRolePermissions(ctx context.Context, roleID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteOperatorRolePermissions, roleID)
+	return err
+}
+
+const getOperatorPermissionByResourceAction = `-- name: GetOperatorPermissionByResourceAction :one
+SELECT id, resource, action, description, created_at
+FROM operator_permissions
+WHERE resource = $1 AND action = $2
+`
+
+type GetOperatorPermissionByResourceActionParams struct {
+	Resource string `json:"resource"`
+	Action   string `json:"action"`
+}
+
+func (q *Queries) GetOperatorPermissionByResourceAction(ctx context.Context, arg GetOperatorPermissionByResourceActionParams) (OperatorPermission, error) {
+	row := q.db.QueryRow(ctx, getOperatorPermissionByResourceAction, arg.Resource, arg.Action)
+	var i OperatorPermission
+	err := row.Scan(
+		&i.ID,
+		&i.Resource,
+		&i.Action,
+		&i.Description,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getOperatorRoleByID = `-- name: GetOperatorRoleByID :one
 SELECT id, name, description, is_system, created_at, updated_at
 FROM operator_roles
@@ -53,6 +99,45 @@ func (q *Queries) GetOperatorRoleByName(ctx context.Context, name string) (Opera
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const insertOperatorRole = `-- name: InsertOperatorRole :one
+INSERT INTO operator_roles (name, description, is_system)
+VALUES ($1, $2, false)
+RETURNING id, name, description, is_system, created_at, updated_at
+`
+
+type InsertOperatorRoleParams struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func (q *Queries) InsertOperatorRole(ctx context.Context, arg InsertOperatorRoleParams) (OperatorRole, error) {
+	row := q.db.QueryRow(ctx, insertOperatorRole, arg.Name, arg.Description)
+	var i OperatorRole
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.IsSystem,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const insertOperatorRolePermission = `-- name: InsertOperatorRolePermission :exec
+INSERT INTO operator_role_permissions (role_id, permission_id) VALUES ($1, $2)
+`
+
+type InsertOperatorRolePermissionParams struct {
+	RoleID       uuid.UUID `json:"role_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
+}
+
+func (q *Queries) InsertOperatorRolePermission(ctx context.Context, arg InsertOperatorRolePermissionParams) error {
+	_, err := q.db.Exec(ctx, insertOperatorRolePermission, arg.RoleID, arg.PermissionID)
+	return err
 }
 
 const listOperatorPermissions = `-- name: ListOperatorPermissions :many
@@ -152,4 +237,31 @@ func (q *Queries) ListOperatorRoles(ctx context.Context) ([]OperatorRole, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateOperatorRoleIfNotSystem = `-- name: UpdateOperatorRoleIfNotSystem :one
+UPDATE operator_roles
+SET name = $2, description = $3, updated_at = NOW()
+WHERE id = $1 AND is_system = false
+RETURNING id, name, description, is_system, created_at, updated_at
+`
+
+type UpdateOperatorRoleIfNotSystemParams struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+}
+
+func (q *Queries) UpdateOperatorRoleIfNotSystem(ctx context.Context, arg UpdateOperatorRoleIfNotSystemParams) (OperatorRole, error) {
+	row := q.db.QueryRow(ctx, updateOperatorRoleIfNotSystem, arg.ID, arg.Name, arg.Description)
+	var i OperatorRole
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.IsSystem,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
