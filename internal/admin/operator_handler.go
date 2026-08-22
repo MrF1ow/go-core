@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/internal/safeconv"
 	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/MrF1ow/go-core/web"
@@ -208,6 +209,21 @@ type accessLogResponse struct {
 	Entries []operator.AccessRecord `json:"entries"`
 }
 
+func parseOperatorListLimit(raw string) int32 {
+	limit := int32(100)
+	if raw == "" {
+		return limit
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return limit
+	}
+	if n > 1000 {
+		n = 1000
+	}
+	return safeconv.ToInt32(n)
+}
+
 // OperatorAccessLogs lists recorded operator permission decisions.
 // @Summary List operator access logs
 // @Description Newest-first JSON list of operator allow and deny decisions
@@ -223,16 +239,7 @@ type accessLogResponse struct {
 // @Security AdminApiKey
 // @Router /admin/operator/access-logs [get]
 func (h *Handler) OperatorAccessLogs(c *gin.Context) {
-	limit := int32(100)
-	if raw := c.Query("limit"); raw != "" {
-		n, err := strconv.Atoi(raw)
-		if err == nil && n > 0 {
-			if n > 1000 {
-				n = 1000
-			}
-			limit = int32(n)
-		}
-	}
+	limit := parseOperatorListLimit(c.Query("limit"))
 
 	var decision *string
 	if raw := c.Query("decision"); raw != "" {
@@ -285,16 +292,7 @@ type iamEventResponse struct {
 // @Security AdminApiKey
 // @Router /admin/operator/iam-events [get]
 func (h *Handler) OperatorIAMEvents(c *gin.Context) {
-	limit := int32(100)
-	if raw := c.Query("limit"); raw != "" {
-		n, err := strconv.Atoi(raw)
-		if err == nil && n > 0 {
-			if n > 1000 {
-				n = 1000
-			}
-			limit = int32(n)
-		}
-	}
+	limit := parseOperatorListLimit(c.Query("limit"))
 
 	var targetKeyID *uuid.UUID
 	if raw := c.Query("target_key_id"); raw != "" {

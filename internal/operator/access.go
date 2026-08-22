@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/MrF1ow/go-core/internal/safeconv"
 	"github.com/MrF1ow/go-core/internal/sqlcgen"
 )
 
@@ -56,7 +57,7 @@ func (r *Repository) InsertAccessLog(ctx context.Context, rec AccessRecord) erro
 		Decision:  rec.Decision,
 		Resource:  rec.Resource,
 		Action:    rec.Action,
-		Status:    int32(rec.Status),
+		Status:    safeconv.ToInt32(rec.Status),
 	})
 	return err
 }
