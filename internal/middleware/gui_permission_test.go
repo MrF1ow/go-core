@@ -50,14 +50,17 @@ func TestRequireGUIPermission_HTMXPageTargetContainsPageContent(t *testing.T) {
 	}
 }
 
-func TestRequireGUIPermission_HTMXFragmentTargetMatchesID(t *testing.T) {
+func TestRequireGUIPermission_HTMXFragmentDoesNotRepeatTargetID(t *testing.T) {
 	response := guiPermissionGET(t, viewerPrincipal(), operator.ResSessions, operator.ActionRead, "user-sessions-container")
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("status = %d", response.Code)
 	}
 	body := response.Body.String()
-	if !strings.Contains(body, `id="user-sessions-container"`) {
+	if !strings.Contains(body, "You do not have permission") {
 		t.Fatalf("body = %s", body)
+	}
+	if strings.Contains(body, `id="user-sessions-container"`) {
+		t.Fatalf("fragment repeated target id: %s", body)
 	}
 	if strings.Contains(body, "<nav") {
 		t.Fatalf("fragment leaked layout: %s", body)

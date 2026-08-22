@@ -37,14 +37,13 @@ func RequireGUIPermission(resource, action string) gin.HandlerFunc {
 
 // AbortGUIForbidden writes HTTP 403 HTML and aborts.
 // Typed URLs and #page-content HTMX get a page-shaped body.
-// Other HTMX targets get a fragment-shaped body whose outer id matches the target.
+// Other HTMX targets get a fragment with no outer id, so innerHTML
+// into #foo-form-container does not nest a second element with that id.
 func AbortGUIForbidden(c *gin.Context) {
 	c.Header(web.GUIForbiddenHeader, web.GUIForbiddenValue)
-	targetID := guiPageContentID
 	pageDeny := true
 	if c.GetHeader("HX-Request") == "true" {
 		if id, ok := sanitizeHTMXTarget(c.GetHeader("HX-Target")); ok && id != "" && id != guiPageContentID {
-			targetID = id
 			pageDeny = false
 		}
 	}
@@ -53,9 +52,7 @@ func AbortGUIForbidden(c *gin.Context) {
 		c.Abort()
 		return
 	}
-	data := guiLayoutData(c)
-	data.Data = targetID
-	c.HTML(http.StatusForbidden, "forbidden_fragment", data)
+	c.HTML(http.StatusForbidden, "forbidden_fragment", guiLayoutData(c))
 	c.Abort()
 }
 

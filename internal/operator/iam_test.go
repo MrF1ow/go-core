@@ -34,7 +34,7 @@ func TestAssignableSystemRoles_WithIAMIsFourSystemNames(t *testing.T) {
 
 func TestParseAssignedAdminRole_AdminPostedSuperadminDenied(t *testing.T) {
 	p := NewPrincipal(KindAPIKey, RoleAdmin, GrantsFor(RoleAdmin))
-	_, err := ParseAssignedAdminRole(p, RoleIDSuperadmin.String(), "admin")
+	_, err := ParseAssignedAdminRole(p, RoleIDSuperadmin.String(), "admin", nil)
 	if !errors.Is(err, ErrIAMAssignmentDenied) {
 		t.Fatalf("err = %v, want ErrIAMAssignmentDenied", err)
 	}
@@ -42,7 +42,7 @@ func TestParseAssignedAdminRole_AdminPostedSuperadminDenied(t *testing.T) {
 
 func TestParseAssignedAdminRole_AdminEmptyPostIsViewer(t *testing.T) {
 	p := NewPrincipal(KindAPIKey, RoleAdmin, GrantsFor(RoleAdmin))
-	id, err := ParseAssignedAdminRole(p, "", "admin")
+	id, err := ParseAssignedAdminRole(p, "", "admin", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestParseAssignedAdminRole_AdminEmptyPostIsViewer(t *testing.T) {
 
 func TestParseAssignedAdminRole_SuperadminPostedSuperadmin(t *testing.T) {
 	p := NewPrincipal(KindGUIAccount, RoleSuperadmin, GrantsFor(RoleSuperadmin))
-	id, err := ParseAssignedAdminRole(p, RoleIDSuperadmin.String(), "admin")
+	id, err := ParseAssignedAdminRole(p, RoleIDSuperadmin.String(), "admin", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestParseAssignedAdminRole_SuperadminPostedSuperadmin(t *testing.T) {
 
 func TestParseAssignedAdminRole_AppKeyIgnoresPostedSuperadmin(t *testing.T) {
 	p := NewPrincipal(KindGUIAccount, RoleAdmin, GrantsFor(RoleAdmin))
-	id, err := ParseAssignedAdminRole(p, RoleIDSuperadmin.String(), "app")
+	id, err := ParseAssignedAdminRole(p, RoleIDSuperadmin.String(), "app", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestParseAssignedAdminRole_AppKeyIgnoresPostedSuperadmin(t *testing.T) {
 
 func TestParseAssignedAdminRole_UnknownUUIDRejected(t *testing.T) {
 	p := NewPrincipal(KindGUIAccount, RoleSuperadmin, GrantsFor(RoleSuperadmin))
-	_, err := ParseAssignedAdminRole(p, uuid.New().String(), "admin")
+	_, err := ParseAssignedAdminRole(p, uuid.New().String(), "admin", nil)
 	if err == nil {
 		t.Fatal("unknown role id must fail")
 	}
@@ -84,9 +84,22 @@ func TestParseAssignedAdminRole_UnknownUUIDRejected(t *testing.T) {
 	}
 }
 
-func TestParseAssignedAdminRole_AdminPostedCurrentSuperadminStillDenied(t *testing.T) {
+func TestParseAssignedAdminRole_AdminKeepingCurrentSuperadmin(t *testing.T) {
 	p := NewPrincipal(KindGUIAccount, RoleAdmin, GrantsFor(RoleAdmin))
-	_, err := ParseAssignedAdminRole(p, RoleIDSuperadmin.String(), "admin")
+	current := RoleIDSuperadmin
+	id, err := ParseAssignedAdminRole(p, current.String(), "admin", &current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id == nil || *id != RoleIDSuperadmin {
+		t.Fatalf("got %v", id)
+	}
+}
+
+func TestParseAssignedAdminRole_AdminChangingSupportToSuperadminDenied(t *testing.T) {
+	p := NewPrincipal(KindGUIAccount, RoleAdmin, GrantsFor(RoleAdmin))
+	current := RoleIDSupport
+	_, err := ParseAssignedAdminRole(p, RoleIDSuperadmin.String(), "admin", &current)
 	if !errors.Is(err, ErrIAMAssignmentDenied) {
 		t.Fatalf("err = %v, want ErrIAMAssignmentDenied", err)
 	}

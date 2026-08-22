@@ -130,8 +130,11 @@ func TestGUIShell_ViewerNestedSessionsForbidden(t *testing.T) {
 	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
 		t.Fatalf("missing %s", web.GUIForbiddenHeader)
 	}
-	if !strings.Contains(response.Body.String(), `id="user-sessions-container"`) {
+	if !strings.Contains(response.Body.String(), "You do not have permission") {
 		t.Fatalf("body = %s", response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), `id="user-sessions-container"`) {
+		t.Fatalf("fragment repeated target id: %s", response.Body.String())
 	}
 }
 
@@ -317,7 +320,7 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 			middleware.AbortGUIInternal(c)
 			return
 		}
-		roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), c.PostForm("key_type"))
+		roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), c.PostForm("key_type"), nil)
 		if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 			middleware.AbortGUIForbidden(c)
 			return

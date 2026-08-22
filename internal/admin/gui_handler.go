@@ -75,6 +75,8 @@ type GUIHandler struct {
 	AbortForbidden    func(*gin.Context)             // HTML 403; wired to middleware.AbortGUIForbidden
 	AbortInternal     func(*gin.Context)             // HTML 500; wired to middleware.AbortGUIInternal
 	createAPIKey      func(*models.ApiKey) error
+	getAPIKey         func(string) (*models.ApiKey, error)
+	updateAPIKey      func(id, name, description, scopes string, operatorRoleID *uuid.UUID, expiresAt *time.Time) error
 	AdminSessionTTL   time.Duration // Admin session cookie TTL
 	AdminBaseURL      string        // Base URL for admin links (e.g. magic link emails)
 	AccessTokenTTL    time.Duration // Access token TTL (used for session status display)
@@ -1467,6 +1469,20 @@ func (h *GUIHandler) persistAPIKey(key *models.ApiKey) error {
 	return h.Repo.CreateApiKey(key)
 }
 
+func (h *GUIHandler) loadAPIKey(id string) (*models.ApiKey, error) {
+	if h.getAPIKey != nil {
+		return h.getAPIKey(id)
+	}
+	return h.Repo.GetApiKeyByID(id)
+}
+
+func (h *GUIHandler) persistAPIKeyUpdate(id, name, description, scopes string, roleID *uuid.UUID, expiresAt *time.Time) error {
+	if h.updateAPIKey != nil {
+		return h.updateAPIKey(id, name, description, scopes, roleID, expiresAt)
+	}
+	return h.Repo.UpdateApiKey(id, name, description, scopes, roleID, expiresAt)
+}
+
 // ============================================================
 // User Management Handlers
 // ============================================================
@@ -2016,7 +2032,7 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), keyType)
+	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), keyType, nil)
 	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 		h.abortForbidden(c)
 		return
@@ -2236,7 +2252,7 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.Repo.GetApiKeyByID(id)
+	existing, err := h.loadAPIKey(id)
 	if err != nil {
 		c.String(http.StatusNotFound,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">API key not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
@@ -2255,7 +2271,7 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		h.abortInternal(c)
 		return
 	}
-	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), existing.KeyType)
+	roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), existing.KeyType, existing.OperatorRoleID)
 	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 		h.abortForbidden(c)
 		return
@@ -2269,7 +2285,7 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		scopes = ""
 	}
 
-	if err := h.Repo.UpdateApiKey(id, name, description, scopes, roleID, expiresAt); err != nil {
+	if err := h.persistAPIKeyUpdate(id, name, description, scopes, roleID, expiresAt); err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to update API key.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return

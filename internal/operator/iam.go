@@ -42,8 +42,10 @@ func AssignableSystemRoles(p Principal) []SystemRole {
 // ParseAssignedAdminRole maps a posted operator_role_id onto an admin API key.
 // App keys always return a nil role. Empty posted role stamps viewer and does
 // not require IAM. Posted non-viewer without IAM is ErrIAMAssignmentDenied,
-// not a silent coerce. Unknown UUIDs stay errors.
-func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string) (*uuid.UUID, error) {
+// not a silent coerce. Unknown UUIDs stay errors. current is the key's existing
+// role on update; nil on create. Posting the same role as current is a no-op
+// and does not require IAM.
+func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string, current *uuid.UUID) (*uuid.UUID, error) {
 	if keyType != adminAPIKeyType {
 		return nil, nil
 	}
@@ -58,6 +60,9 @@ func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string) (*uuid.UU
 	}
 	if !isSystemRoleID(id) {
 		return nil, errUnknownOperatorRole
+	}
+	if current != nil && id == *current {
+		return current, nil
 	}
 	if id != RoleIDViewer && !p.Has(ResAdminIAM, ActionWrite) {
 		return nil, ErrIAMAssignmentDenied

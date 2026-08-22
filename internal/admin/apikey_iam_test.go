@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -59,6 +60,49 @@ func TestApiKeyCreate_SuperadminCanStampSuperadminPastIAM(t *testing.T) {
 		t.Fatalf("sent %s", web.GUIForbiddenHeader)
 	}
 	assertPersistedRole(t, got.created, operator.RoleIDSuperadmin)
+}
+
+func TestApiKeyUpdate_AdminKeepingCurrentSupportSucceeds(t *testing.T) {
+	current := operator.RoleIDSupport
+	existing := &models.ApiKey{
+		ID:             uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		KeyType:        KeyTypeAdmin,
+		Name:           "ops",
+		OperatorRoleID: &current,
+	}
+	got := apiKeyUpdatePUT(t, adminPrincipal(), existing, url.Values{
+		"name":             {"ops-renamed"},
+		"operator_role_id": {current.String()},
+	})
+	if got.response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
+	}
+	if got.role == nil || *got.role != current {
+		t.Fatalf("role = %v, want support", got.role)
+	}
+	if got.name != "ops-renamed" {
+		t.Fatalf("name = %q", got.name)
+	}
+}
+
+func TestApiKeyUpdate_AdminChangingSupportToSuperadminDenied(t *testing.T) {
+	current := operator.RoleIDSupport
+	existing := &models.ApiKey{
+		ID:             uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		KeyType:        KeyTypeAdmin,
+		Name:           "ops",
+		OperatorRoleID: &current,
+	}
+	got := apiKeyUpdatePUT(t, adminPrincipal(), existing, url.Values{
+		"name":             {"ops"},
+		"operator_role_id": {operator.RoleIDSuperadmin.String()},
+	})
+	if got.response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
+	}
+	if got.updated {
+		t.Fatal("denied change still persisted")
+	}
 }
 
 func adminPrincipal() operator.Principal {
@@ -121,4 +165,57 @@ func apiKeyCreatePOST(t *testing.T, principal operator.Principal, form url.Value
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
 	return apiKeyCreateResult{response: response, created: created}
+}
+
+type apiKeyUpdateResult struct {
+	response *httptest.ResponseRecorder
+	updated  bool
+	name     string
+	role     *uuid.UUID
+}
+
+func apiKeyUpdatePUT(t *testing.T, principal operator.Principal, existing *models.ApiKey, form url.Values) apiKeyUpdateResult {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	renderer, err := web.NewRenderer("/gui")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := gin.New()
+	router.HTMLRender = renderer
+	router.Use(func(c *gin.Context) {
+		c.Set(web.OperatorPrincipalKey, &principal)
+		c.Set(web.GUIAdminBasePathKey, "/gui")
+		c.Next()
+	})
+	var got apiKeyUpdateResult
+	h := &GUIHandler{
+		BasePath: "/gui",
+		AbortForbidden: func(c *gin.Context) {
+			c.Header(web.GUIForbiddenHeader, web.GUIForbiddenValue)
+			c.AbortWithStatus(http.StatusForbidden)
+		},
+		AbortInternal: func(c *gin.Context) {
+			c.AbortWithStatus(http.StatusInternalServerError)
+		},
+		getAPIKey: func(string) (*models.ApiKey, error) {
+			return existing, nil
+		},
+		updateAPIKey: func(id, name, description, scopes string, roleID *uuid.UUID, expiresAt *time.Time) error {
+			got.updated = true
+			got.name = name
+			if roleID != nil {
+				copied := *roleID
+				got.role = &copied
+			}
+			return nil
+		},
+	}
+	router.PUT("/gui/api-keys/:id", h.ApiKeyUpdate)
+
+	request := httptest.NewRequest(http.MethodPut, "/gui/api-keys/"+existing.ID.String(), strings.NewReader(form.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	got.response = httptest.NewRecorder()
+	router.ServeHTTP(got.response, request)
+	return got
 }
