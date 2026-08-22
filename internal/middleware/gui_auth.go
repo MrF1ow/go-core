@@ -57,6 +57,11 @@ func GUIAuthMiddleware(sessionValidator web.SessionValidator, grants operator.Gr
 			redirectToLogin(c, basePath)
 			return
 		}
+		if account.DisabledAt != nil {
+			web.ClearSessionCookie(c, basePath)
+			redirectToLogin(c, basePath)
+			return
+		}
 		if account.OperatorRoleID == uuid.Nil {
 			log.Printf("GUI admin account %s has no operator role", account.ID)
 			c.AbortWithStatus(http.StatusInternalServerError)

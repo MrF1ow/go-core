@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -178,6 +179,11 @@ func main() {
 
 	if err := repo.Create(account); err != nil {
 		log.Fatalf("Failed to create admin account: %v", err)
+	}
+
+	opRepo := operator.NewRepository(pgxPool)
+	if err := opRepo.InsertIAMEvent(context.Background(), operator.NewSetupCLICreateEvent(account.ID, operatorRoleID)); err != nil {
+		log.Printf("operator IAM event insert: %v", err)
 	}
 
 	fmt.Println()

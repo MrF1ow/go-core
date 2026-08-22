@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -183,6 +184,35 @@ func TestGUIAuth_InvalidSessionClearsCookieAndRedirects(t *testing.T) {
 	if cookie := response.Header().Get("Set-Cookie"); !strings.Contains(cookie, web.AdminSessionCookie+"=") || !strings.Contains(cookie, "Max-Age=0") {
 		t.Fatalf("cleared cookie header = %q", cookie)
 	}
+}
+
+func TestGUIAuth_DisabledAccountRedirectsToLogin(t *testing.T) {
+	account := &models.AdminAccount{
+		ID:             uuid.New(),
+		Username:       "disabled",
+		OperatorRoleID: operator.RoleIDSuperadmin,
+		DisabledAt:     timePtr(time.Now()),
+	}
+	grants := guiGrants(operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+
+	response, principal := guiGET(t, &stubGUISessions{account: account}, grants)
+
+	if response.Code != http.StatusFound {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusFound)
+	}
+	if location := response.Header().Get("Location"); location != "/gui/login?redirect=/gui/private" {
+		t.Fatalf("location = %q", location)
+	}
+	if principal != nil {
+		t.Fatalf("unexpected principal: %#v", principal)
+	}
+	if cookie := response.Header().Get("Set-Cookie"); !strings.Contains(cookie, web.AdminSessionCookie+"=") || !strings.Contains(cookie, "Max-Age=0") {
+		t.Fatalf("cleared cookie header = %q", cookie)
+	}
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
 }
 
 func guiGrants(roleID uuid.UUID, roleName string) *stubGUIGrants {

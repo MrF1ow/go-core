@@ -26,3 +26,27 @@ func TestRosterCSVRow_EnvHasEmptyID(t *testing.T) {
 		t.Fatalf("row = %#v", row)
 	}
 }
+
+func TestParseOperatorListLimit(t *testing.T) {
+	if got := parseOperatorListLimit(""); got != 100 {
+		t.Fatalf("empty = %d", got)
+	}
+	if got := parseOperatorListLimit("0"); got != 100 {
+		t.Fatalf("zero = %d", got)
+	}
+	if got := parseOperatorListLimit("nope"); got != 100 {
+		t.Fatalf("junk = %d", got)
+	}
+	if got := parseOperatorListLimit("250"); got != 250 {
+		t.Fatalf("in range = %d", got)
+	}
+	if got := parseOperatorListLimit("1000"); got != 1000 {
+		t.Fatalf("max = %d", got)
+	}
+	if got := parseOperatorListLimit("1001"); got != 1000 {
+		t.Fatalf("over max = %d", got)
+	}
+	if got := parseOperatorListLimit("2147483648"); got != 1000 {
+		t.Fatalf("int32 overflow input = %d", got)
+	}
+}
