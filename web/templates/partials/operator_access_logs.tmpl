@@ -1,0 +1,51 @@
+{{define "operator_access_logs"}}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {{if .Logs}}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Time</th>
+                        <th>Decision</th>
+                        <th>Method</th>
+                        <th>Path</th>
+                        <th>Role</th>
+                        <th class="pe-3">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Logs}}
+                    <tr>
+                        <td class="ps-3 text-nowrap">
+                            {{if not .At.IsZero}}
+                            <small class="text-muted" title="{{formatDateTimeFull .At}}">{{timeAgo .At}}</small>
+                            {{else}}
+                            <small class="text-muted">-</small>
+                            {{end}}
+                        </td>
+                        <td>
+                            {{if eq .Decision "deny"}}
+                            <span class="badge bg-danger bg-opacity-10 text-danger">{{.Decision}}</span>
+                            {{else}}
+                            <span class="badge bg-success bg-opacity-10 text-success">{{.Decision}}</span>
+                            {{end}}
+                        </td>
+                        <td>{{.Method}}</td>
+                        <td>{{.Path}}</td>
+                        <td>{{if .RoleName}}{{.RoleName}}{{else}}<span class="text-muted">-</span>{{end}}</td>
+                        <td class="pe-3">{{if .Action}}{{.Action}}{{else}}<span class="text-muted">-</span>{{end}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-shield-lock fs-1"></i>
+            <p class="mt-2 mb-0">No access logs found.</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}

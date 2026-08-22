@@ -119,6 +119,52 @@ func TestGUIShell_SuperadminOperatorIAMIncludesEnvKey(t *testing.T) {
 	}
 }
 
+func TestGUIShell_ViewerOperatorIAMEventsForbidden(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
+	response := guiGET(engine, "/gui/operator/iam-events", cookie, "", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+		t.Fatalf("missing %s", web.GUIForbiddenHeader)
+	}
+}
+
+func TestGUIShell_SuperadminOperatorIAMEventsNewestFirst(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(engine, "/gui/operator/iam-events", cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	assignAt := strings.Index(body, operator.ActionAssign)
+	createAt := strings.Index(body, operator.ActionCreatePrincipal)
+	if assignAt < 0 || createAt < 0 {
+		t.Fatalf("missing events: %s", body)
+	}
+	if assignAt > createAt {
+		t.Fatal("events are not newest first")
+	}
+	if !strings.Contains(body, "Operator IAM") {
+		t.Fatal("typed events URL missing page chrome")
+	}
+}
+
+func TestGUIShell_SuperadminAccessLogsDenyFilter(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(engine, "/gui/operator/access-logs?decision=deny", cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, "/gui/tenants") {
+		t.Fatalf("missing deny path: %s", body)
+	}
+	if strings.Contains(body, "<td>/gui/users</td>") {
+		t.Fatal("deny filter included an allow row")
+	}
+}
+
 func TestGUIShell_ViewerSidebarOmitsTenantsAndEmptyEmail(t *testing.T) {
 	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
 	response := guiGET(engine, "/gui/users", cookie, "", "")
@@ -308,6 +354,20 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 		AbortInternal:  middleware.AbortGUIInternal,
 		RosterKeys:     func() ([]operator.RosterEntry, error) { return nil, nil },
 		RosterAccounts: func() ([]operator.RosterEntry, error) { return nil, nil },
+		IAMEventList: func(_ context.Context, _ int32, _, _ *uuid.UUID) ([]operator.IAMEvent, error) {
+			return []operator.IAMEvent{
+				{Action: operator.ActionAssign, ActorKind: string(operator.KindAPIKey)},
+				{Action: operator.ActionCreatePrincipal, ActorKind: string(operator.KindAPIKey)},
+			}, nil
+		},
+		AccessLogList: func(_ context.Context, _ int32, decision *string) ([]operator.AccessRecord, error) {
+			deny := operator.AccessRecord{Decision: operator.DecisionDeny, Path: "/gui/tenants", Method: http.MethodPost}
+			allow := operator.AccessRecord{Decision: operator.DecisionAllow, Path: "/gui/users", Method: http.MethodGet}
+			if decision != nil && *decision == operator.DecisionDeny {
+				return []operator.AccessRecord{deny}, nil
+			}
+			return []operator.AccessRecord{deny, allow}, nil
+		},
 	}
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -321,6 +381,10 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 	guiAuth.GET("/operator", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorIAMPage)
 	guiAuth.GET("/operator/roster", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorRosterList)
 	guiAuth.GET("/operator/roster/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorRosterExport)
+	guiAuth.GET("/operator/iam-events", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorIAMEvents)
+	guiAuth.GET("/operator/iam-events/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorIAMEventsExport)
+	guiAuth.GET("/operator/access-logs", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorAccessLogs)
+	guiAuth.GET("/operator/access-logs/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorAccessLogsExport)
 	guiAuth.GET("/users", requireGUI(operator.ResUsers, operator.ActionRead), func(c *gin.Context) {
 		data := shellPage(c)
 		data.ActivePage = "users"

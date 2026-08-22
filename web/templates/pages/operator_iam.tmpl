@@ -9,7 +9,7 @@
     <h4 class="mb-0 fw-bold">
         <i class="bi bi-shield-shaded me-2"></i>Operator IAM
     </h4>
-    <a href="{{basePath}}/operator/roster/export"
+    <a id="operatorExportBtn" href="{{basePath}}/operator/roster/export"
        class="btn btn-sm btn-outline-success">
         <i class="bi bi-filetype-csv me-1"></i>Export CSV
     </a>
@@ -17,14 +17,78 @@
 
 <div class="alert alert-info alert-dismissible fade show py-2 small mb-3" role="alert">
     <i class="bi bi-info-circle me-1"></i>
+    {{if eq .Data.Tab "roster"}}
     Exports are capped at <strong>10,000 rows</strong>. The env_key break-glass principal is always listed first.
+    {{else}}
+    Exports are capped at <strong>10,000 rows</strong>.
+    {{end}}
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="padding-top: 0.5rem;"></button>
 </div>
 
-<div id="operator-roster"
-     hx-get="{{basePath}}/operator/roster"
-     hx-trigger="load"
-     hx-swap="innerHTML">
+<ul id="operator-iam-tabs" class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active" data-tab="roster"
+           href="{{basePath}}/operator/roster"
+           hx-get="{{basePath}}/operator/roster"
+           hx-target="#operator-panel"
+           hx-swap="innerHTML"
+           hx-push-url="{{basePath}}/operator">Roster</a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" data-tab="events"
+           href="{{basePath}}/operator/iam-events"
+           hx-get="{{basePath}}/operator/iam-events"
+           hx-target="#operator-panel"
+           hx-swap="innerHTML"
+           hx-push-url="true">Events</a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" data-tab="access-logs"
+           href="{{basePath}}/operator/access-logs"
+           hx-get="{{basePath}}/operator/access-logs"
+           hx-target="#operator-panel"
+           hx-swap="innerHTML"
+           hx-push-url="true">Access logs</a>
+    </li>
+</ul>
+
+<div id="operator-panel">
+    {{if eq .Data.Tab "events"}}
+    {{template "operator_iam_events" .Data}}
+    {{else if eq .Data.Tab "access-logs"}}
+    {{template "operator_access_logs" .Data}}
+    {{else}}
     {{template "operator_roster" .Data}}
+    {{end}}
 </div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+    (function() {
+        var exportBtn = document.getElementById('operatorExportBtn');
+        var exports = {
+            roster: '{{basePath}}/operator/roster/export',
+            events: '{{basePath}}/operator/iam-events/export',
+            'access-logs': '{{basePath}}/operator/access-logs/export'
+        };
+        function setTab(tab) {
+            document.querySelectorAll('#operator-iam-tabs .nav-link').forEach(function(el) {
+                el.classList.toggle('active', el.getAttribute('data-tab') === tab);
+            });
+            if (exportBtn && exports[tab]) {
+                exportBtn.href = exports[tab];
+            }
+        }
+        document.querySelectorAll('#operator-iam-tabs .nav-link').forEach(function(el) {
+            el.addEventListener('click', function() {
+                setTab(el.getAttribute('data-tab'));
+            });
+        });
+        var initial = '{{.Data.Tab}}';
+        if (initial) {
+            setTab(initial);
+        }
+    })();
+</script>
 {{end}}

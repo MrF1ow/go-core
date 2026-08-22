@@ -869,6 +869,10 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 			guiAuth.GET("/operator", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorIAMPage)
 			guiAuth.GET("/operator/roster", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorRosterList)
 			guiAuth.GET("/operator/roster/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorRosterExport)
+			guiAuth.GET("/operator/iam-events", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorIAMEvents)
+			guiAuth.GET("/operator/iam-events/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorIAMEventsExport)
+			guiAuth.GET("/operator/access-logs", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorAccessLogs)
+			guiAuth.GET("/operator/access-logs/export", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorAccessLogsExport)
 
 			// Settings management
 			guiAuth.GET("/settings", requireGUI(operator.ResSettings, operator.ActionRead), a.guiHandler.SettingsPage)

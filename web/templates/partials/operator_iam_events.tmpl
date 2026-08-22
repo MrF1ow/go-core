@@ -1,0 +1,49 @@
+{{define "operator_iam_events"}}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        {{if .Events}}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Time</th>
+                        <th>Action</th>
+                        <th>Actor</th>
+                        <th>Target</th>
+                        <th class="pe-3">Target ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Events}}
+                    <tr>
+                        <td class="ps-3 text-nowrap">
+                            {{if not .At.IsZero}}
+                            <small class="text-muted" title="{{formatDateTimeFull .At}}">{{timeAgo .At}}</small>
+                            {{else}}
+                            <small class="text-muted">-</small>
+                            {{end}}
+                        </td>
+                        <td>{{.Action}}</td>
+                        <td>
+                            <span class="badge bg-primary bg-opacity-10 text-primary">{{.ActorKind}}</span>
+                        </td>
+                        <td>{{if .TargetKind}}{{.TargetKind}}{{else}}<span class="text-muted">-</span>{{end}}</td>
+                        <td class="pe-3">
+                            <small class="text-muted font-monospace">
+                                {{if .TargetKeyID}}{{.TargetKeyID}}{{else if .TargetAccountID}}{{.TargetAccountID}}{{else}}-{{end}}
+                            </small>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+        {{else}}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-journal-text fs-1"></i>
+            <p class="mt-2 mb-0">No IAM events found.</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
