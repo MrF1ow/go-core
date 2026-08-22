@@ -62,37 +62,25 @@ func (h *Handler) OperatorRosterExport(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to load operator roster"})
 		return
 	}
-	if truncated {
-		c.Header("X-Export-Truncated", "true")
-	} else {
-		c.Header("X-Export-Truncated", "false")
-	}
-	c.Header("Content-Disposition", `attachment; filename="operator-roster.csv"`)
-	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Status(http.StatusOK)
-	writer := csv.NewWriter(c.Writer)
-	if err := writer.Write([]string{"kind", "id", "display_name", "role", "created_at", "last_used_at", "expires_at", "revoked", "disabled"}); err != nil {
-		log.Printf("operator roster csv header: %v", err)
-		return
-	}
+	rows := make([][]string, 0, len(entries))
 	for _, entry := range entries {
-		if err := writer.Write(rosterCSVRow(entry)); err != nil {
-			log.Printf("operator roster csv row: %v", err)
-			return
-		}
+		rows = append(rows, rosterCSVRow(entry))
 	}
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		log.Printf("operator roster csv flush: %v", err)
-	}
+	writeOperatorCSV(c, "operator-roster.csv", truncated, rosterCSVHeader, rows)
 }
 
+var rosterCSVHeader = []string{"kind", "id", "display_name", "role", "created_at", "last_used_at", "expires_at", "revoked", "disabled"}
+
 func (h *Handler) loadRoster() ([]operator.RosterEntry, bool, error) {
-	keys, err := h.rosterKeys()
+	return loadOperatorRoster(h.rosterKeys, h.rosterAccounts)
+}
+
+func loadOperatorRoster(keysFn, accountsFn func() ([]operator.RosterEntry, error)) ([]operator.RosterEntry, bool, error) {
+	keys, err := keysFn()
 	if err != nil {
 		return nil, false, err
 	}
-	accounts, err := h.rosterAccounts()
+	accounts, err := accountsFn()
 	if err != nil {
 		return nil, false, err
 	}
@@ -101,13 +89,17 @@ func (h *Handler) loadRoster() ([]operator.RosterEntry, bool, error) {
 }
 
 func (h *Handler) rosterKeys() ([]operator.RosterEntry, error) {
-	if h.RosterKeys != nil {
-		return h.RosterKeys()
+	return rosterKeysFrom(h.RosterKeys, h.Repo)
+}
+
+func rosterKeysFrom(override func() ([]operator.RosterEntry, error), repo *Repository) ([]operator.RosterEntry, error) {
+	if override != nil {
+		return override()
 	}
-	if h.Repo == nil {
+	if repo == nil {
 		return nil, fmt.Errorf("api key repository is not configured")
 	}
-	items, _, err := h.Repo.ListApiKeys(1, operator.ExportMaxRows, KeyTypeAdmin)
+	items, _, err := repo.ListApiKeys(1, operator.ExportMaxRows, KeyTypeAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -130,19 +122,27 @@ func (h *Handler) rosterKeys() ([]operator.RosterEntry, error) {
 }
 
 func (h *Handler) rosterAccounts() ([]operator.RosterEntry, error) {
-	if h.RosterAccounts != nil {
-		return h.RosterAccounts()
+	var list func() ([]models.AdminAccount, error)
+	if h.Accounts != nil {
+		list = h.Accounts.ListAll
 	}
-	if h.Accounts == nil {
+	return rosterAccountsFrom(h.RosterAccounts, list, h.accountRoleName)
+}
+
+func rosterAccountsFrom(override func() ([]operator.RosterEntry, error), list func() ([]models.AdminAccount, error), roleName func(models.AdminAccount) string) ([]operator.RosterEntry, error) {
+	if override != nil {
+		return override()
+	}
+	if list == nil {
 		return nil, fmt.Errorf("account repository is not configured")
 	}
-	accounts, err := h.Accounts.ListAll()
+	accounts, err := list()
 	if err != nil {
 		return nil, err
 	}
 	out := make([]operator.RosterEntry, 0, len(accounts))
 	for i := range accounts {
-		out = append(out, accountRosterEntry(accounts[i], h.accountRoleName(accounts[i])))
+		out = append(out, accountRosterEntry(accounts[i], roleName(accounts[i])))
 	}
 	return out, nil
 }
@@ -162,13 +162,17 @@ func accountRosterEntry(account models.AdminAccount, roleName string) operator.R
 }
 
 func (h *Handler) accountRoleName(account models.AdminAccount) string {
+	return operatorAccountRoleName(h.OperatorRoles, account)
+}
+
+func operatorAccountRoleName(roles *operator.Repository, account models.AdminAccount) string {
 	if name, ok := operator.RoleNameForID(account.OperatorRoleID); ok {
 		return name
 	}
-	if h.OperatorRoles == nil {
+	if roles == nil {
 		return ""
 	}
-	name, err := h.OperatorRoles.RoleName(context.Background(), account.OperatorRoleID)
+	name, err := roles.RoleName(context.Background(), account.OperatorRoleID)
 	if err != nil {
 		log.Printf("operator roster role lookup for account %s: %v", account.ID, err)
 		return ""
