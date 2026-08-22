@@ -8,8 +8,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/internal/sqlcgen"
 	"github.com/MrF1ow/go-core/pkg/models"
 )
@@ -289,4 +291,26 @@ func rowToModel(row sqlcgen.AdminAccount) models.AdminAccount {
 func applyRowToModel(m *models.AdminAccount, row sqlcgen.AdminAccount) {
 	result := rowToModel(row)
 	*m = result
+}
+
+func (r *AccountRepository) UpdateOperatorRole(id uuid.UUID, roleID uuid.UUID) error {
+	return r.queries.UpdateAdminAccountOperatorRole(context.Background(), sqlcgen.UpdateAdminAccountOperatorRoleParams{
+		ID:             id,
+		OperatorRoleID: roleID,
+	})
+}
+
+func (r *AccountRepository) SetDisabledAt(id uuid.UUID, at *time.Time) error {
+	var ts pgtype.Timestamptz
+	if at != nil {
+		ts = pgtype.Timestamptz{Time: *at, Valid: true}
+	}
+	return r.queries.SetAdminAccountDisabledAt(context.Background(), sqlcgen.SetAdminAccountDisabledAtParams{
+		ID:         id,
+		DisabledAt: ts,
+	})
+}
+
+func (r *AccountRepository) CountEnabledSuperadmins(ctx context.Context) (int64, error) {
+	return r.queries.CountEnabledSuperadminAccounts(ctx, operator.RoleIDSuperadmin)
 }

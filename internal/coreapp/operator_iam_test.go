@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -51,10 +52,12 @@ func (m *iamEventMem) write(ev operator.IAMEvent) error {
 }
 
 type iamEventHarness struct {
-	engine      *gin.Engine
-	mem         *iamEventMem
-	viewerKeyID uuid.UUID
-	keys        map[uuid.UUID]*models.ApiKey
+	engine         *gin.Engine
+	mem            *iamEventMem
+	viewerKeyID    uuid.UUID
+	keys           map[uuid.UUID]*models.ApiKey
+	superAccountID uuid.UUID
+	accounts       map[uuid.UUID]*models.AdminAccount
 }
 
 func iamEventTestEngine(t *testing.T) *iamEventHarness {
@@ -127,16 +130,80 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 			return nil
 		},
 	}
+	accounts := map[uuid.UUID]*models.AdminAccount{}
+	superAccount := &models.AdminAccount{
+		ID:             uuid.New(),
+		Username:       "root",
+		Email:          "root@example.com",
+		OperatorRoleID: operator.RoleIDSuperadmin,
+	}
+	accounts[superAccount.ID] = superAccount
+	handler.CreateAccount = func(account *models.AdminAccount) error {
+		if account.ID == uuid.Nil {
+			account.ID = uuid.New()
+		}
+		copied := *account
+		accounts[copied.ID] = &copied
+		*account = copied
+		return nil
+	}
+	handler.GetAccount = func(id string) (*models.AdminAccount, error) {
+		parsed, err := uuid.Parse(id)
+		if err != nil {
+			return nil, err
+		}
+		account, ok := accounts[parsed]
+		if !ok {
+			return nil, nil
+		}
+		copied := *account
+		if account.DisabledAt != nil {
+			disabled := *account.DisabledAt
+			copied.DisabledAt = &disabled
+		}
+		return &copied, nil
+	}
+	handler.UpdateAccountRole = func(id uuid.UUID, roleID uuid.UUID) error {
+		account, ok := accounts[id]
+		if !ok {
+			return pgx.ErrNoRows
+		}
+		account.OperatorRoleID = roleID
+		return nil
+	}
+	handler.DisableAccount = func(id uuid.UUID) error {
+		account, ok := accounts[id]
+		if !ok {
+			return pgx.ErrNoRows
+		}
+		now := time.Now().UTC()
+		account.DisabledAt = &now
+		return nil
+	}
+	handler.CountEnabledSuperadmins = func() (int64, error) {
+		var n int64
+		for _, account := range accounts {
+			if account.DisabledAt == nil && account.OperatorRoleID == operator.RoleIDSuperadmin {
+				n++
+			}
+		}
+		return n, nil
+	}
 	engine := gin.New()
 	group := engine.Group("/admin")
 	group.Use(middleware.AdminAuthMiddleware(accessEnvKey, store, grants))
 	group.GET("/operator/iam-events", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorIAMEvents)
 	group.PUT("/operator/keys/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorKeyRole)
+	group.POST("/operator/accounts", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorCreateAccount)
+	group.PUT("/operator/accounts/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorAccountRole)
+	group.POST("/operator/accounts/:id/disable", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorDisableAccount)
 	return &iamEventHarness{
-		engine:      engine,
-		mem:         mem,
-		viewerKeyID: viewerKey.ID,
-		keys:        keys,
+		engine:         engine,
+		mem:            mem,
+		viewerKeyID:    viewerKey.ID,
+		keys:           keys,
+		superAccountID: superAccount.ID,
+		accounts:       accounts,
 	}
 }
 
@@ -244,5 +311,117 @@ func TestOperatorKeyRole_ViewerForbidden(t *testing.T) {
 	stored := h.keys[h.viewerKeyID]
 	if stored.OperatorRoleID == nil || *stored.OperatorRoleID != operator.RoleIDViewer {
 		t.Fatalf("stored role = %v, want viewer", stored.OperatorRoleID)
+	}
+}
+
+func TestOperatorCreateAccount_SuperadminCreatesViewer(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"username":"ops-viewer","email":"ops@example.com","password":"twelvechars!!"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/accounts", accessSuperadminKey, body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got struct {
+		ID             uuid.UUID `json:"id"`
+		OperatorRoleID uuid.UUID `json:"operator_role_id"`
+		Role           string    `json:"role"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("operator_role_id = %s, want viewer", got.OperatorRoleID)
+	}
+	if got.Role != operator.RoleViewer {
+		t.Fatalf("role = %q, want viewer", got.Role)
+	}
+	found := false
+	for _, ev := range iamEventList(t, h.engine) {
+		if ev.Action == operator.ActionCreatePrincipal && ev.TargetAccountID != nil && *ev.TargetAccountID == got.ID {
+			if ev.NewRoleID == nil || *ev.NewRoleID != operator.RoleIDViewer {
+				t.Fatalf("new_role_id = %v, want viewer", ev.NewRoleID)
+			}
+			if ev.TargetKind != operator.KindGUIAccount {
+				t.Fatalf("target_kind = %q", ev.TargetKind)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected create_principal event")
+	}
+}
+
+func TestOperatorCreateAccount_ViewerForbidden(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"username":"ops-viewer","email":"ops@example.com","password":"twelvechars!!"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/accounts", accessViewerKey, body)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if len(iamEventList(t, h.engine)) != 0 {
+		t.Fatal("viewer POST must not write an IAM event")
+	}
+}
+
+func TestOperatorAccountRole_LastSuperadminDemoteConflict(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"operator_role_id":"` + operator.RoleIDAdmin.String() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/accounts/"+h.superAccountID.String()+"/role", accessSuperadminKey, body)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	stored := h.accounts[h.superAccountID]
+	if stored.OperatorRoleID != operator.RoleIDSuperadmin {
+		t.Fatalf("role = %s, want superadmin", stored.OperatorRoleID)
+	}
+	if len(iamEventList(t, h.engine)) != 0 {
+		t.Fatal("last-superadmin demote must not write an IAM event")
+	}
+}
+
+func TestOperatorDisableAccount_LastSuperadminConflict(t *testing.T) {
+	h := iamEventTestEngine(t)
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/accounts/"+h.superAccountID.String()+"/disable", accessSuperadminKey, "")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if h.accounts[h.superAccountID].DisabledAt != nil {
+		t.Fatal("last superadmin was disabled")
+	}
+	if len(iamEventList(t, h.engine)) != 0 {
+		t.Fatal("last-superadmin disable must not write an IAM event")
+	}
+}
+
+func TestOperatorDisableAccount_ViewerIdempotent(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"username":"ops-viewer","email":"ops@example.com","password":"twelvechars!!"}`
+	created := iamEventDo(h.engine, http.MethodPost, "/admin/operator/accounts", accessSuperadminKey, body)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, body = %s", created.Code, created.Body.String())
+	}
+	var got struct {
+		ID uuid.UUID `json:"id"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	first := iamEventDo(h.engine, http.MethodPost, "/admin/operator/accounts/"+got.ID.String()+"/disable", accessSuperadminKey, "")
+	if first.Code != http.StatusNoContent {
+		t.Fatalf("first disable status = %d, body = %s", first.Code, first.Body.String())
+	}
+	second := iamEventDo(h.engine, http.MethodPost, "/admin/operator/accounts/"+got.ID.String()+"/disable", accessSuperadminKey, "")
+	if second.Code != http.StatusNoContent {
+		t.Fatalf("second disable status = %d, body = %s", second.Code, second.Body.String())
+	}
+	disableCount := 0
+	for _, ev := range iamEventList(t, h.engine) {
+		if ev.Action == operator.ActionDisablePrincipal {
+			disableCount++
+		}
+	}
+	if disableCount != 1 {
+		t.Fatalf("disable events = %d, want 1", disableCount)
 	}
 }

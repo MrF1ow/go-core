@@ -58,7 +58,7 @@ func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string, current *
 	if err != nil {
 		return nil, err
 	}
-	if !isSystemRoleID(id) {
+	if !IsSystemRoleID(id) {
 		return nil, errUnknownOperatorRole
 	}
 	if current != nil && id == *current {
@@ -70,11 +70,20 @@ func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string, current *
 	return &id, nil
 }
 
-func isSystemRoleID(id uuid.UUID) bool {
+func IsSystemRoleID(id uuid.UUID) bool {
 	for _, role := range systemRoles() {
 		if role.ID == id {
 			return true
 		}
 	}
 	return false
+}
+
+func SystemRoleName(id uuid.UUID) string {
+	for _, role := range systemRoles() {
+		if role.ID == id {
+			return role.Name
+		}
+	}
+	return ""
 }

@@ -7,10 +7,13 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/pkg/dto"
@@ -286,4 +289,287 @@ func (h *Handler) updateOperatorAPIKeyRole(id string, key *models.ApiKey, roleID
 		return fmt.Errorf("api key repository is not configured")
 	}
 	return h.Repo.UpdateApiKey(id, key.Name, key.Description, key.Scopes, roleID, key.ExpiresAt)
+}
+
+const lastSuperadminMessage = "cannot demote or disable the last enabled superadmin"
+
+type createOperatorAccountRequest struct {
+	Username string `json:"username" binding:"required,min=3,max=50"`
+	Email    string `json:"email"`
+	Password string `json:"password" binding:"required,min=12"`
+}
+
+type operatorAccountResponse struct {
+	ID             uuid.UUID `json:"id"`
+	Username       string    `json:"username"`
+	Email          string    `json:"email"`
+	OperatorRoleID uuid.UUID `json:"operator_role_id"`
+	Role           string    `json:"role"`
+}
+
+type assignAccountRoleRequest struct {
+	OperatorRoleID string `json:"operator_role_id"`
+}
+
+// OperatorCreateAccount creates a GUI operator as viewer.
+// @Summary Create an operator GUI account
+// @Description Creates a GUI operator with role viewer. Posted roles are ignored.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param request body createOperatorAccountRequest true "Account"
+// @Success 201 {object} operatorAccountResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 409 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/accounts [post]
+func (h *Handler) OperatorCreateAccount(c *gin.Context) {
+	var req createOperatorAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	existing, err := h.lookupAccountByUsername(req.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create operator account"})
+		return
+	}
+	if existing != nil {
+		c.JSON(http.StatusConflict, dto.ErrorResponse{Error: "username already exists"})
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create operator account"})
+		return
+	}
+	roleID := operator.RoleIDViewer
+	account := &models.AdminAccount{
+		Username:       req.Username,
+		Email:          req.Email,
+		PasswordHash:   string(hashed),
+		OperatorRoleID: roleID,
+	}
+	if err := h.createOperatorAccount(account); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create operator account"})
+		return
+	}
+	if account.ID == uuid.Nil {
+		account.ID = uuid.New()
+	}
+	accountID := account.ID
+	newRole := roleID
+	h.writeJSONIAMEvent(c, operator.IAMEvent{
+		TargetKind:      operator.KindGUIAccount,
+		TargetAccountID: &accountID,
+		NewRoleID:       &newRole,
+		Action:          operator.ActionCreatePrincipal,
+	})
+	c.JSON(http.StatusCreated, operatorAccountResponse{
+		ID:             account.ID,
+		Username:       account.Username,
+		Email:          account.Email,
+		OperatorRoleID: operator.RoleIDViewer,
+		Role:           operator.RoleViewer,
+	})
+}
+
+// OperatorAccountRole assigns a system operator role to a GUI account.
+// @Summary Assign operator role on a GUI account
+// @Description Refuses with 409 when the change would leave zero enabled superadmin accounts
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param id path string true "Account UUID"
+// @Param request body assignAccountRoleRequest true "Role assignment"
+// @Success 204 "Role assigned or unchanged"
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 409 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/accounts/{id}/role [put]
+func (h *Handler) OperatorAccountRole(c *gin.Context) {
+	id := c.Param("id")
+	var req assignAccountRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+	account, ok := h.loadOperatorAccountOrAbort(c, id)
+	if !ok {
+		return
+	}
+	roleID, err := uuid.Parse(strings.TrimSpace(req.OperatorRoleID))
+	if err != nil || !operator.IsSystemRoleID(roleID) {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
+		return
+	}
+	if account.OperatorRoleID == roleID {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	if roleID != operator.RoleIDSuperadmin {
+		blocked, err := h.wouldLeaveLastSuperadmin(account)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to update operator account"})
+			return
+		}
+		if blocked {
+			c.JSON(http.StatusConflict, dto.ErrorResponse{Error: lastSuperadminMessage})
+			return
+		}
+	}
+	if err := h.updateOperatorAccountRole(account.ID, roleID); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to update operator account"})
+		return
+	}
+	oldRole := account.OperatorRoleID
+	newRole := roleID
+	accountID := account.ID
+	h.writeJSONIAMEvent(c, operator.IAMEvent{
+		TargetKind:      operator.KindGUIAccount,
+		TargetAccountID: &accountID,
+		OldRoleID:       &oldRole,
+		NewRoleID:       &newRole,
+		Action:          operator.ActionAssign,
+	})
+	c.Status(http.StatusNoContent)
+}
+
+// OperatorDisableAccount sets disabled_at on a GUI account.
+// @Summary Disable an operator GUI account
+// @Description Idempotent if already disabled. Refuses the last enabled superadmin with 409.
+// @Tags Admin
+// @Produce json
+// @Param id path string true "Account UUID"
+// @Success 204 "Disabled or already disabled"
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 404 {object} dto.ErrorResponse
+// @Failure 409 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/accounts/{id}/disable [post]
+func (h *Handler) OperatorDisableAccount(c *gin.Context) {
+	id := c.Param("id")
+	account, ok := h.loadOperatorAccountOrAbort(c, id)
+	if !ok {
+		return
+	}
+	if account.DisabledAt != nil {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	blocked, err := h.wouldLeaveLastSuperadmin(account)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to disable operator account"})
+		return
+	}
+	if blocked {
+		c.JSON(http.StatusConflict, dto.ErrorResponse{Error: lastSuperadminMessage})
+		return
+	}
+	if err := h.disableOperatorAccount(account.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to disable operator account"})
+		return
+	}
+	accountID := account.ID
+	h.writeJSONIAMEvent(c, operator.IAMEvent{
+		TargetKind:      operator.KindGUIAccount,
+		TargetAccountID: &accountID,
+		Action:          operator.ActionDisablePrincipal,
+	})
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) loadOperatorAccountOrAbort(c *gin.Context, id string) (*models.AdminAccount, bool) {
+	account, err := h.loadOperatorAccount(id)
+	if err != nil {
+		if _, parseErr := uuid.Parse(id); parseErr != nil {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid account ID"})
+			return nil, false
+		}
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to load operator account"})
+		return nil, false
+	}
+	if account == nil {
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Operator account not found"})
+		return nil, false
+	}
+	return account, true
+}
+
+func (h *Handler) wouldLeaveLastSuperadmin(account *models.AdminAccount) (bool, error) {
+	targetIsEnabledSuperadmin := account.DisabledAt == nil && account.OperatorRoleID == operator.RoleIDSuperadmin
+	count, err := h.countEnabledSuperadmins()
+	if err != nil {
+		return false, err
+	}
+	return operator.WouldLeaveLastSuperadmin(int(count), targetIsEnabledSuperadmin), nil
+}
+
+func (h *Handler) lookupAccountByUsername(username string) (*models.AdminAccount, error) {
+	if h.Accounts != nil {
+		return h.Accounts.GetByUsername(username)
+	}
+	return nil, nil
+}
+
+func (h *Handler) createOperatorAccount(account *models.AdminAccount) error {
+	if h.CreateAccount != nil {
+		return h.CreateAccount(account)
+	}
+	if h.Accounts == nil {
+		return fmt.Errorf("account repository is not configured")
+	}
+	return h.Accounts.Create(account)
+}
+
+func (h *Handler) loadOperatorAccount(id string) (*models.AdminAccount, error) {
+	if h.GetAccount != nil {
+		return h.GetAccount(id)
+	}
+	if h.Accounts == nil {
+		return nil, fmt.Errorf("account repository is not configured")
+	}
+	return h.Accounts.GetByID(id)
+}
+
+func (h *Handler) updateOperatorAccountRole(id uuid.UUID, roleID uuid.UUID) error {
+	if h.UpdateAccountRole != nil {
+		return h.UpdateAccountRole(id, roleID)
+	}
+	if h.Accounts == nil {
+		return fmt.Errorf("account repository is not configured")
+	}
+	return h.Accounts.UpdateOperatorRole(id, roleID)
+}
+
+func (h *Handler) disableOperatorAccount(id uuid.UUID) error {
+	if h.DisableAccount != nil {
+		return h.DisableAccount(id)
+	}
+	if h.Accounts == nil {
+		return fmt.Errorf("account repository is not configured")
+	}
+	now := time.Now().UTC()
+	return h.Accounts.SetDisabledAt(id, &now)
+}
+
+func (h *Handler) countEnabledSuperadmins() (int64, error) {
+	if h.CountEnabledSuperadmins != nil {
+		return h.CountEnabledSuperadmins()
+	}
+	if h.Accounts == nil {
+		return 0, fmt.Errorf("account repository is not configured")
+	}
+	return h.Accounts.CountEnabledSuperadmins(context.Background())
 }

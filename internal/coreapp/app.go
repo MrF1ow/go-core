@@ -274,6 +274,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 
 	// Initialize Admin GUI Services and Handler
 	accountRepo := admin.NewAccountRepository(pool)
+	adminHandler.Accounts = accountRepo
 	accountService := admin.NewAccountService(accountRepo, emailService, cfg.Admin.SessionTTL)
 	dashboardService := admin.NewDashboardService(pool)
 	settingsRepo := admin.NewSettingsRepository(pool)
@@ -650,6 +651,9 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 		adminRoutes.GET("/operator/access-logs", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorAccessLogs)
 		adminRoutes.GET("/operator/iam-events", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorIAMEvents)
 		adminRoutes.PUT("/operator/keys/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorKeyRole)
+		adminRoutes.POST("/operator/accounts", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorCreateAccount)
+		adminRoutes.PUT("/operator/accounts/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorAccountRole)
+		adminRoutes.POST("/operator/accounts/:id/disable", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorDisableAccount)
 
 		adminRoutes.POST("/tenants", requireOp(operator.ResTenants, operator.ActionWrite), a.adminHandler.CreateTenant)
 		adminRoutes.GET("/tenants", requireOp(operator.ResTenants, operator.ActionRead), a.adminHandler.ListTenants)

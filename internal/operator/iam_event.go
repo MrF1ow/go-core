@@ -75,3 +75,17 @@ func (r *Repository) ListIAMEvents(ctx context.Context, limit, offset int32, tar
 	}
 	return out, nil
 }
+
+func WouldLeaveLastSuperadmin(enabledSuperadminCount int, targetIsEnabledSuperadmin bool) bool {
+	return targetIsEnabledSuperadmin && enabledSuperadminCount == 1
+}
+
+func NewSetupCLICreateEvent(accountID, roleID uuid.UUID) IAMEvent {
+	return IAMEvent{
+		ActorKind:       ActorKindSetupCLI,
+		TargetKind:      KindGUIAccount,
+		TargetAccountID: &accountID,
+		NewRoleID:       &roleID,
+		Action:          ActionCreatePrincipal,
+	}
+}
