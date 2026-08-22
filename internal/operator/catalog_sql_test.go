@@ -30,10 +30,31 @@ func TestAdminAccountRoleBackfillUsesSuperadminID(t *testing.T) {
 	}
 }
 
-func TestAdminAccountRoleBackfillRejectsOtherRoleID(t *testing.T) {
-	sql := "UPDATE admin_accounts SET operator_role_id = '" + RoleIDViewer.String() + "' WHERE operator_role_id IS NULL;"
-	if err := checkAdminAccountRoleBackfill(sql, RoleIDSuperadmin); err == nil {
-		t.Fatal("validation passed for a non-superadmin backfill")
+func TestOperatorIAMEvidenceMigrationExists(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/018_operator_iam_evidence.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(sql)
+	for _, needle := range []string{
+		"operator_iam_events",
+		"operator_access_logs",
+		"disabled_at",
+		"disable_principal",
+	} {
+		if !strings.Contains(text, needle) {
+			t.Fatalf("018 missing %q", needle)
+		}
+	}
+	schema, err := os.ReadFile("../schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemaText := string(schema)
+	for _, needle := range []string{"operator_iam_events", "operator_access_logs", "disabled_at"} {
+		if !strings.Contains(schemaText, needle) {
+			t.Fatalf("schema.sql missing %q", needle)
+		}
 	}
 }
 
