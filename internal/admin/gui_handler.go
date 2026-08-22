@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
@@ -74,6 +75,8 @@ type GUIHandler struct {
 	OperatorRepo      *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
 	RosterKeys        func() ([]operator.RosterEntry, error)
 	RosterAccounts    func() ([]operator.RosterEntry, error)
+	IAMEventList      func(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error)
+	AccessLogList     func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
 	RecordIAM         func(operator.IAMEvent)
 	AbortForbidden    func(*gin.Context) // HTML 403; wired to middleware.AbortGUIForbidden
 	AbortInternal     func(*gin.Context) // HTML 500; wired to middleware.AbortGUIInternal

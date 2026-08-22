@@ -391,13 +391,17 @@ func (h *Handler) OperatorAccessLogsExport(c *gin.Context) {
 }
 
 func (h *Handler) listAccessLogs(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error) {
-	if h.AccessLogList != nil {
-		return h.AccessLogList(ctx, limit, decision)
+	return listOperatorAccessLogs(ctx, h.AccessLogList, h.OperatorRoles, limit, decision)
+}
+
+func listOperatorAccessLogs(ctx context.Context, override func(context.Context, int32, *string) ([]operator.AccessRecord, error), repo *operator.Repository, limit int32, decision *string) ([]operator.AccessRecord, error) {
+	if override != nil {
+		return override(ctx, limit, decision)
 	}
-	if h.OperatorRoles == nil {
+	if repo == nil {
 		return nil, fmt.Errorf("operator repository is not configured")
 	}
-	return h.OperatorRoles.ListAccessLogs(ctx, limit, 0, decision)
+	return repo.ListAccessLogs(ctx, limit, 0, decision)
 }
 
 type iamEventResponse struct {
@@ -480,13 +484,17 @@ func (h *Handler) OperatorIAMEventsExport(c *gin.Context) {
 }
 
 func (h *Handler) listIAMEvents(ctx context.Context, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error) {
-	if h.IAMEventList != nil {
-		return h.IAMEventList(ctx, limit, targetKeyID, targetAccountID)
+	return listOperatorIAMEvents(ctx, h.IAMEventList, h.OperatorRoles, limit, targetKeyID, targetAccountID)
+}
+
+func listOperatorIAMEvents(ctx context.Context, override func(context.Context, int32, *uuid.UUID, *uuid.UUID) ([]operator.IAMEvent, error), repo *operator.Repository, limit int32, targetKeyID, targetAccountID *uuid.UUID) ([]operator.IAMEvent, error) {
+	if override != nil {
+		return override(ctx, limit, targetKeyID, targetAccountID)
 	}
-	if h.OperatorRoles == nil {
+	if repo == nil {
 		return nil, fmt.Errorf("operator repository is not configured")
 	}
-	return h.OperatorRoles.ListIAMEvents(ctx, limit, 0, targetKeyID, targetAccountID)
+	return repo.ListIAMEvents(ctx, limit, 0, targetKeyID, targetAccountID)
 }
 
 type assignKeyRoleRequest struct {
