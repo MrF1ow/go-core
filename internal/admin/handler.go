@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -31,6 +32,7 @@ type Handler struct {
 	TrustedDeviceRepo *twofa.TrustedDeviceRepository // Optional: trusted device management (nil = disabled)
 	GeoIPService      *geoip.Service                 // GeoIP service for IP access checks (nil = disabled)
 
+	AccessLogList  func(ctx context.Context, limit int32, decision *string) ([]operator.AccessRecord, error)
 	RosterKeys     func() ([]operator.RosterEntry, error)
 	RosterAccounts func() ([]operator.RosterEntry, error)
 }
