@@ -13,8 +13,9 @@ A superadmin cookie can open an Operator IAM page that lists the roster. Admin a
 - Add one System `NavSpec` row after API Keys: page `operator-iam`, path `/operator`, icon `bi-shield-shaded`, label `Operator IAM`, resource `admin_iam`, action `read`.
 - Update `web/nav_test.go`. Superadmin includes the row. Admin does not. Viewer does not. `TestBuildNav_SuperadminHasEveryRowAndNoAdminIAM` becomes "has every row including Operator IAM".
 - `GET /gui/operator` full page and `GET /gui/operator/roster` HTMX list. `requireGUI(admin_iam, read)`.
+- Put GUI IAM handlers in `internal/admin/gui_iam.go`, not more methods on `gui_handler.go`. CSRF and other GUI work must still be able to land.
 - Reuse `BuildRoster` / `loadRoster`. Do not add roster SQL.
-- Copy the activity-log GUI shape (page + list + export), not tenant CRUD. Export can link the existing JSON CSV or a GUI wrapper of it. Same cap.
+- Copy activity logs (`LogsPage` / `LogList` / `LogExport`), not tenant CRUD. Export can link the existing JSON CSV or a GUI wrapper of it. Same 10_000 cap. JSON list max 1000 is a different call.
 - Write CTA omit. This phase has no create/disable/role forms.
 
 Do not add events or access-log tabs yet. That is phase 7. Empty heading rule still holds.

@@ -14,7 +14,7 @@ A CSRF miss on the GUI is an HTML 403. It is not JSON. HTMX does not swap it as 
 - Write HTML via the same `guiLayoutData` ingredients `AbortGUIForbidden` uses. Dedicated templates `csrf_forbidden` and `csrf_forbidden_fragment`. Do not name them `"error"`. Do not reuse `forbidden.tmpl`. CSRF is not missing a grant.
 - Do not set `X-GUI-Forbidden`. `TestCSRFForbiddenDoesNotSendGUIHeader` stays. Change it so the body is HTML, not `application/json`.
 - Typed URL POST gets the page template. HTMX POST without the header stays unswapped. Do not turn on global 4xx swap. Do not `HX-Redirect`.
-- Settings env-lock, if it still JSON-aborts, stays its own 403. Do not reuse the CSRF template for it.
+- Settings env-lock is `SettingUpdate` in `gui_handler.go`: warning HTML plus `HX-Trigger: settingError`. Header already absent. Leave it. Do not reuse the CSRF template. Do not add a header-absent test unless this PR touches settings.
 
 JSON `/admin` is unchanged. `RequireOperatorPermission` stays JSON.
 

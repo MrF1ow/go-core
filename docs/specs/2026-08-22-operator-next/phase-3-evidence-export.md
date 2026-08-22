@@ -12,8 +12,8 @@ An `admin_iam:read` principal can export access logs and IAM events as CSV, the 
 
 - `GET /admin/operator/access-logs/export` and `GET /admin/operator/iam-events/export` on `admin.Handler` in `operator_handler.go`.
 - `requireOp(admin_iam, read)` on `adminRoutes`. Stay on `adminRoutes` so the inventory scan sees the new lines.
-- Same 10_000 cap as `operator.ExportMaxRows`. Same `X-Export-Truncated` header as roster.
-- Filenames `operator-access-logs.csv` and `operator-iam-events.csv`.
+- Same 10_000 cap as `operator.ExportMaxRows`. Same `X-Export-Truncated` header as roster. JSON list max is 1000. Do not raise the list default to match export.
+- Filenames `operator-access-logs.csv` and `operator-iam-events.csv`. Roster CSV has no UTF-8 BOM. Match roster, not activity-log export.
 - Columns match the JSON list fields. Do not add IP or UA.
 - Reuse `ListAccessLogs` and `ListIAMEvents`. Do not add export SQL.
 

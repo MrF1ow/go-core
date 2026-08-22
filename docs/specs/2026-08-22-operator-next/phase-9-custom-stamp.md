@@ -12,6 +12,7 @@ PR: Custom stamp. Base is Fail-open. Exclusive `sqlc generate` writer.
 
 - `ListOperatorRoles` and `RoleGrants` already exist. Add insert, replace-permissions, and delete-if-not-system queries. Run `sqlc generate` in this PR. No new migration unless a CHECK is the only honest way to ban `admin_iam` on non-system roles. Prefer a service reject plus a test, not a catalog rewrite.
 - `ParseAssignedAdminRole`: empty post still stamps viewer. Frozen ids keep the current IAM gate. Unknown UUID is no longer `errUnknownOperatorRole` once `GetOperatorRoleByID` finds it. Missing id stays an error. Non-viewer (including any custom) still requires `admin_iam:write`.
+- `OperatorAccountRole` currently rejects any id that fails `IsSystemRoleID` (`operator_handler.go`). Route account role PUT through the same stamp as keys. JSON key create does not exist. Empty PUT body stays 400, not viewer.
 - Creating or updating a non-system role with an `admin_iam` permission is rejected. Seeded `admin` already omits that resource. Custom roles do not become a second superadmin.
 - System names stay unwritable. `is_system` is the flag. Do not add `is_custom`.
 - Zero-grant custom role: `RoleGrants` returns empty keys. `Has` denies. Auth does not fail-open.

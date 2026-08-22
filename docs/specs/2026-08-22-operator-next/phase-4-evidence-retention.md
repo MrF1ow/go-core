@@ -10,7 +10,7 @@ Operator evidence older than 365 days is deleted on a schedule. The request path
 
 ## Changes
 
-- Cleanup sibling to `internal/log/cleanup.go`, or a second delete loop inside that worker. Operator tables have one window, so `DELETE WHERE at < $1` in batches, not `expires_at`.
+- Cleanup sibling in `internal/operator`, raw `DELETE WHERE at < $1` in batches. Do not extend the `CleanupService` singleton in `internal/log/cleanup.go`. That file stays activity-logs. No `expires_at`.
 - Default 365 days for both `operator_access_logs` and `operator_iam_events`. Same number as critical activity-log retention. Document it in [activity-logging.md](../../activity-logging.md): operator evidence, v1 insert policy, 365-day cleanup, CSV export paths.
 - Failed delete logs and the next tick retries. Idempotent: a second run deletes whatever is still older than the cutoff.
 - Do not add settings keys in v1 unless activity-log cleanup already requires a config struct the sibling can share. Hard-code 365 if a new key would be the only consumer.

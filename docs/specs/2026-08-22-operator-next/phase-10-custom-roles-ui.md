@@ -11,7 +11,7 @@ A superadmin cookie can create, edit, and delete non-system operator roles from 
 ## Changes
 
 - GUI under the same `/gui/operator` nav row. A roles tab, not a second sidebar link.
-- Grant editor is frozen catalog checkboxes from `ListOperatorPermissions` / `operator.Catalog()`. No free-text `resource:action`.
+- Grant editor is frozen catalog checkboxes from `ListOperatorPermissions` / `operator.Catalog()`. Copy `partials/role_permissions.tmpl`. No free-text `resource:action`. Do not grow `catalog.go`.
 - `admin_iam` checkboxes are absent on the custom form. Tampered POST still rejects from phase 9.
 - Delete only when `is_system` is false and no key or account still points at the role. `ON DELETE RESTRICT` already exists. Surface it as 409, not 500.
 - Assign custom roles through the phase 8 forms and JSON PUT. Stamp from phase 9 is the only writer.

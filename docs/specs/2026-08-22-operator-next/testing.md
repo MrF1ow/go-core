@@ -49,7 +49,7 @@ go test -count=1 ./internal/operator ./internal/admin ./internal/middleware ./in
 - Existing GUI inventory on `guiAuth`. New `/gui/operator` lines without `requireGUI` fail it.
 - `TestCSRFForbiddenDoesNotSendGUIHeader` asserts HTML after phase 5.
 - `nav_test.go` asserts Operator IAM for superadmin only.
-- httptest nil-role admin key is 401. Do not keep a test that expects fail-open superadmin.
+- httptest nil-role admin key is 401. Invert `TestAdminAuth_NullRoleIsSuperadmin`. Do not keep a test that expects fail-open superadmin.
 
 ## Interrogate
 

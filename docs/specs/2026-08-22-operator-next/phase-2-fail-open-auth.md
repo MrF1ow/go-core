@@ -14,7 +14,7 @@ A DB admin key with a null role is 401. It is not in-memory superadmin. Env key 
 - Null role on an admin key is 401 with the same body as unknown. Not 500. Not viewer coerce.
 - `SuperadminPrincipal` remains for `KindEnvKey` only at the env-key compare in `AdminAuthMiddleware`.
 - Roster: an admin key with an empty role name is a test failure. App keys are not on the roster.
-- Add httptest: stub admin key with `OperatorRoleID: nil` used to be the fail-open path. After this phase it is 401 and no principal.
+- Invert `TestAdminAuth_NullRoleIsSuperadmin` in `internal/middleware/admin_auth_test.go`. Today it expects 200 and `admin_iam:write`. After this phase it is 401 and no principal. Keep env-key `SuperadminPrincipal` tests.
 
 Do not add a config flag that restores fail-open.
 

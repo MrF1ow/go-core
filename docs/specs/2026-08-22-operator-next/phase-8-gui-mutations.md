@@ -10,10 +10,10 @@ A superadmin cookie can create a viewer operator, change a role, and disable an 
 
 ## Changes
 
-- GUI forms that call the same domain paths JSON already has: create account (always viewer), PUT account role, POST disable, PUT key role.
+- GUI forms that call the same domain paths JSON already has: create account (always viewer), PUT account role, POST disable, PUT key role. Copy the API-key role stamp in `gui_handler.go`, not tenant CRUD.
 - `requireGUI(admin_iam, write)` on those registrations. Form GETs that start a mutation are `:write`. List and export stay `:read`.
 - Write CTA omit via `Can`. Admin has no `admin_iam:read`, so that cookie never reaches the page. Superadmin sees Create and Disable. Do not show those buttons without write.
-- Last-superadmin is HTML 409, not JSON. Reuse `WouldLeaveLastSuperadmin`.
+- Last-superadmin is HTML 409, not JSON. JSON `OperatorAccountRole` and `OperatorDisableAccount` stay JSON 409. Reuse `WouldLeaveLastSuperadmin`.
 - Actor on events is the GUI principal. Reuse `writeIAMEvent`.
 - CSRF HTML from phase 5 covers a missing token. Do not add a second CSRF check.
 

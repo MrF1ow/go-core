@@ -152,12 +152,12 @@ No control-ui in this environment. Do not claim browser verification.
 - **Model the domain.** One System nav row for roster, events, and access logs. CSRF is a session-token miss, not an IAM deny. Custom roles with zero grants are deny, not superadmin.
 - **Encode lessons in structure.** Pin `019` in `catalog_sql_test.go`. CSRF test asserts HTML and no `X-GUI-Forbidden`. Superadmin nav test asserts the IAM row. `requireGUI` inventory covers new `guiAuth` lines.
 - **Build the lever.** httptest through `requireOp` and `requireGUI` on the real Gin group. A unit `Has` is not the merge bar.
-- **Laziness protocol.** Reuse `BuildRoster`, `loadRoster`, roster CSV, `guiLayoutData`, `ListOperatorRoles`, `RoleGrants`, and the activity-log cleanup worker shape. Do not add `expires_at` on operator tables. Do not add roster SQL.
+- **Laziness protocol.** Reuse `BuildRoster`, `loadRoster`, roster CSV, `guiLayoutData`, `ListOperatorRoles`, `RoleGrants`, and the activity-log batched DELETE shape. Put GUI IAM in `gui_iam.go`. Copy `role_permissions.tmpl` for the grant editor. Do not add `expires_at` on operator tables. Do not add roster SQL. Do not extend `CleanupService`.
 - **Experience first.** Nav and roster page land in the same commit. CSRF HTML lands before GUI write CTAs. Empty Email heading rule still holds: no empty IAM heading.
 - **Subtract before you add.** Delete the fail-open branch. Do not leave a config flag that restores it.
 - **Migrate callers then delete.** `SuperadminPrincipal` for DB keys goes away in phase 2. Env key still uses it.
 - **Outcome-oriented execution.** Empty evidence tables after leftover schema-only was fine. Unbounded tables after this plan are not. Dual fail-open/fail-closed is not a shippable middle.
-- **Separate before serializing.** Custom stamp owns `sqlc generate`. Fail-open owns `019` and `schema.sql`. GUI roster owns the first `guiAuth` `/operator` lines.
+- **Separate before serializing.** Custom stamp owns `sqlc generate`. Fail-open owns `019` and `schema.sql`. GUI roster owns the first `guiAuth` `/operator` lines. `OperatorAccountRole` still uses `IsSystemRoleID` directly. Custom stamp must change that handler too.
 - **Never block on the human** for reversible internals. Do not change seeded role names.
 - **Interrogate** before marking Fail-open or Custom-roles ready.
 - Cursor babysit after each impl PR leaves draft.
