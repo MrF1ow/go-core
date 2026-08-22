@@ -11,7 +11,7 @@ A pure assembler turns admin keys, GUI accounts, and one synthetic env-key row i
 ## Changes
 
 - Add `RosterEntry` and `BuildRoster` in `internal/operator`.
-- Map frozen role IDs to names in Go. Do not JOIN `operator_roles` in new SQL. `AdminListApiKeys` already returns `operator_role_name` for keys. Accounts come from `ListAllAdminAccounts` with `operator_role_id` only.
+- Do not JOIN `operator_roles` in new SQL. Keys already carry `operator_role_name` from `AdminListApiKeys` (no `operator_role_id` on that row). Accounts come from `ListAllAdminAccounts` with `operator_role_id` only. Map the four frozen IDs in Go. An unknown account role id uses existing `GetOperatorRoleByID`, not a new query.
 - Env-key row is always present. `Kind=env_key`. No `KeyID`. No `AccountID`. `RoleName=superadmin`. `ExpiresAt` nil. `Revoked=false`. `DisplayName` is a fixed `env_key` string, not the secret.
 - Null `expires_at` stays nil (forever). Expired keys stay on the roster.
 - App-type keys are omitted. Roster is operator principals.

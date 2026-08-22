@@ -63,7 +63,9 @@ Excluded, still later:
 - Same catalog. Same `Principal.Has`. No Redis grant store. No `Grants()` lattice.
 - Next migration is `018_`. Update `internal/schema.sql` in the same PR as the migration. `sqlc.yaml` reads `internal/schema.sql`, not `migrations/`.
 - Only the schema PR runs `sqlc generate`. Roster must reuse `AdminListApiKeys` and `ListAllAdminAccounts`.
-- JSON 401 for bad auth. JSON 403 for missing grant. JSON 409 for last-superadmin. Do not leak SQL errors.
+- JSON operator routes live in `internal/admin/operator_handler.go`. `internal/operator` stays a domain package. It does not import `admin` or `middleware`. `coreapp` wires callbacks.
+- Register as `adminRoutes.GET("/operator/...")` (and POST, PUT). Do not `Group("/operator")` unless `isOperatorRouteRegistration` lists that ident. The inventory only scans `adminRoutes`, `metricsGroup`, and `adminOIDC`.
+- JSON 401 for bad auth. JSON 403 for missing grant. JSON 409 last-superadmin via `c.JSON(http.StatusConflict, dto.ErrorResponse{...})`. `internal/admin` does not import `pkg/errors` for these handlers.
 - `activity_logs` stays end-user. Operator evidence is the new tables.
 - Access insert is best-effort. A failed insert logs and the request still succeeds.
 - Denies always log. Writes always log. Env-key allows always log. Skip ordinary read allows in v1.
@@ -138,7 +140,7 @@ Full leftover merge bar is in [testing.md](testing.md). Each phase has its own c
 
 - Run **how** on `internal/middleware/admin_auth.go` `RequireOperatorPermission`, `internal/admin/gui_handler.go` `persistAPIKey` / `persistAPIKeyUpdate`, `internal/middleware/gui_auth.go`, and `internal/coreapp/app.go` `adminRoutes` before the wave that edits them.
 - **Foundational thinking.** Roster row type and event row type before HTTP. Schema before writers that would drop events.
-- **Boundary discipline.** Parse JSON into domain types in the handler. Last-superadmin is a pure function over a count. Middleware stays a thin hook that calls `Has` then a nil-safe log func.
+- **Boundary discipline.** Parse JSON into domain types in `operator_handler.go`. Last-superadmin is a pure function over a count. Middleware stays a thin hook that calls `Has` then a nil-safe log func set in `coreapp`. `operator` does not import `admin` or `middleware`.
 - **Type system discipline.** `Kind` stays `env_key`, `api_key`, `gui_account`. Event `action` is a closed string set. `disabled_at` nil means enabled. Do not add `is_disabled` next to it.
 - **Model the domain.** One `RosterEntry` for keys, accounts, and the env-key row. One `AccessRecord` for JSON and GUI. Do not grow parallel DTOs that drift.
 - **Encode lessons in structure.** Pin `018` in `catalog_sql_test.go` the same way `016` and `017` are pinned. Do not write "remember sqlc generate" in a comment.

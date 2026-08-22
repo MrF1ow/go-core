@@ -38,7 +38,7 @@ go test -count=1 ./internal/operator ./internal/admin ./internal/middleware ./in
 ## Levers, not comments
 
 - Migration pin in `catalog_sql_test.go` for `018`.
-- Existing `require_op_inventory_test.go` on `adminRoutes`. A new operator JSON line without `requireOp` fails that test.
+- Existing `require_op_inventory_test.go` on `adminRoutes`. A new `adminRoutes.GET("/operator/...")` without `requireOp` fails that test. A `Group("/operator")` is invisible until the ident is added. Do not add the group.
 - `WouldLeaveLastSuperadmin` unit tests covering count 0, 1, 2.
 - Fake access-log func in middleware tests so deny/allow policy is proven without Postgres.
 

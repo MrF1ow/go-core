@@ -10,10 +10,10 @@ An `admin_iam:read` principal can list and export the roster over JSON.
 
 ## Changes
 
-- New JSON handler in `internal/operator/handler.go`. Do not grow `internal/admin/handler.go`.
-- Wire in `internal/coreapp/app.go` on `adminRoutes` with `requireOp(operator.ResAdminIAM, operator.ActionRead)`. Stay on `adminRoutes` so `require_op_inventory_test.go` keeps scanning the new lines. Do not add a second group the inventory does not know.
+- New JSON methods on `admin.Handler` in `internal/admin/operator_handler.go`. Do not grow `internal/admin/handler.go`. Do not put Gin types in `internal/operator`.
+- Wire in `internal/coreapp/app.go` as `adminRoutes.GET("/operator/roster", requireOp(operator.ResAdminIAM, operator.ActionRead), ...)`. Stay on `adminRoutes` so `require_op_inventory_test.go` keeps scanning the new lines.
 - `GET /admin/operator/roster` returns JSON `{ "entries": [...] }`.
-- `GET /admin/operator/roster/export` returns CSV. Same rows. Same cap. Filename `operator-roster.csv`.
+- `GET /admin/operator/roster/export` returns CSV. Same rows. Same cap. Filename `operator-roster.csv`. Set `X-Export-Truncated` the way activity-log export does.
 - Fetch keys via existing `AdminListApiKeys` with `key_type=admin` and a limit of `ExportMaxRows`. Fetch accounts via `ListAllAdminAccounts`.
 - Viewer key 403. Superadmin 200. Body includes `kind=env_key` and at least one fixture account or key role name.
 
@@ -25,6 +25,6 @@ Reuse `RosterEntry`. CSV columns: `kind,id,display_name,role,created_at,last_use
 
 ## Verification
 
-Static: `go test -count=1 ./internal/operator ./internal/coreapp`.
+Static: `go test -count=1 ./internal/operator ./internal/admin ./internal/coreapp`.
 
 Runtime: httptest GET roster with viewer → 403. With superadmin → body contains `env_key` and `superadmin`.

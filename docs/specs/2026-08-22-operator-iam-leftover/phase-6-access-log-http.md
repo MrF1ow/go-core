@@ -10,7 +10,7 @@ An `admin_iam:read` principal can list access log rows over JSON.
 
 ## Changes
 
-- `GET /admin/operator/access-logs` on the operator JSON handler. `requireOp(admin_iam, read)`.
+- `GET /admin/operator/access-logs` on `admin.Handler` in `operator_handler.go`. `requireOp(admin_iam, read)` on `adminRoutes`.
 - Newest first. Query `limit` default 100, max 1000. Optional `decision=allow|deny`.
 - Export is out of v1. Roster export is the review artifact. Access log is operational.
 
