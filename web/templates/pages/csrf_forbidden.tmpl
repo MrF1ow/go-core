@@ -1,0 +1,11 @@
+{{define "csrf_forbidden"}}
+{{template "base" .}}
+{{end}}
+
+{{define "title"}}Request blocked{{end}}
+
+{{define "content"}}
+<div class="alert alert-warning mb-0" role="alert">
+    <i class="bi bi-arrow-clockwise me-2"></i>Reload this page and submit the form again.
+</div>
+{{end}}
