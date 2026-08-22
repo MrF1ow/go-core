@@ -68,6 +68,12 @@ func (r *Repository) RoleName(ctx context.Context, id uuid.UUID) (string, error)
 }
 
 func (r *Repository) CreateCustomRole(ctx context.Context, name, description string, grants []Permission) (sqlcgen.OperatorRole, error) {
+	if IsReservedSystemRoleName(name) {
+		return sqlcgen.OperatorRole{}, ErrReservedSystemRoleName
+	}
+	if err := rejectAdminIAMGrants(grants); err != nil {
+		return sqlcgen.OperatorRole{}, err
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return sqlcgen.OperatorRole{}, err
@@ -95,6 +101,13 @@ func (r *Repository) CreateCustomRole(ctx context.Context, name, description str
 }
 
 func (r *Repository) UpdateCustomRole(ctx context.Context, id uuid.UUID, name, description string) (sqlcgen.OperatorRole, error) {
+	if IsReservedSystemRoleName(name) {
+		return sqlcgen.OperatorRole{}, ErrReservedSystemRoleName
+	}
+	existing, err := r.GetOperatorRoleByID(ctx, id)
+	if err := rejectImmutableOperatorRole(existing, err); err != nil {
+		return sqlcgen.OperatorRole{}, err
+	}
 	role, err := r.queries.UpdateOperatorRoleIfNotSystem(ctx, sqlcgen.UpdateOperatorRoleIfNotSystemParams{
 		ID:          id,
 		Name:        name,
@@ -107,6 +120,10 @@ func (r *Repository) UpdateCustomRole(ctx context.Context, id uuid.UUID, name, d
 }
 
 func (r *Repository) DeleteCustomRole(ctx context.Context, id uuid.UUID) (int64, error) {
+	existing, err := r.GetOperatorRoleByID(ctx, id)
+	if err := rejectImmutableOperatorRole(existing, err); err != nil {
+		return 0, err
+	}
 	n, err := r.queries.DeleteOperatorRoleIfNotSystem(ctx, id)
 	if err != nil {
 		return 0, mapRoleWriteError(err)
@@ -115,6 +132,13 @@ func (r *Repository) DeleteCustomRole(ctx context.Context, id uuid.UUID) (int64,
 }
 
 func (r *Repository) ReplaceRolePermissions(ctx context.Context, roleID uuid.UUID, grants []Permission) error {
+	if err := rejectAdminIAMGrants(grants); err != nil {
+		return err
+	}
+	existing, err := r.GetOperatorRoleByID(ctx, roleID)
+	if err := rejectImmutableOperatorRole(existing, err); err != nil {
+		return err
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -153,6 +177,25 @@ func insertRoleGrants(ctx context.Context, q *sqlcgen.Queries, roleID uuid.UUID,
 	return nil
 }
 
+func rejectImmutableOperatorRole(role sqlcgen.OperatorRole, err error) error {
+	if err != nil {
+		return mapRoleWriteError(err)
+	}
+	if role.IsSystem {
+		return ErrSystemRoleImmutable
+	}
+	return nil
+}
+
+func rejectAdminIAMGrants(grants []Permission) error {
+	for _, g := range grants {
+		if g.Resource == ResAdminIAM {
+			return ErrAdminIAMOnCustomRole
+		}
+	}
+	return nil
+}
+
 func mapRoleWriteError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
@@ -162,7 +205,12 @@ func mapRoleWriteError(err error) error {
 	case "23505":
 		return ErrRoleNameTaken
 	case "23503":
-		return ErrRoleAssigned
+		switch pgErr.ConstraintName {
+		case "operator_iam_events_old_role_id_fkey", "operator_iam_events_new_role_id_fkey":
+			return ErrRoleReferenced
+		default:
+			return ErrRoleAssigned
+		}
 	default:
 		return err
 	}

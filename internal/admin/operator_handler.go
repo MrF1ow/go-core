@@ -18,6 +18,7 @@ import (
 
 	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/internal/safeconv"
+	"github.com/MrF1ow/go-core/internal/sqlcgen"
 	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/MrF1ow/go-core/web"
@@ -950,11 +951,18 @@ func (h *Handler) OperatorCreateRole(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if h.OperatorRoles == nil {
+	var (
+		role sqlcgen.OperatorRole
+		err  error
+	)
+	if h.CreateOperatorRole != nil {
+		role, err = h.CreateOperatorRole(c.Request.Context(), name, strings.TrimSpace(req.Description), grants)
+	} else if h.OperatorRoles != nil {
+		role, err = h.OperatorRoles.CreateCustomRole(c.Request.Context(), name, strings.TrimSpace(req.Description), grants)
+	} else {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create operator role"})
 		return
 	}
-	role, err := h.OperatorRoles.CreateCustomRole(c.Request.Context(), name, strings.TrimSpace(req.Description), grants)
 	if err != nil {
 		writeOperatorRoleWriteError(c, err, "Failed to create operator role")
 		return
@@ -1081,7 +1089,7 @@ func (h *Handler) OperatorDeleteRole(c *gin.Context) {
 		return
 	}
 	if n == 0 {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: operator.ErrSystemRoleImmutable.Error()})
+		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Operator role not found"})
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -1195,16 +1203,16 @@ func operatorRoleExists(override operator.RoleExistsFunc, repo *operator.Reposit
 }
 
 func (h *Handler) loadMutableOperatorRole(c *gin.Context) (uuid.UUID, bool) {
-	if h.OperatorRoles == nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to load operator role"})
-		return uuid.Nil, false
-	}
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role ID"})
 		return uuid.Nil, false
 	}
-	role, err := h.OperatorRoles.GetOperatorRoleByID(c.Request.Context(), id)
+	if h.GetOperatorRole == nil && h.OperatorRoles == nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to load operator role"})
+		return uuid.Nil, false
+	}
+	role, err := h.operatorRoleByID(c.Request.Context(), id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Operator role not found"})
 		return uuid.Nil, false
@@ -1218,6 +1226,16 @@ func (h *Handler) loadMutableOperatorRole(c *gin.Context) (uuid.UUID, bool) {
 		return uuid.Nil, false
 	}
 	return role.ID, true
+}
+
+func (h *Handler) operatorRoleByID(ctx context.Context, id uuid.UUID) (sqlcgen.OperatorRole, error) {
+	if h.GetOperatorRole != nil {
+		return h.GetOperatorRole(ctx, id)
+	}
+	if h.OperatorRoles == nil {
+		return sqlcgen.OperatorRole{}, fmt.Errorf("operator roles are not configured")
+	}
+	return h.OperatorRoles.GetOperatorRoleByID(ctx, id)
 }
 
 func parsePostedCustomGrants(c *gin.Context, keys []string) ([]operator.Permission, bool) {
@@ -1247,7 +1265,13 @@ func writeOperatorRoleWriteError(c *gin.Context, err error, fallback string) {
 		c.JSON(http.StatusConflict, dto.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, operator.ErrRoleAssigned):
 		c.JSON(http.StatusConflict, dto.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, operator.ErrRoleReferenced):
+		c.JSON(http.StatusConflict, dto.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, operator.ErrSystemRoleImmutable):
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, operator.ErrReservedSystemRoleName):
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+	case errors.Is(err, operator.ErrAdminIAMOnCustomRole):
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 	case errors.Is(err, pgx.ErrNoRows):
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Operator role not found"})

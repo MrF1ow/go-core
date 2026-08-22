@@ -18,6 +18,7 @@ import (
 	"github.com/MrF1ow/go-core/internal/admin"
 	"github.com/MrF1ow/go-core/internal/middleware"
 	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/internal/sqlcgen"
 	"github.com/MrF1ow/go-core/pkg/models"
 )
 
@@ -54,6 +55,7 @@ func (m *iamEventMem) write(ev operator.IAMEvent) error {
 
 type iamEventHarness struct {
 	engine         *gin.Engine
+	handler        *admin.Handler
 	mem            *iamEventMem
 	viewerKeyID    uuid.UUID
 	keys           map[uuid.UUID]*models.ApiKey
@@ -101,6 +103,15 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 		IAMEventWrite: mem.write,
 		RoleExists: func(id uuid.UUID) (bool, error) {
 			return id == customRoleID, nil
+		},
+		GetOperatorRole: func(_ context.Context, id uuid.UUID) (sqlcgen.OperatorRole, error) {
+			if operator.IsSystemRoleID(id) {
+				return sqlcgen.OperatorRole{ID: id, Name: operator.SystemRoleName(id), IsSystem: true}, nil
+			}
+			if id == customRoleID {
+				return sqlcgen.OperatorRole{ID: id, Name: "auditor", IsSystem: false}, nil
+			}
+			return sqlcgen.OperatorRole{}, pgx.ErrNoRows
 		},
 		GetAPIKey: func(id string) (*models.ApiKey, error) {
 			parsed, err := uuid.Parse(id)
@@ -211,6 +222,7 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 	group.DELETE("/operator/roles/:id", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorDeleteRole)
 	return &iamEventHarness{
 		engine:         engine,
+		handler:        handler,
 		mem:            mem,
 		viewerKeyID:    viewerKey.ID,
 		keys:           keys,
@@ -661,6 +673,83 @@ func TestOperatorCreateRole_AdminIAMGrantRejected(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
 	if !strings.Contains(rec.Body.String(), operator.ErrAdminIAMOnCustomRole.Error()) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func TestOperatorCreateRole_ReservedSystemNameRejected(t *testing.T) {
+	h := iamEventTestEngine(t)
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/roles", accessSuperadminKey, `{"name":"admin","grants":["users:read"]}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), operator.ErrReservedSystemRoleName.Error()) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func TestOperatorCreateRole_CreatesCustom(t *testing.T) {
+	h := iamEventTestEngine(t)
+	created := uuid.New()
+	h.handler.CreateOperatorRole = func(_ context.Context, name, description string, grants []operator.Permission) (sqlcgen.OperatorRole, error) {
+		if name != "auditor" {
+			t.Fatalf("name = %q", name)
+		}
+		if len(grants) != 1 || grants[0].Resource != operator.ResUsers || grants[0].Action != operator.ActionRead {
+			t.Fatalf("grants = %#v", grants)
+		}
+		return sqlcgen.OperatorRole{ID: created, Name: name, Description: description, IsSystem: false}, nil
+	}
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/roles", accessSuperadminKey, `{"name":"auditor","grants":["users:read"]}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got struct {
+		ID       uuid.UUID `json:"id"`
+		Name     string    `json:"name"`
+		IsSystem bool      `json:"is_system"`
+		Grants   []string  `json:"grants"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != created || got.Name != "auditor" || got.IsSystem {
+		t.Fatalf("got %#v", got)
+	}
+	if len(got.Grants) != 1 || got.Grants[0] != operator.ResUsers+":"+operator.ActionRead {
+		t.Fatalf("grants = %#v", got.Grants)
+	}
+}
+
+func TestOperatorUpdateRole_SystemImmutable(t *testing.T) {
+	h := iamEventTestEngine(t)
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/roles/"+operator.RoleIDSuperadmin.String(), accessSuperadminKey, `{"name":"not-superadmin"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), operator.ErrSystemRoleImmutable.Error()) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func TestOperatorReplaceRolePermissions_SystemImmutable(t *testing.T) {
+	h := iamEventTestEngine(t)
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/roles/"+operator.RoleIDAdmin.String()+"/permissions", accessSuperadminKey, `{"grants":["users:read"]}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), operator.ErrSystemRoleImmutable.Error()) {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func TestOperatorDeleteRole_SystemImmutable(t *testing.T) {
+	h := iamEventTestEngine(t)
+	rec := iamEventDo(h.engine, http.MethodDelete, "/admin/operator/roles/"+operator.RoleIDViewer.String(), accessSuperadminKey, "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), operator.ErrSystemRoleImmutable.Error()) {
 		t.Fatalf("body = %s", rec.Body.String())
 	}
 }

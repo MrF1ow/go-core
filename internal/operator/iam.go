@@ -23,6 +23,7 @@ var (
 	ErrSystemRoleImmutable    = errors.New("system operator roles cannot be modified")
 	ErrRoleNameTaken          = errors.New("operator role name already exists")
 	ErrRoleAssigned           = errors.New("operator role is assigned")
+	ErrRoleReferenced         = errors.New("operator role is referenced by IAM events")
 
 	errUnknownOperatorRole  = errors.New("unknown operator role")
 	errUnknownOperatorGrant = errors.New("unknown operator grant")
