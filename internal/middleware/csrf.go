@@ -52,12 +52,12 @@ func CSRFMiddleware(sessionValidator web.SessionValidator) gin.HandlerFunc {
 		}
 
 		if token == "" {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "CSRF token missing"})
+			abortCSRFForbidden(c)
 			return
 		}
 
 		if !sessionValidator.ValidateCSRFToken(sessionIDStr, token) {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "CSRF token invalid"})
+			abortCSRFForbidden(c)
 			return
 		}
 
@@ -65,4 +65,14 @@ func CSRFMiddleware(sessionValidator web.SessionValidator) gin.HandlerFunc {
 		c.Set(web.CSRFTokenKey, token)
 		c.Next()
 	}
+}
+
+func abortCSRFForbidden(c *gin.Context) {
+	if c.GetHeader("HX-Request") == "true" {
+		c.HTML(http.StatusForbidden, "csrf_forbidden_fragment", guiLayoutData(c))
+		c.Abort()
+		return
+	}
+	c.HTML(http.StatusForbidden, "csrf_forbidden", guiLayoutData(c))
+	c.Abort()
 }

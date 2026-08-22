@@ -125,29 +125,110 @@ func TestRequireOperatorPermission_StillJSON(t *testing.T) {
 	}
 }
 
-func TestCSRFForbiddenDoesNotSendGUIHeader(t *testing.T) {
+const csrfForbiddenCopy = "Reload this page and submit the form again."
+
+type rejectCSRFSessions struct {
+	stubGUISessions
+}
+
+func (s *rejectCSRFSessions) ValidateCSRFToken(string, string) bool {
+	return false
+}
+
+func csrfForbiddenPOST(t *testing.T, validator web.SessionValidator, token string, hxTarget string) *httptest.ResponseRecorder {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
+	renderer, err := web.NewRenderer("/gui")
+	if err != nil {
+		t.Fatal(err)
+	}
 	router := gin.New()
+	router.HTMLRender = renderer
 	router.Use(func(c *gin.Context) {
 		c.Set(web.GUISessionIDKey, "sess")
+		c.Set(web.GUIAdminBasePathKey, "/gui")
+		c.Set(web.GUIAdminUsernameKey, "tester")
 		c.Next()
 	})
-	router.Use(CSRFMiddleware(&stubGUISessions{}))
+	router.Use(CSRFMiddleware(validator))
 	router.POST("/gui/tenants", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 	request := httptest.NewRequest(http.MethodPost, "/gui/tenants", nil)
+	if token != "" {
+		request.Header.Set("X-CSRF-Token", token)
+	}
+	if hxTarget != "" {
+		request.Header.Set("HX-Request", "true")
+		request.Header.Set("HX-Target", hxTarget)
+	}
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
+	return response
+}
 
+func TestCSRFForbiddenDoesNotSendGUIHeader(t *testing.T) {
+	response := csrfForbiddenPOST(t, &stubGUISessions{}, "", "")
 	if response.Code != http.StatusForbidden {
-		t.Fatalf("status = %d", response.Code)
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 	if response.Header().Get(web.GUIForbiddenHeader) != "" {
 		t.Fatalf("CSRF 403 sent %s", web.GUIForbiddenHeader)
 	}
-	if !strings.Contains(response.Header().Get("Content-Type"), "application/json") {
+	if !strings.Contains(response.Header().Get("Content-Type"), "text/html") {
 		t.Fatalf("content type = %q", response.Header().Get("Content-Type"))
+	}
+	body := response.Body.String()
+	if strings.Contains(body, `{"error":"CSRF token missing"}`) {
+		t.Fatalf("JSON body = %s", body)
+	}
+	if strings.HasPrefix(strings.TrimSpace(body), "{") {
+		t.Fatalf("JSON body = %s", body)
+	}
+	if !strings.Contains(body, csrfForbiddenCopy) {
+		t.Fatalf("body = %s", body)
+	}
+	if strings.Contains(body, "You do not have permission") {
+		t.Fatalf("reused IAM copy: %s", body)
+	}
+	if !strings.Contains(body, `id="page-content"`) {
+		t.Fatalf("typed POST missing page template: %s", body)
+	}
+}
+
+func TestCSRFForbiddenHTMXIsFragmentWithoutGUIHeader(t *testing.T) {
+	response := csrfForbiddenPOST(t, &stubGUISessions{}, "", "tenant-form-container")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != "" {
+		t.Fatalf("CSRF 403 sent %s", web.GUIForbiddenHeader)
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, csrfForbiddenCopy) {
+		t.Fatalf("body = %s", body)
+	}
+	if strings.Contains(body, "<nav") {
+		t.Fatalf("HTMX CSRF leaked layout: %s", body)
+	}
+	if strings.Contains(body, `id="tenant-form-container"`) {
+		t.Fatalf("fragment repeated target id: %s", body)
+	}
+}
+
+func TestCSRFInvalidTokenIsHTMLWithoutGUIHeader(t *testing.T) {
+	response := csrfForbiddenPOST(t, &rejectCSRFSessions{}, "nope", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != "" {
+		t.Fatalf("CSRF 403 sent %s", web.GUIForbiddenHeader)
+	}
+	if strings.Contains(response.Body.String(), `{"error":"CSRF token invalid"}`) {
+		t.Fatalf("JSON body = %s", response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), csrfForbiddenCopy) {
+		t.Fatalf("body = %s", response.Body.String())
 	}
 }
 
