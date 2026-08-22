@@ -71,7 +71,7 @@ func (h *Handler) OperatorRosterExport(c *gin.Context) {
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Status(http.StatusOK)
 	writer := csv.NewWriter(c.Writer)
-	if err := writer.Write([]string{"kind", "id", "display_name", "role", "created_at", "last_used_at", "expires_at", "revoked"}); err != nil {
+	if err := writer.Write([]string{"kind", "id", "display_name", "role", "created_at", "last_used_at", "expires_at", "revoked", "disabled"}); err != nil {
 		log.Printf("operator roster csv header: %v", err)
 		return
 	}
@@ -142,18 +142,23 @@ func (h *Handler) rosterAccounts() ([]operator.RosterEntry, error) {
 	}
 	out := make([]operator.RosterEntry, 0, len(accounts))
 	for i := range accounts {
-		account := accounts[i]
-		id := account.ID
-		out = append(out, operator.RosterEntry{
-			Kind:        string(operator.KindGUIAccount),
-			DisplayName: account.Username,
-			RoleName:    h.accountRoleName(account),
-			AccountID:   &id,
-			CreatedAt:   account.CreatedAt,
-			LastUsedAt:  account.LastLoginAt,
-		})
+		out = append(out, accountRosterEntry(accounts[i], h.accountRoleName(accounts[i])))
 	}
 	return out, nil
+}
+
+func accountRosterEntry(account models.AdminAccount, roleName string) operator.RosterEntry {
+	id := account.ID
+	disabled := account.DisabledAt != nil
+	return operator.RosterEntry{
+		Kind:        string(operator.KindGUIAccount),
+		DisplayName: account.Username,
+		RoleName:    roleName,
+		AccountID:   &id,
+		CreatedAt:   account.CreatedAt,
+		LastUsedAt:  account.LastLoginAt,
+		Disabled:    &disabled,
+	}
 }
 
 func (h *Handler) accountRoleName(account models.AdminAccount) string {
@@ -179,6 +184,10 @@ func rosterCSVRow(entry operator.RosterEntry) []string {
 	case entry.AccountID != nil:
 		id = entry.AccountID.String()
 	}
+	disabled := ""
+	if entry.Disabled != nil {
+		disabled = fmt.Sprintf("%t", *entry.Disabled)
+	}
 	return []string{
 		entry.Kind,
 		id,
@@ -188,6 +197,7 @@ func rosterCSVRow(entry operator.RosterEntry) []string {
 		csvTimePtr(entry.LastUsedAt),
 		csvTimePtr(entry.ExpiresAt),
 		fmt.Sprintf("%t", entry.Revoked),
+		disabled,
 	}
 }
 
