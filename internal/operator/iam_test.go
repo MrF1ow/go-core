@@ -104,3 +104,75 @@ func TestParseAssignedAdminRole_AdminChangingSupportToSuperadminDenied(t *testin
 		t.Fatalf("err = %v, want ErrIAMAssignmentDenied", err)
 	}
 }
+
+func TestParseAssignedAdminRole_CustomRoleExistsStamps(t *testing.T) {
+	customID := uuid.New()
+	p := NewPrincipal(KindGUIAccount, RoleSuperadmin, GrantsFor(RoleSuperadmin))
+	exists := func(id uuid.UUID) (bool, error) { return id == customID, nil }
+	id, err := ParseAssignedAdminRole(p, customID.String(), "admin", nil, exists)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id == nil || *id != customID {
+		t.Fatalf("got %v, want custom id", id)
+	}
+}
+
+func TestParseAssignedAdminRole_CustomRoleMissingRejected(t *testing.T) {
+	p := NewPrincipal(KindGUIAccount, RoleSuperadmin, GrantsFor(RoleSuperadmin))
+	exists := func(uuid.UUID) (bool, error) { return false, nil }
+	_, err := ParseAssignedAdminRole(p, uuid.New().String(), "admin", nil, exists)
+	if err == nil {
+		t.Fatal("missing custom role id must fail")
+	}
+	if errors.Is(err, ErrIAMAssignmentDenied) {
+		t.Fatal("missing custom role must not look like an IAM deny")
+	}
+}
+
+func TestParseAssignedAdminRole_ViewerStampCustomDenied(t *testing.T) {
+	customID := uuid.New()
+	p := NewPrincipal(KindAPIKey, RoleViewer, GrantsFor(RoleViewer))
+	exists := func(id uuid.UUID) (bool, error) { return id == customID, nil }
+	_, err := ParseAssignedAdminRole(p, customID.String(), "admin", nil, exists)
+	if !errors.Is(err, ErrIAMAssignmentDenied) {
+		t.Fatalf("err = %v, want ErrIAMAssignmentDenied", err)
+	}
+}
+
+func TestParseCustomGrants_AdminIAMRejected(t *testing.T) {
+	_, err := ParseCustomGrants([]string{ResUsers + ":" + ActionRead, ResAdminIAM + ":" + ActionWrite})
+	if !errors.Is(err, ErrAdminIAMOnCustomRole) {
+		t.Fatalf("err = %v, want ErrAdminIAMOnCustomRole", err)
+	}
+}
+
+func TestParseCustomGrants_UnknownPairRejected(t *testing.T) {
+	_, err := ParseCustomGrants([]string{"not_a_resource:read"})
+	if err == nil {
+		t.Fatal("unknown catalog pair must fail")
+	}
+	if errors.Is(err, ErrAdminIAMOnCustomRole) {
+		t.Fatal("unknown pair must not look like admin_iam deny")
+	}
+}
+
+func TestParseCustomGrants_KnownPairsOK(t *testing.T) {
+	got, err := ParseCustomGrants([]string{ResUsers + ":" + ActionRead, ResLogs + ":" + ActionRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+}
+
+func TestPrincipalHas_ZeroGrantsDenies(t *testing.T) {
+	p := NewPrincipal(KindAPIKey, "auditor", nil)
+	if p.Has(ResUsers, ActionRead) {
+		t.Fatal("zero-grant custom role allowed users:read")
+	}
+	if p.Has(ResAdminIAM, ActionWrite) {
+		t.Fatal("zero-grant custom role allowed admin_iam:write")
+	}
+}

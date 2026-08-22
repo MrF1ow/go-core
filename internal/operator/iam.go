@@ -19,6 +19,12 @@ var ErrIAMAssignmentDenied = errors.New("operator IAM assignment denied")
 
 var errUnknownOperatorRole = errors.New("unknown operator role")
 
+// ErrAdminIAMOnCustomRole is returned when a custom role grant list includes admin_iam.
+var ErrAdminIAMOnCustomRole = errors.New("custom roles cannot grant admin_iam")
+
+// RoleExistsFunc reports whether a role id exists in operator_roles.
+type RoleExistsFunc func(id uuid.UUID) (bool, error)
+
 const adminAPIKeyType = "admin"
 
 func systemRoles() []SystemRole {
@@ -45,7 +51,7 @@ func AssignableSystemRoles(p Principal) []SystemRole {
 // not a silent coerce. Unknown UUIDs stay errors. current is the key's existing
 // role on update; nil on create. Posting the same role as current is a no-op
 // and does not require IAM.
-func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string, current *uuid.UUID) (*uuid.UUID, error) {
+func ParseAssignedAdminRole(p Principal, postedRoleID, keyType string, current *uuid.UUID, exists ...RoleExistsFunc) (*uuid.UUID, error) {
 	if keyType != adminAPIKeyType {
 		return nil, nil
 	}
@@ -86,4 +92,10 @@ func SystemRoleName(id uuid.UUID) string {
 		}
 	}
 	return ""
+}
+
+// ParseCustomGrants maps posted resource:action keys onto catalog permissions.
+// Unknown pairs are errors. admin_iam on a custom role is ErrAdminIAMOnCustomRole.
+func ParseCustomGrants(keys []string) ([]Permission, error) {
+	return nil, errUnknownOperatorRole
 }
