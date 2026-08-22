@@ -1,150 +1,169 @@
 # Operator IAM next
 
 **Date:** 2026-08-22
-**Status:** sequence, not an implementation spec
-**Depends on:** leftover IAM on main ([#14](https://github.com/MrF1ow/go-core/pull/14)–[#19](https://github.com/MrF1ow/go-core/pull/19))
+**Status:** plan, not implemented
+**Depends on:** leftover IAM on main (PRs 14 through 19)
 **Parent leftover:** [2026-08-22-operator-iam-leftover](../2026-08-22-operator-iam-leftover/overview.md) (shipped)
 
-The doors are locked. JSON can list who holds which role, record who changed it, and store allow/deny on operator writes. This directory is the order of the leftover exclusions plus the logging work SOC 2 actually needs.
+The doors are locked. JSON can list who holds which role, record who changed it, and store allow/deny on operator writes. This directory is the leftover exclusions plus the log work a SOC 2 claim actually needs.
 
-Do not implement from this file. Each row below is its own spec PR, then its own impl PR. Same rule as leftover: schema exclusive `sqlc generate`, no mega-diff.
+Do not implement from the overview. Implement from the phase files, one impl PR per [Delivery](#delivery) row. Same leftover rule: `internal/sqlcgen` is one writer. `internal/schema.sql` is one writer per wave. `internal/coreapp/app.go` is one writer per wave. Do not stand up Orchestrate. Five impl PRs fit one agent.
 
-## What is already on main
+[PR #7](https://github.com/MrF1ow/go-core/pull/7) is stale. Close it. Do not implement `docs/specs/2026-08-21-operator-rbac/`.
 
-Operator catalog, seeded roles, `Principal.Has`, JSON `requireOp`, GUI `requireGUI`, sidebar omit, API-key IAM stamp, JSON roster and CSV export, `018` evidence tables, access-log writes, IAM events, JSON key role PUT, JSON account create/role/disable, last-superadmin refuse, `disabled_at` on GUI login and roster.
+## Should this be a loop?
 
-End-user `activity_logs` already have severity, retention, cleanup, IP, UA, anomaly detection, and GUI export. App-user `roles` / `user_roles` are a different domain and already gated. This sequence does not reopen them.
+Yes for impl PRs after this plan is reviewed. No for a second plan PR per slice. This directory is the spec.
 
-## What this is not
+## Context
 
-[PR #7](https://github.com/MrF1ow/go-core/pull/7) is a stale ten-phase plan. Leftover replaced its phases 6–9. GUI shell replaced phase 10. Close it. Do not implement `docs/specs/2026-08-21-operator-rbac/`. Do not write a second copy of leftover.
+Operator catalog, seeded roles, `Principal.Has`, JSON `requireOp`, GUI `requireGUI`, sidebar omit, API-key IAM stamp, JSON roster and CSV, `018` evidence tables, access-log writes, IAM events, JSON key role PUT, JSON account create/role/disable, last-superadmin refuse, and `disabled_at` are on main.
 
-SOC 2 Type I/II organizational evidence (policies, HR, vendor reviews) is out. This sequence is the product controls an auditor will ask the module to show: unique privileged identities, least privilege that is actually fail-closed, access reviews, privileged-action history, and retained security logs.
+`principalForDBKey` still mints `SuperadminPrincipal` when `api_keys.operator_role_id` is null. CSRF still JSON-aborts. There is no `admin_iam` nav row. Operator evidence tables have no retention and no CSV. `ParseAssignedAdminRole` rejects any id that is not one of the four frozen roles.
 
-Still later, not in this sequence:
+App-user `roles` / `user_roles` and `activity_logs` stay a different domain. Do not reopen them.
 
-- Forced must-expire on admin keys (optional `expires_at` stays; forever remains the default)
+## Scope
+
+Included, across the impl PRs in [Delivery](#delivery):
+
+- Migration `019`: backfill leftover null admin-key roles to viewer, then `CHECK (key_type <> 'admin' OR operator_role_id IS NOT NULL)`
+- Delete the fail-open branch. Null admin-key role is 401, same as unknown
+- CSV export for access logs and IAM events, same cap as roster
+- Age-based cleanup of both evidence tables (365 days)
+- CSRF HTML 403 that does not send `X-GUI-Forbidden`
+- GUI roster, IAM events, and access logs under one System nav row
+- GUI mutations for account create, role change, and disable
+- Custom operator roles: stamp, JSON, GUI. No `admin_iam` grants on non-system roles
+
+Excluded, still later:
+
+- Forced must-expire on admin keys
 - Per-app operators
-- Dashboard stats vs custom roles (stats stay `dashboard:read` until a dedicated spec after custom roles)
-- IP/UA columns on operator access logs (v1 `AccessRecord` has none; do not sneak them into retention)
+- Dashboard stats vs custom roles (stats stay `dashboard:read`)
+- IP or UA on `operator_access_logs`
+- SOC 2 Type I/II organizational evidence
+- Implementing PR #7
 
-## Order
+## Constraints
 
-Serial for humans. Note where writers do not overlap if two agents run at once.
-
-| # | Spec | Why this slot | SOC 2 / RBAC |
-|---|------|---------------|--------------|
-| 0 | Close PR #7 | Housekeeping. No spec. Comment pointing at #8–#19 and this directory. | Stops a stale plan from shipping a second catalog. |
-| 1 | Null-key fail-open cutover | Last hole that makes `Has` a lie. JSON roster already shows empty role names on null `api_keys.operator_role_id`. `principalForDBKey` still mints `SuperadminPrincipal`. | CC6 least privilege. A null admin key is standing superadmin. |
-| 2 | Operator evidence retention and export | Access logs and IAM events are append-only with no retention, no cleanup, no CSV. Auditors cannot keep or produce them the way they can `activity_logs`. No new GUI. | CC7 log retention and evidence export. |
-| 3 | CSRF JSON-to-HTML | Independent of IAM. HTMX 2.0.4 does not swap 4xx. CSRF still `AbortWithStatusJSON`. GUI IAM mutations will POST through this middleware. | Existing CSRF control. HTML so a failed GUI write is a page, not a JSON blob. |
-| 4 | GUI IAM: roster, `admin_iam` nav, events, access logs | Leftover said JSON before GUI, and no sidebar without a page. JSON is on main. One spec for the whole `admin_iam` section, not a nav row plus three later page specs. | Access reviews and log review in the GUI. |
-| 5 | Custom operator roles UI | Catalog already has `is_system`. Custom roles are useless while null keys are superadmin, and they live under the `admin_iam` nav from spec 4. | Least privilege beyond the four frozen roles. Not a Type I blocker if those four are documented. |
-
-Do not start 5 before 1. Do not start 4 mutations before 3. Spec 4 may ship read-only pages before 3 if mutations wait for CSRF HTML.
-
-Spec 1 and spec 2 can overlap if 1 does not run `sqlc generate` and 2's first PR is export-only. Retention that adds columns is the exclusive sqlc writer. Do not dual-write `internal/schema.sql`.
-
-Spec 3 can overlap 1 and 2. It touches `internal/middleware/csrf.go` and templates. It must not send `X-GUI-Forbidden`. That header is IAM deny, not CSRF. GUI shell phase 3 already locked that.
-
-## Spec 1 — Null-key fail-open cutover
-
-`internal/middleware/admin_auth.go` `principalForDBKey`: null `OperatorRoleID` is still in-memory superadmin. Migration `016` backfilled existing admin keys. New GUI creates stamp viewer. The branch remains for rows that slipped through or for a future writer that forgets the stamp.
-
-The spec must decide, in writing:
-
-- After cutover, null admin-key role is 401, not 500, not superadmin.
+- Same catalog. Same `Principal.Has`. No Redis grant store. No `Grants()` lattice.
+- Next migration is `019_`. Update `internal/schema.sql` in the same PR. `sqlc.yaml` reads `internal/schema.sql`.
+- Fail-open does not run `sqlc generate`. The CHECK needs no new query. Custom roles is the exclusive `sqlc generate` writer (new insert/update/delete queries on tables that already exist).
+- JSON operator routes stay on `admin.Handler` in `operator_handler.go`. GUI pages stay on `GUIHandler`. `internal/operator` does not import `admin` or `middleware`.
+- Register JSON as `adminRoutes.GET("/operator/...")`. Do not `Group("/operator")` unless the inventory lists that ident.
+- GUI deny stays `AbortGUIForbidden` plus `X-GUI-Forbidden: 1`. CSRF must not send that header. `TestCSRFForbiddenDoesNotSendGUIHeader` stays, and it must stop requiring JSON.
+- `activity_logs` stays end-user. Operator evidence stays the `018` tables.
+- Access insert policy is unchanged: deny always, write allow always, env-key allow always, ordinary read allows skip.
+- Last-superadmin still counts enabled GUI accounts with role superadmin.
+- No control-ui. Verify with `go test` and httptest.
 - App keys keep null `operator_role_id`. Do not `SET NOT NULL` on the whole column.
-- Backfill remaining `key_type = 'admin' AND operator_role_id IS NULL` before any CHECK.
-- Roster empty role name goes away for admin keys. Treat a leftover empty name as a test failure.
 - Env key stays synthetic superadmin. That is break-glass, not fail-open.
 
-Do not fold custom roles or GUI into this spec.
+## Alternatives
 
-## Spec 2 — Operator evidence retention and export
+**A. One plan directory, then a wave of impl PRs (chosen).** The leftover exclusions are no longer unknown. Five spec PRs stall the lock. Sequence work into verifiable units. Separate before serializing `sqlcgen`, `schema.sql`, and `app.go`.
 
-`activity_logs` already document retention (365/180/90) and export. `operator_access_logs` and `operator_iam_events` do not.
+**B. Spec plus impl pair per leftover exclusion.** The user asked to spec the sequence so it can be built. Five plan reviews for one program.
 
-The spec must decide, in writing:
+**C. One impl PR for everything.** A reviewer cannot reject CSRF HTML without also rejecting custom roles.
 
-- Retention days for IAM events vs access logs. Default both to the critical activity-log window (365) unless a reason is written.
-- Cleanup reuses the activity-log worker pattern or a sibling. Failed delete logs. No row updates. Append-only stays append-only.
-- CSV export on `GET /admin/operator/access-logs/export` and `GET /admin/operator/iam-events/export`. Same 10_000 cap and `X-Export-Truncated` as roster.
-- Document the v1 insert policy in [activity-logging.md](../../activity-logging.md) or a sibling: deny always, write allow always, env-key allow always, ordinary read allows skip.
-- Do not log roster GETs as IAM history. That leftover reject still holds.
-- Do not add IP/UA in this spec.
+Fail-open, contested leftover:
 
-Empty tables in production after leftover schema-only was acceptable. Unbounded tables without a retention number are not acceptable for a SOC 2 claim.
+- **401 on null admin role (chosen).** Same as expired and unknown. The row is not a valid operator.
+- 500. Looks like a server bug. It is a bad row.
+- Coerce to viewer at auth time. Hides corruption. Roster would lie.
 
-## Spec 3 — CSRF JSON-to-HTML
+CSRF, contested leftover:
 
-GUI deny is already HTML plus `X-GUI-Forbidden: 1`. CSRF and settings env-lock must stay off that header. The JSON body is the leftover.
+- **HTML body, no `X-GUI-Forbidden`, HTMX stays unswapped (chosen).** GUI shell phase 3 locked that header to IAM deny.
+- Reuse `forbidden.tmpl` and send the header. CSRF is not missing a grant.
+- Global 4xx swap. GUI shell rejected it.
 
-The spec must decide, in writing:
+Retention:
 
-- HTML body for missing and invalid CSRF. Same username / CSRF / `Can` / `NavGroups` ingredients `page(c)` uses, or a dedicated small template. Do not name it `"error"`.
-- Typed URL POST gets a real page. HTMX POST without `X-GUI-Forbidden` stays unswapped unless the spec picks a different, tested path (toast, retarget). Do not turn on global 4xx swap.
-- Settings env-lock stays its own 403. Do not reuse the CSRF template for env-lock unless the spec says they are the same user-visible class.
-- JSON `/admin` is unchanged.
+- **`DELETE WHERE at < now() - interval '365 days'` (chosen).** One window. No `expires_at`. Activity logs need per-row expiry because severity splits 365/180/90. Operator tables do not.
+- Copy `expires_at` onto both tables. Extra migration and sqlc for no extra policy.
+- Export only. Unbounded tables.
 
-Do not start GUI IAM write CTAs until this ships, or keep those CTAs out of spec 4's first impl PR.
+Custom `admin_iam` grants:
 
-## Spec 4 — GUI IAM
+- **Refuse on non-system roles (chosen).** That is how seeded `admin` is defined.
+- Allow. A custom role becomes a second superadmin.
+- Cannot-grant-above-self lattice. Leftover rejected `Grants()`.
 
-`web/nav.go` still asserts `admin_iam` is absent. JSON already has roster, access logs, IAM events, account CRUD, and key role PUT.
+## Applicable skills
 
-One spec. Pages under `/gui/operator/...` (or a single `/gui/iam` with HTMX tabs). `requireGUI(admin_iam, read|write)` on each registration. Inventory scan still has to see them.
-
-The spec must decide, in writing:
-
-- Nav: one System row, label like "Operator IAM", resource `admin_iam`, action `read`. Superadmin sees it. Admin does not. Viewer does not. Update `nav_test.go`.
-- Roster page reuses `BuildRoster` / `loadRoster`. Do not add roster SQL.
-- Events page and access-log page reuse the JSON list types. Filters that JSON already has (decision, target key/account).
-- Read-only is a legal first impl PR. Mutations (create viewer account, change role, disable) are a second impl PR in the same spec, after CSRF HTML.
-- Write CTA omit via `Can`. Tampered POST still 403 from `requireGUI`.
-- Last-superadmin 409 is HTML, not JSON, on GUI mutations.
-- Do not add custom-role create here.
-
-Experience first: a sidebar row that 404s is worse than no row. Land page plus nav in the same commit.
-
-## Spec 5 — Custom operator roles UI
-
-Schema already has `operator_roles.is_system` and `operator_role_permissions`. Frozen IDs stay. `ParseAssignedAdminRole` currently stamps system roles. Custom roles need a stamp that is not "any UUID the poster likes."
-
-The spec must decide, in writing:
-
-- Create/edit/delete only non-system roles. System names are not writable.
-- Grant editor is the frozen catalog checkboxes, not free-text `resource:action`.
-- `admin_iam:*` on a custom role is allowed only if the spec says so. Default no: that is how `admin` is already defined.
-- Assign custom roles through the same GUI/JSON paths as system roles once the stamp accepts them.
-- Dashboard stats stay `dashboard:read`. Do not invent per-role widgets here.
-- Fail-open is already gone. A custom role with zero grants is deny, not superadmin.
+- `go-core` hub, then `admin-gui.md`, `route-map.md`, `data-model.md`, `security.md`
+- `how` over `principalForDBKey`, `CSRFMiddleware`, `AbortGUIForbidden`, `ParseAssignedAdminRole`, `web/nav.go`, and `internal/coreapp/app.go` `guiAuth` before those files change
+- `interrogate` before marking Fail-open or Custom-roles ready
+- `unslop` on docs and PR copy
+- `/deslop` before each commit
 
 ## Delivery
 
-| Step | Artifact | Base |
-|------|----------|------|
-| 0 | Close [PR #7](https://github.com/MrF1ow/go-core/pull/7) | n/a |
-| 1a | Fail-open spec PR | `main` |
-| 1b | Fail-open impl PR | 1a |
-| 2a | Evidence retention/export spec PR | `main` |
-| 2b | Evidence impl PR | 2a (stack under 1b if both touch `schema.sql`) |
-| 3a | CSRF spec PR | `main` |
-| 3b | CSRF impl PR | 3a |
-| 4a | GUI IAM spec PR | `main` |
-| 4b | GUI IAM read-only impl | 4a, after leftover JSON (already main) |
-| 4c | GUI IAM mutations impl | 4b and 3b |
-| 5a | Custom roles spec PR | after 4b so the nav exists |
-| 5b | Custom roles impl PR | 5a and 1b |
+| PR | Phases | Base | Parallel |
+|----|--------|------|----------|
+| Plan (this directory) | docs | `main` | no |
+| Fail-open | [1](phase-1-fail-open-schema.md), [2](phase-2-fail-open-auth.md) | `main` | with CSRF, with Evidence export |
+| Evidence export | [3](phase-3-evidence-export.md) | `main` | with Fail-open, CSRF |
+| Evidence retention | [4](phase-4-evidence-retention.md) | Evidence export | serialize with Fail-open if both touch `schema.sql`. They should not |
+| CSRF | [5](phase-5-csrf-html.md) | `main` | with Fail-open and Evidence |
+| GUI roster | [6](phase-6-gui-nav-roster.md) | `main` | with CSRF if read-only |
+| GUI evidence pages | [7](phase-7-gui-evidence-pages.md) | GUI roster | no. Shared `gui_handler` and nav |
+| GUI mutations | [8](phase-8-gui-mutations.md) | GUI evidence pages and CSRF | no |
+| Custom stamp | [9](phase-9-custom-stamp.md) | Fail-open | exclusive `sqlc generate` |
+| Custom roles UI | [10](phase-10-custom-roles-ui.md) | Custom stamp and GUI roster | no |
 
-Do not open one spec that covers 1–5. Leftover already proved a reviewer cannot reject fail-open without also rejecting roster when they share a diff.
+Close [PR #7](https://github.com/MrF1ow/go-core/pull/7) as soon as this plan is up. No phase file.
+
+## Phases
+
+1. [Fail-open schema](phase-1-fail-open-schema.md)
+2. [Fail-open auth](phase-2-fail-open-auth.md)
+3. [Evidence export](phase-3-evidence-export.md)
+4. [Evidence retention](phase-4-evidence-retention.md)
+5. [CSRF HTML](phase-5-csrf-html.md)
+6. [GUI nav and roster](phase-6-gui-nav-roster.md)
+7. [GUI evidence pages](phase-7-gui-evidence-pages.md)
+8. [GUI mutations](phase-8-gui-mutations.md)
+9. [Custom role stamp](phase-9-custom-stamp.md)
+10. [Custom roles UI](phase-10-custom-roles-ui.md)
+
+Companion: [testing.md](testing.md).
 
 ## Verification
 
-Each later spec owns its merge bar. This sequence is done when 1b has merged (fail-closed keys) and 2b has merged (retained, exportable operator evidence). GUI and custom roles make that operable. They are not the SOC 2 log control.
+```
+gofmt -l on touched Go files (empty)
+go test -count=1 ./internal/operator ./internal/admin ./internal/middleware ./internal/coreapp ./web ./cmd/setup
+```
+
+Full merge bar is in [testing.md](testing.md). Each phase has its own check. `make ci` before an impl PR leaves draft.
+
+No control-ui in this environment. Do not claim browser verification.
+
+## Implementation guidance
+
+- Run **how** on `internal/middleware/admin_auth.go` `principalForDBKey`, `internal/middleware/csrf.go`, `internal/middleware/gui_permission.go` `AbortGUIForbidden` / `guiLayoutData`, `internal/operator/iam.go` `ParseAssignedAdminRole`, `web/nav.go`, and `internal/coreapp/app.go` `guiAuth` before the wave that edits them.
+- **Foundational thinking.** CHECK and backfill before deleting the fail-open branch. Stamp before custom UI. Nav types before pages.
+- **Boundary discipline.** `ParseAssignedAdminRole` stays pure. CSRF middleware writes HTML and aborts. It does not call `Has`. Last-superadmin stays `WouldLeaveLastSuperadmin`.
+- **Type system discipline.** Admin keys with null role are unrepresentable after `019`. App keys keep the pointer. `is_system` is the custom vs frozen split. Do not add `is_custom`.
+- **Model the domain.** One System nav row for roster, events, and access logs. CSRF is a session-token miss, not an IAM deny. Custom roles with zero grants are deny, not superadmin.
+- **Encode lessons in structure.** Pin `019` in `catalog_sql_test.go`. CSRF test asserts HTML and no `X-GUI-Forbidden`. Superadmin nav test asserts the IAM row. `requireGUI` inventory covers new `guiAuth` lines.
+- **Build the lever.** httptest through `requireOp` and `requireGUI` on the real Gin group. A unit `Has` is not the merge bar.
+- **Laziness protocol.** Reuse `BuildRoster`, `loadRoster`, roster CSV, `guiLayoutData`, `ListOperatorRoles`, `RoleGrants`, and the activity-log cleanup worker shape. Do not add `expires_at` on operator tables. Do not add roster SQL.
+- **Experience first.** Nav and roster page land in the same commit. CSRF HTML lands before GUI write CTAs. Empty Email heading rule still holds: no empty IAM heading.
+- **Subtract before you add.** Delete the fail-open branch. Do not leave a config flag that restores it.
+- **Migrate callers then delete.** `SuperadminPrincipal` for DB keys goes away in phase 2. Env key still uses it.
+- **Outcome-oriented execution.** Empty evidence tables after leftover schema-only was fine. Unbounded tables after this plan are not. Dual fail-open/fail-closed is not a shippable middle.
+- **Separate before serializing.** Custom stamp owns `sqlc generate`. Fail-open owns `019` and `schema.sql`. GUI roster owns the first `guiAuth` `/operator` lines.
+- **Never block on the human** for reversible internals. Do not change seeded role names.
+- **Interrogate** before marking Fail-open or Custom-roles ready.
+- Cursor babysit after each impl PR leaves draft.
 
 ## Consumer and maintainer
 
-Consumer. After leftover, a superadmin key can already export the roster and list access logs over JSON. After spec 1, a null-role admin key is 401. After spec 2, those JSON lists have CSV and a retention number. After spec 4, a superadmin cookie can do the same review in `/gui` without a JSON client.
+Consumer. After leftover, a superadmin key can already export the roster over JSON. After Fail-open, a null-role admin key is 401. After Evidence, those JSON lists have CSV and a 365-day cleanup. After GUI roster, a superadmin cookie can review operators in `/gui` without a JSON client. After Custom roles, that cookie can mint a job that is not one of the four frozen names, and it still cannot grant `admin_iam`.
 
-Maintainer. Next spec to write is fail-open. Then evidence retention/export. CSRF may be drafted in parallel. Do not start custom roles because they feel like "real RBAC." The four frozen roles plus fail-closed plus retained logs are the SOC 2 path.
+Maintainer. Next impl after this plan is Fail-open, not custom roles. CSRF may be drafted in parallel. Do not start custom roles because they feel like real RBAC. The four frozen roles plus fail-closed plus retained logs are the SOC 2 path.

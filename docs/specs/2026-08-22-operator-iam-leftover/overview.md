@@ -1,7 +1,7 @@
 # Operator IAM leftover
 
 **Date:** 2026-08-22
-**Status:** shipped on main ([#14](https://github.com/MrF1ow/go-core/pull/14)–[#19](https://github.com/MrF1ow/go-core/pull/19)). Do not implement this directory again.
+**Status:** shipped on main (PRs 14 through 19). Do not implement this directory again.
 **Depends on:** [PR #12](https://github.com/MrF1ow/go-core/pull/12) (merged). JSON `requireOp` and GUI `requireGUI` are on main.
 **Parent:** [PR #7](https://github.com/MrF1ow/go-core/pull/7) old phases 6 through 9. Do not implement those files. This directory replaced them.
 **Next:** [2026-08-22 operator next](../2026-08-22-operator-next/overview.md)
