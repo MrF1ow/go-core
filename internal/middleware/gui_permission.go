@@ -28,10 +28,12 @@ func RequireGUIPermission(resource, action string) gin.HandlerFunc {
 			return
 		}
 		if !p.Has(resource, action) {
+			maybeLogOperatorAccess(c, p, resource, action, operator.DecisionDeny, http.StatusForbidden)
 			AbortGUIForbidden(c)
 			return
 		}
 		c.Next()
+		maybeLogOperatorAccess(c, p, resource, action, operator.DecisionAllow, c.Writer.Status())
 	}
 }
 

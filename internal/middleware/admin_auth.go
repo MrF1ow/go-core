@@ -105,9 +105,11 @@ func RequireOperatorPermission(resource, action string) gin.HandlerFunc {
 			return
 		}
 		if !p.Has(resource, action) {
+			maybeLogOperatorAccess(c, p, resource, action, operator.DecisionDeny, http.StatusForbidden)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
 			return
 		}
 		c.Next()
+		maybeLogOperatorAccess(c, p, resource, action, operator.DecisionAllow, c.Writer.Status())
 	}
 }

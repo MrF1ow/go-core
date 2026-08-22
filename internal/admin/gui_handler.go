@@ -72,8 +72,9 @@ type GUIHandler struct {
 	TrustedDeviceRepo *twofa.TrustedDeviceRepository // Trusted device repository (nil = feature disabled)
 	HealthHandler     *healthpkg.Handler             // System health + metrics (nil = monitoring disabled)
 	OperatorRepo      *operator.Repository           // Operator IAM lookups (nil = roles unavailable)
-	AbortForbidden    func(*gin.Context)             // HTML 403; wired to middleware.AbortGUIForbidden
-	AbortInternal     func(*gin.Context)             // HTML 500; wired to middleware.AbortGUIInternal
+	RecordIAM         func(operator.IAMEvent)
+	AbortForbidden    func(*gin.Context) // HTML 403; wired to middleware.AbortGUIForbidden
+	AbortInternal     func(*gin.Context) // HTML 500; wired to middleware.AbortGUIInternal
 	createAPIKey      func(*models.ApiKey) error
 	getAPIKey         func(string) (*models.ApiKey, error)
 	updateAPIKey      func(id, name, description, scopes string, operatorRoleID *uuid.UUID, expiresAt *time.Time) error
@@ -2072,6 +2073,15 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to create API key. Please try again.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
 	}
+	if keyType == KeyTypeAdmin && apiKey.OperatorRoleID != nil && apiKey.ID != uuid.Nil {
+		keyID := apiKey.ID
+		h.writeIAMEvent(c, operator.IAMEvent{
+			TargetKind:  operator.KindAPIKey,
+			TargetKeyID: &keyID,
+			NewRoleID:   apiKey.OperatorRoleID,
+			Action:      operator.ActionCreatePrincipal,
+		})
+	}
 
 	// Clear the form and trigger list refresh
 	c.Header("HX-Trigger", "apiKeyListRefresh")
@@ -2111,10 +2121,22 @@ func (h *GUIHandler) ApiKeyRevokeConfirm(c *gin.Context) {
 // PUT /gui/api-keys/:id/revoke
 func (h *GUIHandler) ApiKeyRevoke(c *gin.Context) {
 	id := c.Param("id")
+	var targetID *uuid.UUID
+	if parsed, err := uuid.Parse(id); err == nil {
+		copied := parsed
+		targetID = &copied
+	}
 	if err := h.Repo.RevokeApiKey(id); err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to revoke API key.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
+	}
+	if targetID != nil {
+		h.writeIAMEvent(c, operator.IAMEvent{
+			TargetKind:  operator.KindAPIKey,
+			TargetKeyID: targetID,
+			Action:      operator.ActionRevokeKey,
+		})
 	}
 
 	c.Header("HX-Trigger", "apiKeyRevoked")
@@ -2289,6 +2311,16 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to update API key.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
+	}
+	if existing.KeyType == KeyTypeAdmin && !uuidPtrsEqual(existing.OperatorRoleID, roleID) {
+		keyID := existing.ID
+		h.writeIAMEvent(c, operator.IAMEvent{
+			TargetKind:  operator.KindAPIKey,
+			TargetKeyID: &keyID,
+			OldRoleID:   existing.OperatorRoleID,
+			NewRoleID:   roleID,
+			Action:      operator.ActionAssign,
+		})
 	}
 
 	c.Header("HX-Trigger", "apiKeyListRefresh")
