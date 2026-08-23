@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -180,5 +181,83 @@ func TestRequireOperatorPermission_NilLoggerStillAllows(t *testing.T) {
 	)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRequireOperatorPermission_ViewerWriteCapturesClient(t *testing.T) {
+	recs := captureAccessLogs(t)
+	raw, store, grants := viewerAdminStore(t)
+	w := adminRequest(
+		http.MethodPost,
+		AdminAuthMiddleware("", store, grants),
+		RequireOperatorPermission(operator.ResTenants, operator.ActionWrite),
+		raw,
+		map[string]string{
+			"X-Forwarded-For": "203.0.113.9",
+			"User-Agent":      "AccessClientTest/1.0",
+		},
+	)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	if len(*recs) != 1 {
+		t.Fatalf("logged %d records, want 1: %#v", len(*recs), *recs)
+	}
+	got := (*recs)[0]
+	if got.Decision != operator.DecisionDeny {
+		t.Fatalf("decision = %q", got.Decision)
+	}
+	if got.IPAddress != "203.0.113.9" {
+		t.Fatalf("ip = %q", got.IPAddress)
+	}
+	if got.UserAgent != "AccessClientTest/1.0" {
+		t.Fatalf("ua = %q", got.UserAgent)
+	}
+}
+
+func TestRequireOperatorPermission_TruncatesUserAgentAt512(t *testing.T) {
+	recs := captureAccessLogs(t)
+	raw, store, grants := viewerAdminStore(t)
+	ua := strings.Repeat("a", 600)
+	w := adminRequest(
+		http.MethodPost,
+		AdminAuthMiddleware("", store, grants),
+		RequireOperatorPermission(operator.ResTenants, operator.ActionWrite),
+		raw,
+		map[string]string{"User-Agent": ua},
+	)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	if len(*recs) != 1 {
+		t.Fatalf("logged %d records, want 1: %#v", len(*recs), *recs)
+	}
+	got := (*recs)[0].UserAgent
+	if len(got) != 512 {
+		t.Fatalf("ua len = %d, want 512", len(got))
+	}
+	if got != ua[:512] {
+		t.Fatal("ua was not truncated to the first 512 bytes")
+	}
+}
+
+func TestRequireOperatorPermission_MissingUserAgentIsUnknown(t *testing.T) {
+	recs := captureAccessLogs(t)
+	raw, store, grants := viewerAdminStore(t)
+	w := adminRequest(
+		http.MethodPost,
+		AdminAuthMiddleware("", store, grants),
+		RequireOperatorPermission(operator.ResTenants, operator.ActionWrite),
+		raw,
+		nil,
+	)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	if len(*recs) != 1 {
+		t.Fatalf("logged %d records, want 1: %#v", len(*recs), *recs)
+	}
+	if got := (*recs)[0].UserAgent; got != "Unknown" {
+		t.Fatalf("ua = %q, want Unknown", got)
 	}
 }

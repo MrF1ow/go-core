@@ -269,6 +269,7 @@ func writeOperatorCSV(c *gin.Context, filename string, truncated bool, header []
 
 var accessLogCSVHeader = []string{
 	"id", "at", "kind", "key_id", "account_id", "role_name", "method", "path", "decision", "resource", "action", "status",
+	"ip_address", "user_agent",
 }
 
 func accessLogCSVRow(rec operator.AccessRecord) []string {
@@ -285,6 +286,8 @@ func accessLogCSVRow(rec operator.AccessRecord) []string {
 		rec.Resource,
 		rec.Action,
 		strconv.Itoa(rec.Status),
+		rec.IPAddress,
+		rec.UserAgent,
 	}
 }
 
