@@ -35,6 +35,28 @@ The reference app serves Swagger at `/swagger/index.html`. Request and response 
 | `/admin/users/:id/trusted-devices` | DELETE | Revoke all trusted devices for a user | Admin |
 | `/admin/activity-logs/export` | GET | Export activity logs as CSV | Admin |
 
+Operator IAM routes need `admin_iam:read` or `admin_iam:write` on the key's role. A viewer key is 403. See [Operator IAM](specs/2026-08-22-operator-iam.md).
+
+### Operator IAM
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/admin/operator/roster` | GET | List env key, admin keys, and GUI accounts | Admin |
+| `/admin/operator/roster/export` | GET | Export the roster as CSV | Admin |
+| `/admin/operator/access-logs` | GET | List operator allow/deny rows | Admin |
+| `/admin/operator/access-logs/export` | GET | Export access logs as CSV | Admin |
+| `/admin/operator/iam-events` | GET | List role and principal changes | Admin |
+| `/admin/operator/iam-events/export` | GET | Export IAM events as CSV | Admin |
+| `/admin/operator/keys/:id/role` | PUT | Stamp an admin key's operator role | Admin |
+| `/admin/operator/accounts` | POST | Create a viewer GUI operator | Admin |
+| `/admin/operator/accounts/:id/role` | PUT | Change a GUI operator's role | Admin |
+| `/admin/operator/accounts/:id/disable` | POST | Disable a GUI operator | Admin |
+| `/admin/operator/roles` | GET | List operator roles | Admin |
+| `/admin/operator/roles` | POST | Create a custom operator role | Admin |
+| `/admin/operator/roles/:id` | PUT | Update a custom operator role name or description | Admin |
+| `/admin/operator/roles/:id/permissions` | PUT | Replace grants on a custom role | Admin |
+| `/admin/operator/roles/:id` | DELETE | Delete an unused custom role | Admin |
+
 ### IP Rules (per application)
 
 | Endpoint | Method | Description | Auth |
