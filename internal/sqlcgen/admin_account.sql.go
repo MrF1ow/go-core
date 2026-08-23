@@ -47,16 +47,17 @@ func (q *Queries) CountEnabledSuperadminAccounts(ctx context.Context, operatorRo
 }
 
 const createAdminAccount = `-- name: CreateAdminAccount :one
-INSERT INTO admin_accounts (username, email, password_hash, operator_role_id)
-VALUES ($1, $2, $3, $4)
+INSERT INTO admin_accounts (username, email, password_hash, operator_role_id, app_id)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING id, username, email, password_hash, operator_role_id, two_fa_enabled, two_fa_method, two_fa_secret, two_fa_recovery_codes, magic_link_enabled, backup_email, backup_email_verified, created_at, updated_at, last_login_at, disabled_at, app_id
 `
 
 type CreateAdminAccountParams struct {
-	Username       string    `json:"username"`
-	Email          *string   `json:"email"`
-	PasswordHash   string    `json:"password_hash"`
-	OperatorRoleID uuid.UUID `json:"operator_role_id"`
+	Username       string      `json:"username"`
+	Email          *string     `json:"email"`
+	PasswordHash   string      `json:"password_hash"`
+	OperatorRoleID uuid.UUID   `json:"operator_role_id"`
+	AppID          pgtype.UUID `json:"app_id"`
 }
 
 func (q *Queries) CreateAdminAccount(ctx context.Context, arg CreateAdminAccountParams) (AdminAccount, error) {
@@ -65,6 +66,7 @@ func (q *Queries) CreateAdminAccount(ctx context.Context, arg CreateAdminAccount
 		arg.Email,
 		arg.PasswordHash,
 		arg.OperatorRoleID,
+		arg.AppID,
 	)
 	var i AdminAccount
 	err := row.Scan(
@@ -333,6 +335,22 @@ type SetAdminAccountDisabledAtParams struct {
 
 func (q *Queries) SetAdminAccountDisabledAt(ctx context.Context, arg SetAdminAccountDisabledAtParams) error {
 	_, err := q.db.Exec(ctx, setAdminAccountDisabledAt, arg.ID, arg.DisabledAt)
+	return err
+}
+
+const updateAdminAccountAppID = `-- name: UpdateAdminAccountAppID :exec
+UPDATE admin_accounts
+SET app_id = $2, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateAdminAccountAppIDParams struct {
+	ID    uuid.UUID   `json:"id"`
+	AppID pgtype.UUID `json:"app_id"`
+}
+
+func (q *Queries) UpdateAdminAccountAppID(ctx context.Context, arg UpdateAdminAccountAppIDParams) error {
+	_, err := q.db.Exec(ctx, updateAdminAccountAppID, arg.ID, arg.AppID)
 	return err
 }
 

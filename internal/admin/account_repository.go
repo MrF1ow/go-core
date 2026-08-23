@@ -41,6 +41,7 @@ func (r *AccountRepository) Create(account *models.AdminAccount) error {
 		Email:          stringToPtr(account.Email),
 		PasswordHash:   account.PasswordHash,
 		OperatorRoleID: account.OperatorRoleID,
+		AppID:          uuidPtrToPgtype(account.AppID),
 	})
 	if err != nil {
 		return err
@@ -298,6 +299,13 @@ func (r *AccountRepository) UpdateOperatorRole(id uuid.UUID, roleID uuid.UUID) e
 	return r.queries.UpdateAdminAccountOperatorRole(context.Background(), sqlcgen.UpdateAdminAccountOperatorRoleParams{
 		ID:             id,
 		OperatorRoleID: roleID,
+	})
+}
+
+func (r *AccountRepository) UpdateAppID(id uuid.UUID, appID *uuid.UUID) error {
+	return r.queries.UpdateAdminAccountAppID(context.Background(), sqlcgen.UpdateAdminAccountAppIDParams{
+		ID:    id,
+		AppID: uuidPtrToPgtype(appID),
 	})
 }
 

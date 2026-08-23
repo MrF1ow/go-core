@@ -176,6 +176,12 @@ func TestAdminAuth_ViewerDBKeyNoScopesKey(t *testing.T) {
 		if p.Has(operator.ResTenants, operator.ActionWrite) {
 			t.Fatal("viewer must not have tenants:write")
 		}
+		if p.KeyID == nil || *p.KeyID != id {
+			t.Fatalf("key ID = %v, want %s", p.KeyID, id)
+		}
+		if p.AppID != nil {
+			t.Fatalf("app ID = %s, want nil", *p.AppID)
+		}
 		if !p.Has(operator.ResLogs, operator.ActionRead) {
 			t.Fatal("viewer must have logs:read")
 		}
