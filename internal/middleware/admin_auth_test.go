@@ -69,6 +69,10 @@ func (s *stubGrants) RoleGrants(_ context.Context, roleID uuid.UUID) (string, []
 }
 
 func adminGET(mw gin.HandlerFunc, extra gin.HandlerFunc, header string) *httptest.ResponseRecorder {
+	return adminRequest(http.MethodGet, mw, extra, header, nil)
+}
+
+func adminRequest(method string, mw gin.HandlerFunc, extra gin.HandlerFunc, apiKey string, headers map[string]string) *httptest.ResponseRecorder {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	handlers := []gin.HandlerFunc{mw}
@@ -76,10 +80,13 @@ func adminGET(mw gin.HandlerFunc, extra gin.HandlerFunc, header string) *httptes
 		handlers = append(handlers, extra)
 	}
 	handlers = append(handlers, func(c *gin.Context) { c.Status(http.StatusOK) })
-	r.GET("/admin/x", handlers...)
-	req := httptest.NewRequest(http.MethodGet, "/admin/x", nil)
-	if header != "" {
-		req.Header.Set("X-Admin-API-Key", header)
+	r.Handle(method, "/admin/x", handlers...)
+	req := httptest.NewRequest(method, "/admin/x", nil)
+	if apiKey != "" {
+		req.Header.Set("X-Admin-API-Key", apiKey)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

@@ -10,6 +10,8 @@
                         <th>Decision</th>
                         <th>Method</th>
                         <th>Path</th>
+                        <th>IP</th>
+                        <th>User-Agent</th>
                         <th>Role</th>
                         <th class="pe-3">Action</th>
                     </tr>
@@ -33,6 +35,8 @@
                         </td>
                         <td>{{.Method}}</td>
                         <td>{{.Path}}</td>
+                        <td>{{.IPAddress}}</td>
+                        <td>{{.UserAgent}}</td>
                         <td>{{if .RoleName}}{{.RoleName}}{{else}}<span class="text-muted">-</span>{{end}}</td>
                         <td class="pe-3">{{if .Action}}{{.Action}}{{else}}<span class="text-muted">-</span>{{end}}</td>
                     </tr>

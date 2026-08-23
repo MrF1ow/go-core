@@ -335,6 +335,8 @@ CREATE TABLE operator_access_logs (
     resource    VARCHAR(100) NOT NULL,
     action      VARCHAR(100) NOT NULL,
     status      INTEGER      NOT NULL,
+    ip_address  TEXT         NOT NULL DEFAULT '',
+    user_agent  TEXT         NOT NULL DEFAULT '',
     CONSTRAINT operator_access_logs_kind_check CHECK (kind IN ('env_key', 'api_key', 'gui_account')),
     CONSTRAINT operator_access_logs_decision_check CHECK (decision IN ('allow', 'deny'))
 );

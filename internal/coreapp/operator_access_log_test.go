@@ -136,8 +136,15 @@ func accessLogTestEngine(t *testing.T) (*gin.Engine, *accessLogMem) {
 }
 
 func accessLogDo(engine *gin.Engine, method, path, key string) *httptest.ResponseRecorder {
+	return accessLogDoHeaders(engine, method, path, key, nil)
+}
+
+func accessLogDoHeaders(engine *gin.Engine, method, path, key string, headers map[string]string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, nil)
 	req.Header.Set("X-Admin-API-Key", key)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	rec := httptest.NewRecorder()
 	engine.ServeHTTP(rec, req)
 	return rec
@@ -226,9 +233,39 @@ func TestOperatorAccessLogExport_ViewerForbiddenJSON(t *testing.T) {
 	}
 }
 
+func TestOperatorAccessLog_ViewerTenantsWriteCapturesClient(t *testing.T) {
+	engine, _ := accessLogTestEngine(t)
+	rec := accessLogDoHeaders(engine, http.MethodPost, "/admin/tenants", accessViewerKey, map[string]string{
+		"X-Forwarded-For": "203.0.113.9",
+		"User-Agent":      "AccessClientTest/1.0",
+	})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	found := false
+	for _, entry := range accessLogList(t, engine) {
+		if entry.Path == "/admin/tenants" && entry.Decision == operator.DecisionDeny {
+			if entry.IPAddress != "203.0.113.9" {
+				t.Fatalf("ip = %q", entry.IPAddress)
+			}
+			if entry.UserAgent != "AccessClientTest/1.0" {
+				t.Fatalf("ua = %q", entry.UserAgent)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected deny entry for /admin/tenants")
+	}
+}
+
 func TestOperatorAccessLogExport_SuperadminCSV(t *testing.T) {
 	engine, _ := accessLogTestEngine(t)
-	deny := accessLogDo(engine, http.MethodPost, "/admin/tenants", accessViewerKey)
+	deny := accessLogDoHeaders(engine, http.MethodPost, "/admin/tenants", accessViewerKey, map[string]string{
+		"X-Forwarded-For": "203.0.113.9",
+		"User-Agent":      "AccessClientTest/1.0",
+	})
 	if deny.Code != http.StatusForbidden {
 		t.Fatalf("deny status = %d", deny.Code)
 	}
@@ -253,7 +290,7 @@ func TestOperatorAccessLogExport_SuperadminCSV(t *testing.T) {
 	if len(rows) < 2 {
 		t.Fatalf("csv rows = %#v", rows)
 	}
-	wantHeader := []string{"id", "at", "kind", "key_id", "account_id", "role_name", "method", "path", "decision", "resource", "action", "status"}
+	wantHeader := []string{"id", "at", "kind", "key_id", "account_id", "role_name", "method", "path", "decision", "resource", "action", "status", "ip_address", "user_agent"}
 	if strings.Join(rows[0], ",") != strings.Join(wantHeader, ",") {
 		t.Fatalf("header = %#v", rows[0])
 	}
@@ -263,6 +300,12 @@ func TestOperatorAccessLogExport_SuperadminCSV(t *testing.T) {
 			t.Fatalf("row width = %d, want %d: %#v", len(row), len(wantHeader), row)
 		}
 		if row[7] == "/admin/tenants" && row[8] == operator.DecisionDeny {
+			if row[12] != "203.0.113.9" {
+				t.Fatalf("csv ip = %q", row[12])
+			}
+			if row[13] != "AccessClientTest/1.0" {
+				t.Fatalf("csv ua = %q", row[13])
+			}
 			found = true
 		}
 	}

@@ -20,11 +20,11 @@ LIMIT $1 OFFSET $2;
 
 -- name: InsertOperatorAccessLog :one
 INSERT INTO operator_access_logs (
-    kind, key_id, account_id, role_name, method, path, decision, resource, action, status
+    kind, key_id, account_id, role_name, method, path, decision, resource, action, status, ip_address, user_agent
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
-RETURNING *;
+RETURNING id, at, kind, key_id, account_id, role_name, method, path, decision, resource, action, status, ip_address, user_agent;
 
 -- name: ListOperatorAccessLogs :many
 SELECT *

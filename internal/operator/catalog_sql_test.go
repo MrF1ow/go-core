@@ -91,6 +91,38 @@ func TestOperatorIAMEvidenceMigrationExists(t *testing.T) {
 	}
 }
 
+func TestOperatorAccessLogClientMigrationExists(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/020_operator_access_log_client.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(sql)
+	for _, needle := range []string{"operator_access_logs", "ip_address", "user_agent"} {
+		if !strings.Contains(text, needle) {
+			t.Fatalf("020 missing %q", needle)
+		}
+	}
+	schema, err := os.ReadFile("../schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemaText := string(schema)
+	start := strings.Index(schemaText, "CREATE TABLE operator_access_logs")
+	if start < 0 {
+		t.Fatal("schema.sql missing operator_access_logs")
+	}
+	end := strings.Index(schemaText[start:], ";")
+	if end < 0 {
+		t.Fatal("schema.sql operator_access_logs unterminated")
+	}
+	block := schemaText[start : start+end]
+	for _, needle := range []string{"ip_address", "user_agent"} {
+		if !strings.Contains(block, needle) {
+			t.Fatalf("schema.sql operator_access_logs missing %q", needle)
+		}
+	}
+}
+
 func checkAdminAccountRoleBackfill(sqlText string, want uuid.UUID) error {
 	match := adminAccountRoleBackfillPattern.FindStringSubmatch(sqlText)
 	if len(match) != 2 {

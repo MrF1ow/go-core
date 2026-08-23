@@ -13,11 +13,11 @@ import (
 
 const insertOperatorAccessLog = `-- name: InsertOperatorAccessLog :one
 INSERT INTO operator_access_logs (
-    kind, key_id, account_id, role_name, method, path, decision, resource, action, status
+    kind, key_id, account_id, role_name, method, path, decision, resource, action, status, ip_address, user_agent
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 )
-RETURNING id, at, kind, key_id, account_id, role_name, method, path, decision, resource, action, status
+RETURNING id, at, kind, key_id, account_id, role_name, method, path, decision, resource, action, status, ip_address, user_agent
 `
 
 type InsertOperatorAccessLogParams struct {
@@ -31,6 +31,8 @@ type InsertOperatorAccessLogParams struct {
 	Resource  string      `json:"resource"`
 	Action    string      `json:"action"`
 	Status    int32       `json:"status"`
+	IpAddress string      `json:"ip_address"`
+	UserAgent string      `json:"user_agent"`
 }
 
 func (q *Queries) InsertOperatorAccessLog(ctx context.Context, arg InsertOperatorAccessLogParams) (OperatorAccessLog, error) {
@@ -45,6 +47,8 @@ func (q *Queries) InsertOperatorAccessLog(ctx context.Context, arg InsertOperato
 		arg.Resource,
 		arg.Action,
 		arg.Status,
+		arg.IpAddress,
+		arg.UserAgent,
 	)
 	var i OperatorAccessLog
 	err := row.Scan(
@@ -60,6 +64,8 @@ func (q *Queries) InsertOperatorAccessLog(ctx context.Context, arg InsertOperato
 		&i.Resource,
 		&i.Action,
 		&i.Status,
+		&i.IpAddress,
+		&i.UserAgent,
 	)
 	return i, err
 }
@@ -119,7 +125,7 @@ func (q *Queries) InsertOperatorIAMEvent(ctx context.Context, arg InsertOperator
 }
 
 const listOperatorAccessLogs = `-- name: ListOperatorAccessLogs :many
-SELECT id, at, kind, key_id, account_id, role_name, method, path, decision, resource, action, status
+SELECT id, at, kind, key_id, account_id, role_name, method, path, decision, resource, action, status, ip_address, user_agent
 FROM operator_access_logs
 WHERE ($3::text IS NULL OR decision = $3::text)
 ORDER BY at DESC
@@ -154,6 +160,8 @@ func (q *Queries) ListOperatorAccessLogs(ctx context.Context, arg ListOperatorAc
 			&i.Resource,
 			&i.Action,
 			&i.Status,
+			&i.IpAddress,
+			&i.UserAgent,
 		); err != nil {
 			return nil, err
 		}

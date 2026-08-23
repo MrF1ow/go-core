@@ -167,6 +167,27 @@ func TestGUIShell_SuperadminAccessLogsDenyFilter(t *testing.T) {
 	}
 }
 
+func TestGUIShell_SuperadminAccessLogsShowsClient(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(engine, "/gui/operator/access-logs", cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, ">IP<") {
+		t.Fatalf("missing IP column: %s", body)
+	}
+	if !strings.Contains(body, ">User-Agent<") {
+		t.Fatalf("missing User-Agent column: %s", body)
+	}
+	if !strings.Contains(body, "203.0.113.9") {
+		t.Fatalf("missing IP value: %s", body)
+	}
+	if !strings.Contains(body, "AccessClientTest/1.0") {
+		t.Fatalf("missing User-Agent value: %s", body)
+	}
+}
+
 func TestGUIShell_ViewerSidebarOmitsTenantsAndEmptyEmail(t *testing.T) {
 	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
 	response := guiGET(engine, "/gui/users", cookie, "", "")
@@ -850,7 +871,7 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 			}, nil
 		},
 		AccessLogList: func(_ context.Context, _ int32, decision *string) ([]operator.AccessRecord, error) {
-			deny := operator.AccessRecord{Decision: operator.DecisionDeny, Path: "/gui/tenants", Method: http.MethodPost}
+			deny := operator.AccessRecord{Decision: operator.DecisionDeny, Path: "/gui/tenants", Method: http.MethodPost, IPAddress: "203.0.113.9", UserAgent: "AccessClientTest/1.0"}
 			allow := operator.AccessRecord{Decision: operator.DecisionAllow, Path: "/gui/users", Method: http.MethodGet}
 			if decision != nil && *decision == operator.DecisionDeny {
 				return []operator.AccessRecord{deny}, nil
