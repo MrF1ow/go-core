@@ -76,6 +76,67 @@ func TestGUIShell_SuperadminTenantsOK(t *testing.T) {
 	}
 }
 
+func TestGUIShell_BoundAdminTenantsForbidden(t *testing.T) {
+	engine, cookie := boundAdminGUIShell(t)
+	response := guiGET(engine, "/gui/tenants", cookie, "", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+		t.Fatalf("missing %s", web.GUIForbiddenHeader)
+	}
+}
+
+func TestGUIShell_BoundAdminUsersOK(t *testing.T) {
+	engine, cookie := boundAdminGUIShell(t)
+	response := guiGET(engine, "/gui/users", cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, `data-page="users"`) {
+		t.Fatal("bound admin sidebar missing Users")
+	}
+	if strings.Contains(body, "bi-speedometer2") {
+		t.Fatal("bound admin nav includes Dashboard")
+	}
+	if strings.Contains(body, "Operator IAM") {
+		t.Fatal("bound admin nav includes Operator IAM")
+	}
+	for _, page := range []string{
+		"tenants", "settings", "applications", "monitoring",
+		"email-servers", "oidc-clients", "session-groups",
+	} {
+		if strings.Contains(body, `data-page="`+page+`"`) {
+			t.Fatalf("bound admin nav includes %s", page)
+		}
+	}
+}
+
+func TestGUIShell_BoundAdminOperatorIAMForbidden(t *testing.T) {
+	engine, cookie := boundAdminGUIShell(t)
+	response := guiGET(engine, "/gui/operator", cookie, "", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+		t.Fatalf("missing %s", web.GUIForbiddenHeader)
+	}
+}
+
+func TestGUIShell_BoundAdminDashboardForbidden(t *testing.T) {
+	engine, cookie := boundAdminGUIShell(t)
+	for _, path := range []string{"/gui/", "/gui/dashboard"} {
+		response := guiGET(engine, path, cookie, "", "")
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("%s status = %d, body = %s", path, response.Code, response.Body.String())
+		}
+		if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+			t.Fatalf("%s missing %s", path, web.GUIForbiddenHeader)
+		}
+	}
+}
+
 func TestGUIShell_ViewerOperatorIAMForbidden(t *testing.T) {
 	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
 	response := guiGET(engine, "/gui/operator", cookie, "", "")
@@ -769,6 +830,14 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 	return fx.engine, fx.cookie
 }
 
+func boundAdminGUIShell(t *testing.T) (*gin.Engine, *http.Cookie) {
+	t.Helper()
+	fx := newGUIShell(t, operator.RoleIDAdmin, operator.RoleAdmin)
+	appID := uuid.New()
+	fx.account.AppID = &appID
+	return fx.engine, fx.cookie
+}
+
 func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -1067,6 +1136,7 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 	guiAuth.Use(middleware.GUIAuthMiddleware(sessions, grants, "/gui"))
 	guiAuth.Use(middleware.CSRFMiddleware(sessions))
 	guiAuth.GET("/", requireGUI(operator.ResDashboard, operator.ActionRead), h.Dashboard)
+	guiAuth.GET("/dashboard", requireGUI(operator.ResDashboard, operator.ActionRead), h.Dashboard)
 	guiAuth.GET("/tenants", requireGUI(operator.ResTenants, operator.ActionRead), h.TenantPage)
 	guiAuth.GET("/operator", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorIAMPage)
 	guiAuth.GET("/operator/roster", requireGUI(operator.ResAdminIAM, operator.ActionRead), h.OperatorRosterList)
@@ -1149,7 +1219,7 @@ func shellPage(c *gin.Context) web.TemplateData {
 	if !ok || p == nil {
 		return data
 	}
-	return web.AttachCan(data, "/gui", p.Has)
+	return web.AttachCan(data, "/gui", p.Allows)
 }
 
 func guiGET(engine *gin.Engine, path string, cookie *http.Cookie, hxRequest, hxTarget string) *httptest.ResponseRecorder {

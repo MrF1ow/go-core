@@ -102,7 +102,7 @@ func RequireOperatorPermission(resource, action string) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal authentication error"})
 			return
 		}
-		if !p.Has(resource, action) {
+		if !p.Allows(resource, action) {
 			maybeLogOperatorAccess(c, p, resource, action, operator.DecisionDeny, http.StatusForbidden)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
 			return

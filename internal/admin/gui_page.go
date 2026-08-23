@@ -18,7 +18,7 @@ func (h *GUIHandler) page(c *gin.Context) web.TemplateData {
 	if !ok {
 		return data
 	}
-	return web.AttachCan(data, h.BasePath, p.Has)
+	return web.AttachCan(data, h.BasePath, p.Allows)
 }
 
 func guiPrincipal(c *gin.Context) (*operator.Principal, bool) {
@@ -35,7 +35,7 @@ func (h *GUIHandler) principalCan(c *gin.Context, resource, action string) bool 
 	if !ok {
 		return false
 	}
-	return p.Has(resource, action)
+	return p.Allows(resource, action)
 }
 
 type userDetailTemplate struct {

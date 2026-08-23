@@ -66,3 +66,38 @@ func TestPrincipal_AppIDOptional(t *testing.T) {
 		t.Fatal("app id should round-trip")
 	}
 }
+
+func TestPrincipal_AllowsUnboundAdminTenants(t *testing.T) {
+	p := NewPrincipal(KindGUIAccount, RoleAdmin, GrantsFor(RoleAdmin))
+	if !p.Allows(ResTenants, ActionRead) {
+		t.Fatal("unbound admin should allow tenants:read")
+	}
+}
+
+func TestPrincipal_AllowsBoundAdmin(t *testing.T) {
+	p := NewPrincipal(KindGUIAccount, RoleAdmin, GrantsFor(RoleAdmin))
+	id := uuid.New()
+	p.AppID = &id
+	if !p.Has(ResTenants, ActionRead) {
+		t.Fatal("bound admin still has tenants:read")
+	}
+	if p.Allows(ResTenants, ActionRead) {
+		t.Fatal("bound admin must not allow tenants:read")
+	}
+	if !p.Allows(ResUsers, ActionRead) {
+		t.Fatal("bound admin should allow users:read")
+	}
+	if p.Allows(ResDashboard, ActionRead) {
+		t.Fatal("bound admin must not allow dashboard:read")
+	}
+	if p.Allows(ResAdminIAM, ActionRead) {
+		t.Fatal("bound admin must not allow admin_iam:read")
+	}
+}
+
+func TestPrincipal_AllowsNil(t *testing.T) {
+	var p *Principal
+	if p.Allows(ResUsers, ActionRead) {
+		t.Fatal("nil principal allowed")
+	}
+}

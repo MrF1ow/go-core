@@ -27,7 +27,7 @@ func RequireGUIPermission(resource, action string) gin.HandlerFunc {
 			AbortGUIInternal(c)
 			return
 		}
-		if !p.Has(resource, action) {
+		if !p.Allows(resource, action) {
 			maybeLogOperatorAccess(c, p, resource, action, operator.DecisionDeny, http.StatusForbidden)
 			AbortGUIForbidden(c)
 			return
@@ -67,7 +67,7 @@ func guiLayoutData(c *gin.Context) web.TemplateData {
 	}
 	basePath := contextString(c, web.GUIAdminBasePathKey)
 	if p, ok := principalFromContext(c); ok {
-		return web.AttachCan(data, basePath, p.Has)
+		return web.AttachCan(data, basePath, p.Allows)
 	}
 	return data
 }
