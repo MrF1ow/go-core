@@ -82,8 +82,38 @@ func TestGUIAuth_ViewerAccountAttachesPrincipal(t *testing.T) {
 	if principal.AccountID == nil || *principal.AccountID != accountID {
 		t.Fatalf("account ID = %v, want %s", principal.AccountID, accountID)
 	}
+	if principal.AppID != nil {
+		t.Fatalf("app ID = %s, want nil", *principal.AppID)
+	}
 	if principal.KeyID != nil {
 		t.Fatalf("key ID = %s, want nil", *principal.KeyID)
+	}
+}
+
+func TestGUIAuth_BoundViewerAttachesAppID(t *testing.T) {
+	accountID := uuid.New()
+	appID := uuid.New()
+	account := &models.AdminAccount{
+		ID:             accountID,
+		Username:       "bound-viewer",
+		OperatorRoleID: operator.RoleIDViewer,
+		AppID:          &appID,
+	}
+	grants := guiGrants(operator.RoleIDViewer, operator.RoleViewer)
+
+	response, principal := guiGET(t, &stubGUISessions{account: account}, grants)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if principal == nil {
+		t.Fatal("missing operator principal")
+	}
+	if principal.AppID == nil || *principal.AppID != appID {
+		t.Fatalf("app ID = %v, want %s", principal.AppID, appID)
+	}
+	if principal.AccountID == nil || *principal.AccountID != accountID {
+		t.Fatalf("account ID = %v, want %s", principal.AccountID, accountID)
 	}
 }
 

@@ -1,6 +1,6 @@
 -- name: CreateAdminAccount :one
-INSERT INTO admin_accounts (username, email, password_hash, operator_role_id)
-VALUES ($1, $2, $3, $4)
+INSERT INTO admin_accounts (username, email, password_hash, operator_role_id, app_id)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetAdminAccountByUsername :one
@@ -86,6 +86,11 @@ WHERE id = $1;
 -- name: UpdateAdminAccountOperatorRole :exec
 UPDATE admin_accounts
 SET operator_role_id = $2, updated_at = NOW()
+WHERE id = $1;
+
+-- name: UpdateAdminAccountAppID :exec
+UPDATE admin_accounts
+SET app_id = $2, updated_at = NOW()
 WHERE id = $1;
 
 -- name: SetAdminAccountDisabledAt :exec

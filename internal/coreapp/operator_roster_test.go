@@ -216,3 +216,75 @@ func TestOperatorRosterExport_CSVAndTruncationHeader(t *testing.T) {
 		t.Fatalf("csv = %s", body)
 	}
 }
+
+func TestOperatorRoster_BoundAccountIncludesAppID(t *testing.T) {
+	accountID := uuid.New()
+	appID := uuid.New()
+	handler := &admin.Handler{
+		RosterKeys: func() ([]operator.RosterEntry, error) { return nil, nil },
+		RosterAccounts: func() ([]operator.RosterEntry, error) {
+			return []operator.RosterEntry{{
+				Kind:        string(operator.KindGUIAccount),
+				DisplayName: "ada",
+				RoleName:    operator.RoleViewer,
+				AccountID:   &accountID,
+				AppID:       &appID,
+				AppName:     "Acme",
+			}}, nil
+		},
+	}
+	engine := rosterTestEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin, handler)
+	rec := rosterGET(engine, "/admin/operator/roster")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	raw := rec.Body.String()
+	if !strings.Contains(raw, `"app_id"`) {
+		t.Fatalf("roster JSON omitted app_id: %s", raw)
+	}
+	if !strings.Contains(raw, appID.String()) {
+		t.Fatalf("roster JSON missing app id: %s", raw)
+	}
+	var body struct {
+		Entries []operator.RosterEntry `json:"entries"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Entries[0].AppID != nil {
+		t.Fatalf("env app ID = %v", body.Entries[0].AppID)
+	}
+	found := false
+	for _, entry := range body.Entries {
+		if entry.AccountID != nil && *entry.AccountID == accountID {
+			found = true
+			if entry.AppID == nil || *entry.AppID != appID {
+				t.Fatalf("account = %+v", entry)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("missing account in %#v", body.Entries)
+	}
+
+	export := rosterGET(engine, "/admin/operator/roster/export")
+	if export.Code != http.StatusOK {
+		t.Fatalf("export status = %d, body = %s", export.Code, export.Body.String())
+	}
+	csvBody, _ := io.ReadAll(export.Body)
+	csv := string(csvBody)
+	if !strings.Contains(csv, "app_id") || !strings.Contains(csv, "app_name") {
+		t.Fatalf("csv header missing app columns: %s", csv)
+	}
+	if !strings.Contains(csv, appID.String()) || !strings.Contains(csv, "Acme") {
+		t.Fatalf("csv missing bound app: %s", csv)
+	}
+	lines := strings.Split(strings.TrimSpace(csv), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("csv = %s", csv)
+	}
+	envCols := strings.Split(lines[1], ",")
+	if len(envCols) < 11 || envCols[9] != "" || envCols[10] != "" {
+		t.Fatalf("env csv row = %#v", envCols)
+	}
+}

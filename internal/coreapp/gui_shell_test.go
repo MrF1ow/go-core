@@ -422,6 +422,9 @@ func TestGUIShell_SuperadminOperatorIAMShowsWriteCTAs(t *testing.T) {
 	if strings.Contains(body, "/gui/operator/accounts//disable") {
 		t.Fatal("env_key row has a Disable action")
 	}
+	if !strings.Contains(body, `name="app_id"`) {
+		t.Fatal("superadmin missing app select on roster")
+	}
 }
 
 func TestGUIShell_SuperadminOperatorIAMIncludesRolesTab(t *testing.T) {
@@ -549,6 +552,9 @@ func TestGUIShell_SuperadminOperatorAccountForm(t *testing.T) {
 	if !strings.Contains(body, `name="username"`) || !strings.Contains(body, `name="password"`) {
 		t.Fatalf("missing form fields: %s", body)
 	}
+	if !strings.Contains(body, `name="app_id"`) {
+		t.Fatalf("missing app select: %s", body)
+	}
 }
 
 func TestGUIShell_ViewerOperatorAccountFormForbidden(t *testing.T) {
@@ -591,6 +597,33 @@ func TestGUIShell_SuperadminCreatesViewerOperator(t *testing.T) {
 	}
 	if fx.events[0].ActorAccountID == nil || *fx.events[0].ActorAccountID != fx.account.ID {
 		t.Fatalf("actor_account_id = %v", fx.events[0].ActorAccountID)
+	}
+	if fx.created[0].AppID != nil {
+		t.Fatalf("app ID = %v, want nil", fx.created[0].AppID)
+	}
+}
+
+func TestGUIShell_SuperadminCreatesViewerBoundToApp(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	appID := uuid.New()
+	form := url.Values{
+		"username": {"boundviewer"},
+		"email":    {"bound@example.com"},
+		"password": {"twelvechars!!"},
+		"app_id":   {appID.String()},
+	}
+	response := guiPOST(fx.engine, "/gui/operator/accounts", fx.cookie, form)
+	if response.Code != http.StatusOK && response.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if len(fx.created) != 1 {
+		t.Fatalf("created = %d, want 1", len(fx.created))
+	}
+	if fx.created[0].OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("role = %s, want viewer", fx.created[0].OperatorRoleID)
+	}
+	if fx.created[0].AppID == nil || *fx.created[0].AppID != appID {
+		t.Fatalf("app ID = %v, want %s", fx.created[0].AppID, appID)
 	}
 }
 
@@ -672,6 +705,31 @@ func TestGUIShell_SuperadminAssignsAccountRole(t *testing.T) {
 		t.Fatalf("role = %s", fx.accounts[fx.viewerAccount.ID].OperatorRoleID)
 	}
 	if len(fx.events) != 1 || fx.events[0].Action != operator.ActionAssign {
+		t.Fatalf("events = %+v", fx.events)
+	}
+}
+
+func TestGUIShell_SuperadminRoleWithAppIs400(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	appID := uuid.New()
+	form := url.Values{
+		"operator_role_id": {operator.RoleIDSuperadmin.String()},
+		"app_id":           {appID.String()},
+	}
+	response := guiPUT(fx.engine, "/gui/operator/accounts/"+fx.viewerAccount.ID.String()+"/role", fx.cookie, form)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content type = %q", response.Header().Get("Content-Type"))
+	}
+	if fx.accounts[fx.viewerAccount.ID].OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("role = %s", fx.accounts[fx.viewerAccount.ID].OperatorRoleID)
+	}
+	if fx.accounts[fx.viewerAccount.ID].AppID != nil {
+		t.Fatalf("app ID = %v", fx.accounts[fx.viewerAccount.ID].AppID)
+	}
+	if len(fx.events) != 0 {
 		t.Fatalf("events = %+v", fx.events)
 	}
 }
@@ -935,6 +993,19 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 				return pgx.ErrNoRows
 			}
 			stored.OperatorRoleID = next
+			return nil
+		},
+		UpdateAccountAppID: func(id uuid.UUID, appID *uuid.UUID) error {
+			stored, ok := accounts[id]
+			if !ok {
+				return pgx.ErrNoRows
+			}
+			if appID == nil {
+				stored.AppID = nil
+				return nil
+			}
+			copied := *appID
+			stored.AppID = &copied
 			return nil
 		},
 		DisableAccount: func(id uuid.UUID) error {

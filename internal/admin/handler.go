@@ -44,6 +44,7 @@ type Handler struct {
 	CreateAccount           func(*models.AdminAccount) error
 	GetAccount              func(id string) (*models.AdminAccount, error)
 	UpdateAccountRole       func(id uuid.UUID, roleID uuid.UUID) error
+	UpdateAccountAppID      func(id uuid.UUID, appID *uuid.UUID) error
 	DisableAccount          func(id uuid.UUID) error
 	CountEnabledSuperadmins func() (int64, error)
 	RosterKeys              func() ([]operator.RosterEntry, error)

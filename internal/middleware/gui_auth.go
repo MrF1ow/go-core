@@ -81,6 +81,10 @@ func GUIAuthMiddleware(sessionValidator web.SessionValidator, grants operator.Gr
 		principal := operator.NewPrincipal(operator.KindGUIAccount, name, keys)
 		accountID := account.ID
 		principal.AccountID = &accountID
+		if account.AppID != nil {
+			appID := *account.AppID
+			principal.AppID = &appID
+		}
 		c.Set(web.OperatorPrincipalKey, &principal)
 
 		c.Set(web.GUIAdminIDKey, account.ID.String())

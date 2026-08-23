@@ -54,7 +54,12 @@ func uuidPtrsEqual(a, b *uuid.UUID) bool {
 }
 
 func (h *GUIHandler) loadRoster() ([]operator.RosterEntry, bool, error) {
-	return loadOperatorRoster(h.rosterKeys, h.rosterAccounts)
+	entries, truncated, err := loadOperatorRoster(h.rosterKeys, h.rosterAccounts)
+	if err != nil {
+		return nil, false, err
+	}
+	fillRosterAppNames(entries, listOperatorApps(h.Repo))
+	return entries, truncated, nil
 }
 
 func (h *GUIHandler) rosterKeys() ([]operator.RosterEntry, error) {
@@ -82,6 +87,7 @@ type operatorIAMView struct {
 	CanWrite    bool
 	Roles       []operatorRoleOption
 	CustomRoles []operatorRoleListRow
+	Apps        []AppWithTenant
 }
 
 type operatorRoleListRow struct {
@@ -139,6 +145,7 @@ func (h *GUIHandler) rosterView(c *gin.Context) (operatorIAMView, error) {
 	}
 	view.CanWrite = h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite)
 	view.Roles = h.assignableRoleOptions(c)
+	view.Apps = listOperatorApps(h.Repo)
 	return view, nil
 }
 
@@ -174,6 +181,10 @@ func parseOptionalUUIDQuery(raw string) (*uuid.UUID, error) {
 		return nil, err
 	}
 	return &id, nil
+}
+
+func parseOptionalFormAppID(raw string) (*uuid.UUID, error) {
+	return parseOptionalUUIDQuery(strings.TrimSpace(raw))
 }
 
 func parseDecisionQuery(raw string) (*string, error) {
@@ -310,7 +321,17 @@ func guiLastSuperadminConflict(c *gin.Context) {
 // OperatorCreateAccountForm renders the create-operator form fragment.
 // GET /gui/operator/accounts/new
 func (h *GUIHandler) OperatorCreateAccountForm(c *gin.Context) {
-	c.HTML(http.StatusOK, "operator_account_form", gin.H{})
+	var apps []AppWithTenant
+	if h.Repo != nil {
+		loaded, err := h.Repo.ListAllAppsWithTenantName()
+		if err != nil {
+			log.Printf("operator GUI create account form: %v", err)
+			h.abortInternal(c)
+			return
+		}
+		apps = loaded
+	}
+	c.HTML(http.StatusOK, "operator_account_form", gin.H{"Apps": apps})
 }
 
 // OperatorCreateAccount creates a GUI operator as viewer.
@@ -325,6 +346,11 @@ func (h *GUIHandler) OperatorCreateAccount(c *gin.Context) {
 	}
 	if len(password) < 12 || len(password) > 128 {
 		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Password must be between 12 and 128 characters.")
+		return
+	}
+	appID, err := parseOptionalFormAppID(c.PostForm("app_id"))
+	if err != nil {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Invalid application.")
 		return
 	}
 
@@ -351,6 +377,7 @@ func (h *GUIHandler) OperatorCreateAccount(c *gin.Context) {
 		Email:          email,
 		PasswordHash:   string(hashed),
 		OperatorRoleID: roleID,
+		AppID:          appID,
 	}
 	if err := h.guiCreateAccount(account); err != nil {
 		log.Printf("operator GUI create account: %v", err)
@@ -400,36 +427,56 @@ func (h *GUIHandler) OperatorAccountRole(c *gin.Context) {
 		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Invalid operator role.")
 		return
 	}
-	if account.OperatorRoleID == *roleID {
+	appID, err := parseOptionalFormAppID(c.PostForm("app_id"))
+	if err != nil {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Invalid application.")
+		return
+	}
+	if *roleID == operator.RoleIDSuperadmin && appID != nil {
+		guiOperatorAlert(c, http.StatusBadRequest, "danger", "Superadmin cannot be bound to an application.")
+		return
+	}
+	roleChanged := account.OperatorRoleID != *roleID
+	appChanged := !uuidPtrsEqual(account.AppID, appID)
+	if !roleChanged && !appChanged {
 		c.Status(http.StatusNoContent)
 		return
 	}
-	if *roleID != operator.RoleIDSuperadmin {
-		blocked, err := h.guiWouldLeaveLastSuperadmin(account)
-		if err != nil {
+	if roleChanged {
+		if *roleID != operator.RoleIDSuperadmin {
+			blocked, err := h.guiWouldLeaveLastSuperadmin(account)
+			if err != nil {
+				log.Printf("operator GUI account role: %v", err)
+				h.abortInternal(c)
+				return
+			}
+			if blocked {
+				guiLastSuperadminConflict(c)
+				return
+			}
+		}
+		if err := h.guiUpdateAccountRole(account.ID, *roleID); err != nil {
 			log.Printf("operator GUI account role: %v", err)
 			h.abortInternal(c)
 			return
 		}
-		if blocked {
-			guiLastSuperadminConflict(c)
+		oldRole := account.OperatorRoleID
+		accountID := account.ID
+		h.writeIAMEvent(c, operator.IAMEvent{
+			TargetKind:      operator.KindGUIAccount,
+			TargetAccountID: &accountID,
+			OldRoleID:       &oldRole,
+			NewRoleID:       roleID,
+			Action:          operator.ActionAssign,
+		})
+	}
+	if appChanged {
+		if err := h.guiUpdateAccountAppID(account.ID, appID); err != nil {
+			log.Printf("operator GUI account app: %v", err)
+			h.abortInternal(c)
 			return
 		}
 	}
-	if err := h.guiUpdateAccountRole(account.ID, *roleID); err != nil {
-		log.Printf("operator GUI account role: %v", err)
-		h.abortInternal(c)
-		return
-	}
-	oldRole := account.OperatorRoleID
-	accountID := account.ID
-	h.writeIAMEvent(c, operator.IAMEvent{
-		TargetKind:      operator.KindGUIAccount,
-		TargetAccountID: &accountID,
-		OldRoleID:       &oldRole,
-		NewRoleID:       roleID,
-		Action:          operator.ActionAssign,
-	})
 	guiOperatorAlert(c, http.StatusOK, "success", "Operator role updated.")
 }
 
@@ -594,6 +641,16 @@ func (h *GUIHandler) guiUpdateAccountRole(id uuid.UUID, roleID uuid.UUID) error 
 		return fmt.Errorf("account repository is not configured")
 	}
 	return h.AccountService.Repo.UpdateOperatorRole(id, roleID)
+}
+
+func (h *GUIHandler) guiUpdateAccountAppID(id uuid.UUID, appID *uuid.UUID) error {
+	if h.UpdateAccountAppID != nil {
+		return h.UpdateAccountAppID(id, appID)
+	}
+	if h.AccountService == nil || h.AccountService.Repo == nil {
+		return fmt.Errorf("account repository is not configured")
+	}
+	return h.AccountService.Repo.UpdateAppID(id, appID)
 }
 
 func (h *GUIHandler) guiDisableAccount(id uuid.UUID) error {
