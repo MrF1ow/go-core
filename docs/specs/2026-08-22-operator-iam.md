@@ -3,18 +3,16 @@
 **Date:** 2026-08-22
 **Status:** shipped through [PR #30](https://github.com/MrF1ow/go-core/pull/30)
 
-Operator IAM gates `/admin` JSON and `/gui`. It is a frozen `resource:action` catalog plus `Principal.Has`. It is not app-user `roles` / `user_roles` or Session Groups. Those stay under `end_user_rbac`.
-
-The leftover and GUI-shell plan directories described unfinished work after it had shipped. They are deleted. This file is what a consumer or maintainer needs now.
+Operator IAM gates `/admin` JSON and `/gui`. It is a frozen `resource:action` catalog plus `Principal.Has`. It is not the app-user `roles` and `user_roles` tables, and it is not Session Groups. Those stay under `end_user_rbac`.
 
 ## What shipped
 
 - JSON `requireOp` and GUI `requireGUI` on every capability route
-- Sidebar omit and write CTA omit from `Can`
-- API-key stamp via `ParseAssignedAdminRole`. Custom roles show on GUI account forms and on API key create/edit
+- The sidebar and write buttons hide what `Can` denies
+- API-key stamp via `ParseAssignedAdminRole`. Custom roles show on the roster role select and on API key create/edit. Account create always stamps viewer
 - JSON and GUI roster, with CSV
 - Evidence tables in migration `018`. Access logs, IAM events, CSV export, 365-day delete
-- JSON and GUI account create, role change, and disable. Last enabled superadmin is 409
+- JSON and GUI account create, role change, and disable. Demote or disable of the last enabled superadmin is 409. Create 409 is a duplicate username
 - Null `api_keys.operator_role_id` on an admin key is 401. The env key stays synthetic superadmin
 - CSRF 403 is HTML and does not send `X-GUI-Forbidden`
 - Custom operator roles. Non-system roles cannot grant `admin_iam`
