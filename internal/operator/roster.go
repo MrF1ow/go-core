@@ -21,6 +21,8 @@ type RosterEntry struct {
 	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 	Revoked     bool       `json:"revoked"`
 	Disabled    *bool      `json:"disabled,omitempty"`
+	AppID       *uuid.UUID `json:"app_id,omitempty"`
+	AppName     string     `json:"app_name,omitempty"`
 }
 
 // EnvKeyRosterEntry is the synthetic break-glass row. It is not a table row.

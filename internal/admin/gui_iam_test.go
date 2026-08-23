@@ -23,6 +23,21 @@ func TestParseOptionalUUIDQuery(t *testing.T) {
 	}
 }
 
+func TestParseOptionalFormAppID(t *testing.T) {
+	id := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	got, err := parseOptionalFormAppID("  " + id.String() + "  ")
+	if err != nil || got == nil || *got != id {
+		t.Fatalf("valid = %v, %v", got, err)
+	}
+	got, err = parseOptionalFormAppID("")
+	if err != nil || got != nil {
+		t.Fatalf("empty = %v, %v", got, err)
+	}
+	if _, err = parseOptionalFormAppID("not-a-uuid"); err == nil {
+		t.Fatal("invalid UUID succeeded")
+	}
+}
+
 func TestParseDecisionQuery(t *testing.T) {
 	got, err := parseDecisionQuery(operator.DecisionDeny)
 	if err != nil || got == nil || *got != operator.DecisionDeny {

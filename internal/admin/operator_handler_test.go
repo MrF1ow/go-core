@@ -26,19 +26,24 @@ func TestRosterCSVRow_EnvHasEmptyID(t *testing.T) {
 	if row[0] != string(operator.KindEnvKey) || row[1] != "" || row[3] != operator.RoleSuperadmin {
 		t.Fatalf("row = %#v", row)
 	}
-	if len(row) != 9 || row[8] != "" {
+	if len(row) != 11 || row[8] != "" || row[9] != "" || row[10] != "" {
 		t.Fatalf("env disabled column = %#v", row)
 	}
 }
 
 func TestAccountRosterEntry_DisabledFromDisabledAt(t *testing.T) {
 	now := time.Now()
+	appID := uuid.New()
 	enabled := accountRosterEntry(models.AdminAccount{
 		ID:       uuid.New(),
 		Username: "ada",
+		AppID:    &appID,
 	}, operator.RoleViewer)
 	if enabled.Disabled == nil || *enabled.Disabled {
 		t.Fatalf("enabled = %+v", enabled)
+	}
+	if enabled.AppID == nil || *enabled.AppID != appID {
+		t.Fatalf("app ID = %v, want %s", enabled.AppID, appID)
 	}
 	disabled := accountRosterEntry(models.AdminAccount{
 		ID:         uuid.New(),
@@ -47,6 +52,9 @@ func TestAccountRosterEntry_DisabledFromDisabledAt(t *testing.T) {
 	}, operator.RoleViewer)
 	if disabled.Disabled == nil || !*disabled.Disabled {
 		t.Fatalf("disabled = %+v", disabled)
+	}
+	if disabled.AppID != nil {
+		t.Fatalf("unbound app ID = %v", disabled.AppID)
 	}
 }
 
@@ -61,6 +69,25 @@ func TestRosterCSVRow_AccountDisabled(t *testing.T) {
 		Disabled:    &flag,
 	})
 	if row[8] != "true" {
+		t.Fatalf("row = %#v", row)
+	}
+	if row[9] != "" || row[10] != "" {
+		t.Fatalf("unbound app columns = %#v", row)
+	}
+}
+
+func TestRosterCSVRow_BoundAccountApp(t *testing.T) {
+	appID := uuid.New()
+	id := uuid.New()
+	row := rosterCSVRow(operator.RosterEntry{
+		Kind:        string(operator.KindGUIAccount),
+		DisplayName: "ada",
+		RoleName:    operator.RoleViewer,
+		AccountID:   &id,
+		AppID:       &appID,
+		AppName:     "Acme",
+	})
+	if row[9] != appID.String() || row[10] != "Acme" {
 		t.Fatalf("row = %#v", row)
 	}
 }
@@ -86,5 +113,29 @@ func TestParseOperatorListLimit(t *testing.T) {
 	}
 	if got := parseOperatorListLimit("2147483648"); got != 1000 {
 		t.Fatalf("int32 overflow input = %d", got)
+	}
+}
+
+func TestUpdateOperatorAccountAppID_Override(t *testing.T) {
+	called := false
+	id := uuid.New()
+	appID := uuid.New()
+	h := &Handler{
+		UpdateAccountAppID: func(gotID uuid.UUID, gotApp *uuid.UUID) error {
+			called = true
+			if gotID != id {
+				t.Fatalf("id = %s, want %s", gotID, id)
+			}
+			if gotApp == nil || *gotApp != appID {
+				t.Fatalf("app = %v, want %s", gotApp, appID)
+			}
+			return nil
+		},
+	}
+	if err := h.updateOperatorAccountAppID(id, &appID); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("override not used")
 	}
 }

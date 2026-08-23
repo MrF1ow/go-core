@@ -70,10 +70,15 @@ func (h *Handler) OperatorRosterExport(c *gin.Context) {
 	writeOperatorCSV(c, "operator-roster.csv", truncated, rosterCSVHeader, rows)
 }
 
-var rosterCSVHeader = []string{"kind", "id", "display_name", "role", "created_at", "last_used_at", "expires_at", "revoked", "disabled"}
+var rosterCSVHeader = []string{"kind", "id", "display_name", "role", "created_at", "last_used_at", "expires_at", "revoked", "disabled", "app_id", "app_name"}
 
 func (h *Handler) loadRoster() ([]operator.RosterEntry, bool, error) {
-	return loadOperatorRoster(h.rosterKeys, h.rosterAccounts)
+	entries, truncated, err := loadOperatorRoster(h.rosterKeys, h.rosterAccounts)
+	if err != nil {
+		return nil, false, err
+	}
+	fillRosterAppNames(entries, listOperatorApps(h.Repo))
+	return entries, truncated, nil
 }
 
 func loadOperatorRoster(keysFn, accountsFn func() ([]operator.RosterEntry, error)) ([]operator.RosterEntry, bool, error) {
@@ -87,6 +92,36 @@ func loadOperatorRoster(keysFn, accountsFn func() ([]operator.RosterEntry, error
 	}
 	raw := 1 + len(keys) + len(accounts)
 	return operator.BuildRoster(operator.EnvKeyRosterEntry(), keys, accounts), raw > operator.ExportMaxRows, nil
+}
+
+func listOperatorApps(repo *Repository) []AppWithTenant {
+	if repo == nil {
+		return nil
+	}
+	apps, err := repo.ListAllAppsWithTenantName()
+	if err != nil {
+		log.Printf("operator roster apps: %v", err)
+		return nil
+	}
+	return apps
+}
+
+func fillRosterAppNames(entries []operator.RosterEntry, apps []AppWithTenant) {
+	if len(apps) == 0 {
+		return
+	}
+	names := make(map[uuid.UUID]string, len(apps))
+	for _, app := range apps {
+		names[app.ID] = app.Name
+	}
+	for i := range entries {
+		if entries[i].AppID == nil {
+			continue
+		}
+		if name, ok := names[*entries[i].AppID]; ok {
+			entries[i].AppName = name
+		}
+	}
 }
 
 func (h *Handler) rosterKeys() ([]operator.RosterEntry, error) {
@@ -159,6 +194,7 @@ func accountRosterEntry(account models.AdminAccount, roleName string) operator.R
 		CreatedAt:   account.CreatedAt,
 		LastUsedAt:  account.LastLoginAt,
 		Disabled:    &disabled,
+		AppID:       account.AppID,
 	}
 }
 
@@ -203,6 +239,8 @@ func rosterCSVRow(entry operator.RosterEntry) []string {
 		csvTimePtr(entry.ExpiresAt),
 		fmt.Sprintf("%t", entry.Revoked),
 		disabled,
+		csvUUIDPtr(entry.AppID),
+		entry.AppName,
 	}
 }
 
@@ -1159,6 +1197,16 @@ func (h *Handler) updateOperatorAccountRole(id uuid.UUID, roleID uuid.UUID) erro
 		return fmt.Errorf("account repository is not configured")
 	}
 	return h.Accounts.UpdateOperatorRole(id, roleID)
+}
+
+func (h *Handler) updateOperatorAccountAppID(id uuid.UUID, appID *uuid.UUID) error {
+	if h.UpdateAccountAppID != nil {
+		return h.UpdateAccountAppID(id, appID)
+	}
+	if h.Accounts == nil {
+		return fmt.Errorf("account repository is not configured")
+	}
+	return h.Accounts.UpdateAppID(id, appID)
 }
 
 func (h *Handler) disableOperatorAccount(id uuid.UUID) error {

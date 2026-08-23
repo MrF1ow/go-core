@@ -91,6 +91,7 @@ type GUIHandler struct {
 	GetAccount                     func(string) (*models.AdminAccount, error)
 	GetAccountByUsername           func(string) (*models.AdminAccount, error)
 	UpdateAccountRole              func(uuid.UUID, uuid.UUID) error
+	UpdateAccountAppID             func(uuid.UUID, *uuid.UUID) error
 	DisableAccount                 func(uuid.UUID) error
 	CountEnabledSuperadmins        func() (int64, error)
 	GetAPIKey                      func(string) (*models.ApiKey, error)

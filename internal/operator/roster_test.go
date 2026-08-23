@@ -20,6 +20,30 @@ func TestEnvKeyRosterEntry_JSONOmitsDisabled(t *testing.T) {
 	if strings.Contains(string(raw), "disabled") {
 		t.Fatalf("env key JSON included disabled: %s", raw)
 	}
+	if strings.Contains(string(raw), "app_id") {
+		t.Fatalf("env key JSON included app_id: %s", raw)
+	}
+}
+
+func TestRosterEntry_JSONAppIDOmitempty(t *testing.T) {
+	appID := uuid.New()
+	accountID := uuid.New()
+	bound, err := json.Marshal(RosterEntry{
+		Kind:        string(KindGUIAccount),
+		DisplayName: "ada",
+		RoleName:    RoleViewer,
+		AccountID:   &accountID,
+		AppID:       &appID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(bound), `"app_id"`) {
+		t.Fatalf("bound account JSON omitted app_id: %s", bound)
+	}
+	if !strings.Contains(string(bound), appID.String()) {
+		t.Fatalf("bound account JSON missing app id: %s", bound)
+	}
 }
 
 func TestBuildRoster_PrependsEnvThenKeysThenAccounts(t *testing.T) {
