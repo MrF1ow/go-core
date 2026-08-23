@@ -52,3 +52,14 @@ func (p Principal) Has(resource, action string) bool {
 	_, ok := p.perms[resource+":"+action]
 	return ok
 }
+
+// Allows is the grant plus AppID scope. Has stays grant-only.
+func (p *Principal) Allows(resource, action string) bool {
+	if p == nil {
+		return false
+	}
+	if p.AppID != nil && PlatformResource(resource) {
+		return false
+	}
+	return p.Has(resource, action)
+}
