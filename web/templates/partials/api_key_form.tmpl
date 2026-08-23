@@ -43,7 +43,7 @@
                     <input type="datetime-local" class="form-control" id="keyExpiresAt" name="expires_at">
                     <div class="form-text">Leave blank for forever. The key dies at this time on its own.</div>
                 </div>
-                <div class="col-md-4" id="adminRoleGroup">
+                <div class="col-md-4" id="adminRoleGroup" style="display: none;">
                     {{if .CanIAM}}
                     <label for="keyOperatorRole" class="form-label small text-muted">Operator role</label>
                     <select class="form-select" id="keyOperatorRole" name="operator_role_id">

@@ -313,6 +313,44 @@ func TestGUIShell_SuperadminApiKeyFormHasRoleSelect(t *testing.T) {
 	}
 }
 
+func TestGUIShell_SuperadminApiKeyFormIncludesCustomRole(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	created := guiPOST(fx.engine, "/gui/operator/roles", fx.cookie, url.Values{
+		"name":   {"auditor"},
+		"grants": {"logs:read"},
+	})
+	if created.Code != http.StatusOK {
+		t.Fatalf("create status = %d, body = %s", created.Code, created.Body.String())
+	}
+	var auditorID uuid.UUID
+	for id, role := range fx.roles {
+		if role.Name == "auditor" && !role.IsSystem {
+			auditorID = id
+		}
+	}
+	if auditorID == uuid.Nil {
+		t.Fatal("auditor role was not stored")
+	}
+	response := guiGET(fx.engine, "/gui/api-keys/new", fx.cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), auditorID.String()) {
+		t.Fatalf("api key form missing custom role %s: %s", auditorID, response.Body.String())
+	}
+	assign := guiPOST(fx.engine, "/gui/api-keys", fx.cookie, url.Values{
+		"name":             {"ops"},
+		"key_type":         {admin.KeyTypeAdmin},
+		"operator_role_id": {auditorID.String()},
+	})
+	if assign.Code != http.StatusOK {
+		t.Fatalf("stamp status = %d, body = %s", assign.Code, assign.Body.String())
+	}
+	if assign.Body.String() != auditorID.String() {
+		t.Fatalf("stamped role = %q, want auditor", assign.Body.String())
+	}
+}
+
 func TestGUIShell_SuperadminSidebarHasTenants(t *testing.T) {
 	engine, cookie := guiShellEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
 	response := guiGET(engine, "/gui/", cookie, "", "")
@@ -960,27 +998,7 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 	guiAuth.GET("/my-account", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
-	guiAuth.GET("/api-keys/new", requireGUI(operator.ResAPIKeys, operator.ActionWrite), func(c *gin.Context) {
-		canIAM := false
-		if val, ok := c.Get(web.OperatorPrincipalKey); ok {
-			if p, ok := val.(*operator.Principal); ok && p != nil {
-				canIAM = p.Has(operator.ResAdminIAM, operator.ActionWrite)
-			}
-		}
-		c.HTML(http.StatusOK, "api_key_form", gin.H{
-			"OperatorRoles": []struct {
-				ID   uuid.UUID
-				Name string
-			}{
-				{ID: operator.RoleIDViewer, Name: operator.RoleViewer},
-				{ID: operator.RoleIDSupport, Name: operator.RoleSupport},
-				{ID: operator.RoleIDAdmin, Name: operator.RoleAdmin},
-				{ID: operator.RoleIDSuperadmin, Name: operator.RoleSuperadmin},
-			},
-			"DefaultRoleID": operator.RoleIDViewer.String(),
-			"CanIAM":        canIAM,
-		})
-	})
+	guiAuth.GET("/api-keys/new", requireGUI(operator.ResAPIKeys, operator.ActionWrite), h.ApiKeyCreateForm)
 	guiAuth.POST("/api-keys", requireGUI(operator.ResAPIKeys, operator.ActionWrite), func(c *gin.Context) {
 		val, ok := c.Get(web.OperatorPrincipalKey)
 		if !ok {
@@ -992,7 +1010,7 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 			middleware.AbortGUIInternal(c)
 			return
 		}
-		roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), c.PostForm("key_type"), nil)
+		roleID, err := operator.ParseAssignedAdminRole(*p, c.PostForm("operator_role_id"), c.PostForm("key_type"), nil, h.RoleExists)
 		if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 			middleware.AbortGUIForbidden(c)
 			return
