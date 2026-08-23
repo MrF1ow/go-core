@@ -10,7 +10,7 @@ The API Keys form cannot mint or clear a forever admin key. Create is a future d
 
 ## Changes
 
-- Replace the forever branch in `parseOptionalExpiresAtKeeping` for admin keys. Empty create is 400. Empty edit keeps `current` when `current` is non-null.
+- Replace the forever branch in `parseOptionalExpiresAtKeeping` for admin keys. Empty create is 400. Empty edit keeps `current` when `current` is non-null. Posting the same `datetime-local` string still keeps a past instant so name and role edits on expired keys work.
 - Create form `datetime-local` defaults to now plus 90 days. Helper text no longer says leave blank for forever.
 - App key create and edit still allow empty expiry.
 - httptest admin create with empty `expires_at` is 400 and no row. Admin create with the default field succeeds and roster shows a non-null expiry. Edit that clears the field keeps the stored instant.

@@ -16,7 +16,7 @@ Do not stand up Orchestrate. Three impl waves fit one agent. Per-app is the larg
 
 Admin keys may have null `expires_at`, which is forever. `parseOptionalExpiresAtKeeping` treats an empty edit as forever. Expired non-null keys are already 401.
 
-`operator_access_logs` stores kind, path, decision, and grant. It does not store client IP or user agent. `maybeLogOperatorAccess` already has `gin.Context`. `activity_logs` already uses `ip_address TEXT` and `user_agent TEXT`.
+`operator_access_logs` stores kind, path, decision, and grant. It does not store client IP or user agent. `maybeLogOperatorAccess` already has `gin.Context`. `activity_logs` already uses `ip_address TEXT` and `user_agent TEXT`, filled by `util.GetClientInfo`.
 
 `admin_accounts` has no `app_id`. `Principal` has no `AppID`. Last-superadmin counts every enabled superadmin GUI account. Admin API keys are platform principals. App-type keys are not operators.
 
@@ -53,6 +53,10 @@ Excluded:
 - Access insert policy is unchanged. Deny always, write allow always, env-key allow always, ordinary read allows skip
 - Last-superadmin still counts enabled **platform** GUI superadmins. `app_id IS NULL`
 - Superadmin plus a non-null `app_id` is illegal. CHECK it
+- Admin API keys keep `app_id` null. CHECK `key_type <> 'admin' OR app_id IS NULL` in the per-app schema wave
+- Username and email stay globally unique. Bound operators share one namespace
+- Expiry lives in `FindActiveKeyByHash`. Do not add an expiry check to `AdminAuthMiddleware`
+- Role-only key updates pass `key.ExpiresAt` through. Backfill before the must-expire CHECK or those updates 500
 - No control-ui in this environment. httptest only
 - App keys keep nullable `expires_at`. Do not `SET NOT NULL` on the whole column
 
@@ -60,7 +64,7 @@ Excluded:
 
 IP and UA:
 
-**A. Two TEXT columns, same as `activity_logs` (chosen).** Capture `c.ClientIP()` and `User-Agent` in `maybeLogOperatorAccess`. Truncate UA at 512 bytes at the boundary. Empty string when missing. **Type system discipline.** **Laziness protocol.**
+**A. Two TEXT columns, same as `activity_logs` (chosen).** Capture with `util.GetClientInfo` in `maybeLogOperatorAccess`. Truncate UA at 512 bytes after that helper. Missing UA stays `"Unknown"`, same as activity logs. Do not use `c.ClientIP()`. TrustedProxies is unset, so Gin and `GetClientIP` disagree. **Type system discipline.** **Laziness protocol.**
 
 **B. JSON `details` blob.** One column now, every later field is untyped. List and CSV become guesswork.
 
@@ -89,7 +93,7 @@ Dashboard:
 ## Applicable skills
 
 - `go-core` hub, then `admin-gui.md`, `route-map.md`, `data-model.md`, `security.md`
-- `how` over `maybeLogOperatorAccess`, `parseOptionalExpiresAtKeeping`, `principalForDBKey`, `GUIAuthMiddleware`, and `WouldLeaveLastSuperadmin` before those files change
+- `how` over `maybeLogOperatorAccess`, `util.GetClientInfo`, `parseOptionalExpiresAtKeeping`, `FindActiveKeyByHash`, `GUIAuthMiddleware`, and `WouldLeaveLastSuperadmin` before those files change
 - `interrogate` before marking Must-expire schema or Per-app shape ready
 - `unslop` on docs and PR copy
 - `/deslop` before each commit
@@ -137,11 +141,11 @@ No control-ui. Do not claim browser verification.
 - Run **how** on the files named in Applicable skills before the wave that edits them.
 - **Foundational thinking.** AccessRecord fields and Principal.AppID before HTTP. CHECK and backfill before deleting the forever path.
 - **Boundary discipline.** Truncate and parse at the handler or middleware edge. `AccessRecord` and `Principal` stay trusted.
-- **Type system discipline.** Admin keys with null `expires_at` are unrepresentable after `021`. Superadmin with a non-null `app_id` is unrepresentable after `022`. Empty UA is `""`, not nil.
+- **Type system discipline.** Admin keys with null `expires_at` are unrepresentable after `021`. Superadmin with a non-null `app_id` is unrepresentable after `022`. Admin keys with a non-null `app_id` are unrepresentable after `022`. Missing UA is `"Unknown"`, not nil.
 - **Model the domain.** One `AccessRecord` for insert, JSON, CSV, and GUI. Platform vs app is `AppID == nil`, not a second principal type.
 - **Encode lessons in structure.** Pin `020`, `021`, `022` in `catalog_sql_test.go`. Inventory still fails a new `/operator` JSON route without `requireOp`.
 - **Build the lever.** httptest through `requireOp` and `requireGUI`. A unit `Has` is not the merge bar.
-- **Laziness protocol.** Reuse `c.ClientIP()`, `activity_logs` column types, `parseOptionalExpiresAtKeeping` (then replace its forever branch), `WouldLeaveLastSuperadmin` with a platform-only count. Do not add roster SQL.
+- **Laziness protocol.** Reuse `util.GetClientInfo`, `activity_logs` column types, `parseOptionalExpiresAtKeeping` (then replace its forever branch), `FindActiveKeyByHash`, `WouldLeaveLastSuperadmin` with a platform-only count. Do not add roster SQL. Do not put expiry in middleware.
 - **Experience first.** Create form defaults to plus 90 days. Access log table grows two columns, not a details dump.
 - **Subtract before you add.** Delete the forever path for admin keys. Do not leave a config flag that restores it.
 - **Outcome-oriented execution.** Dual forever/must-expire is not a shippable middle.

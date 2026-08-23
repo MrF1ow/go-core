@@ -10,7 +10,7 @@ Every logged operator decision stores the request IP and user agent. JSON, CSV, 
 
 ## Changes
 
-- `maybeLogOperatorAccess` copies `c.ClientIP()` and `c.GetHeader("User-Agent")` onto the record. Truncate UA at 512 bytes at this boundary.
+- `maybeLogOperatorAccess` copies `util.GetClientInfo(c)` onto the record. Truncate UA at 512 bytes after the helper. Missing UA is `"Unknown"`.
 - Append `ip_address` and `user_agent` to `accessLogCSVHeader` and `accessLogCSVRow`.
 - Add columns on `web/templates/partials/operator_access_logs.tmpl`.
 - httptest that a deny from a JSON caller persists the client IP.

@@ -13,6 +13,8 @@ A GUI operator can be bound to one application. Superadmin cannot. Platform oper
 - Add `migrations/022_admin_account_app.sql`.
 - `admin_accounts.app_id UUID REFERENCES applications(id) ON DELETE RESTRICT`, nullable.
 - CHECK that superadmin accounts have `app_id IS NULL`. Use `operator_roles` name or the seeded superadmin UUID already pinned in Go.
+- CHECK `key_type <> 'admin' OR app_id IS NULL` on `api_keys`. Create already leaves admin `app_id` nil. Auth ignores a stray value.
+- Username and email unique indexes stay global. Two apps cannot share `admin@`.
 - Update `internal/schema.sql`. List/get account queries return `app_id`. Exclusive `sqlc generate`.
 - `Principal.AppID *uuid.UUID`. Nil is platform. Set is that app only.
 - Account create JSON and GUI stay platform viewer with null `app_id` in this phase. Do not add the app picker yet.
@@ -29,4 +31,4 @@ Do not deny platform routes yet. Do not filter lists yet. A bound account that s
 
 Static: `go test -count=1 ./internal/operator ./internal/sqlcgen`.
 
-Runtime: insert account with superadmin role and a non-null `app_id` fails the CHECK. Insert viewer with an app_id succeeds. Last-superadmin still 409s a platform superadmin demote.
+Runtime: insert account with superadmin role and a non-null `app_id` fails the CHECK. Insert viewer with an app_id succeeds. Insert admin key with a non-null `app_id` fails. Last-superadmin still 409s a platform superadmin demote.

@@ -10,13 +10,13 @@ An admin API key cannot have a null `expires_at`. Existing null admin keys get a
 
 ## Changes
 
-- Add `migrations/021_admin_key_must_expire.sql`.
+- Add `migrations/021_admin_key_must_expire.sql`. Same shape as `019`. Backfill first, then CHECK.
 - `UPDATE api_keys SET expires_at = NOW() + INTERVAL '365 days' WHERE key_type = 'admin' AND expires_at IS NULL`.
 - `CHECK (key_type <> 'admin' OR expires_at IS NOT NULL)`.
 - Update `internal/schema.sql`. No new sqlc queries. Do not run `sqlc generate` unless a query actually changes.
 - Pin `021` in `catalog_sql_test.go`.
 
-Do not change the GUI parser yet. A raw insert of a null admin expiry must fail after migrate.
+Do not change the GUI parser yet. A raw insert of a null admin expiry must fail after migrate. Role-only `UpdateApiKey` keeps passing `key.ExpiresAt`. Backfill makes that safe. Do not add an expiry check to `AdminAuthMiddleware`. `FindActiveKeyByHash` already treats a past timestamp as missing.
 
 ## Data structures
 
