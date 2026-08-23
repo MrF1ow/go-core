@@ -245,7 +245,10 @@ CREATE TABLE admin_accounts (
     created_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     last_login_at         TIMESTAMPTZ,
-    disabled_at           TIMESTAMPTZ
+    disabled_at           TIMESTAMPTZ,
+    app_id                UUID         REFERENCES applications(id) ON DELETE RESTRICT,
+    CONSTRAINT admin_accounts_superadmin_is_platform
+        CHECK (operator_role_id <> 'd0000000-0000-0000-0000-000000000001'::uuid OR app_id IS NULL)
 );
 
 CREATE UNIQUE INDEX idx_admin_accounts_username         ON admin_accounts(username);
@@ -275,7 +278,9 @@ CREATE TABLE api_keys (
     CONSTRAINT api_keys_admin_operator_role_required
         CHECK (key_type <> 'admin' OR operator_role_id IS NOT NULL),
     CONSTRAINT api_keys_admin_must_expire
-        CHECK (key_type <> 'admin' OR expires_at IS NOT NULL)
+        CHECK (key_type <> 'admin' OR expires_at IS NOT NULL),
+    CONSTRAINT api_keys_admin_app_id_null
+        CHECK (key_type <> 'admin' OR app_id IS NULL)
 );
 
 CREATE UNIQUE INDEX idx_api_keys_key_hash   ON api_keys(key_hash);

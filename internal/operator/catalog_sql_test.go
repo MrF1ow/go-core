@@ -87,6 +87,48 @@ func TestAdminKeyMustExpireMigration(t *testing.T) {
 	}
 }
 
+func TestAdminAccountAppMigration(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/022_admin_account_app.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(sql)
+	if !strings.Contains(text, "admin_accounts_superadmin_is_platform") {
+		t.Fatal("022 missing superadmin CHECK name")
+	}
+	if !strings.Contains(text, "api_keys_admin_app_id_null") {
+		t.Fatal("022 missing admin-key app_id CHECK name")
+	}
+	superadminCheck := "CHECK (operator_role_id <> '" + RoleIDSuperadmin.String() + "'::uuid OR app_id IS NULL)"
+	if !strings.Contains(text, superadminCheck) {
+		t.Fatal("022 missing superadmin platform CHECK")
+	}
+	if !strings.Contains(text, "CHECK (key_type <> 'admin' OR app_id IS NULL)") {
+		t.Fatal("022 missing admin-key app_id CHECK")
+	}
+	schema, err := os.ReadFile("../schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemaText := string(schema)
+	if !strings.Contains(schemaText, "admin_accounts_superadmin_is_platform") {
+		t.Fatal("schema.sql missing superadmin platform CHECK")
+	}
+	if !strings.Contains(schemaText, superadminCheck) {
+		t.Fatal("schema.sql missing superadmin platform CHECK expression")
+	}
+	if !strings.Contains(schemaText, "api_keys_admin_app_id_null") {
+		t.Fatal("schema.sql missing admin-key app_id CHECK")
+	}
+	countSQL, err := os.ReadFile("../queries/admin_account.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(countSQL), "app_id IS NULL") {
+		t.Fatal("CountEnabledSuperadminAccounts missing app_id IS NULL")
+	}
+}
+
 func TestOperatorIAMEvidenceMigrationExists(t *testing.T) {
 	sql, err := os.ReadFile("../../migrations/018_operator_iam_evidence.sql")
 	if err != nil {

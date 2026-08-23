@@ -8,13 +8,15 @@ import (
 )
 
 // AdminAccount represents a system-level admin user for the Admin GUI.
-// These are separate from regular User accounts and are not scoped to any application.
+// These are separate from regular User accounts.
+// AppID is nil for platform operators. A set value binds the account to that application only.
 type AdminAccount struct {
 	ID             uuid.UUID  `json:"id"`
 	Username       string     `json:"username"`
 	Email          string     `json:"email"`
 	PasswordHash   string     `json:"-"`
 	OperatorRoleID uuid.UUID  `json:"operator_role_id"`
+	AppID          *uuid.UUID `json:"app_id,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 	LastLoginAt    *time.Time `json:"last_login_at"`
