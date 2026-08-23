@@ -12,6 +12,7 @@ import (
 	"github.com/MrF1ow/go-core/internal/admin"
 	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/web"
 )
 
 func captureAccessLogs(t *testing.T) *[]operator.AccessRecord {
@@ -259,5 +260,57 @@ func TestRequireOperatorPermission_MissingUserAgentIsUnknown(t *testing.T) {
 	}
 	if got := (*recs)[0].UserAgent; got != "Unknown" {
 		t.Fatalf("ua = %q, want Unknown", got)
+	}
+}
+
+func TestRequireGUIPermission_BoundAdminPlatformDenyLogs(t *testing.T) {
+	recs := captureAccessLogs(t)
+	p := operator.NewPrincipal(operator.KindGUIAccount, operator.RoleAdmin, operator.GrantsFor(operator.RoleAdmin))
+	appID := uuid.New()
+	p.AppID = &appID
+	response := guiPermissionGET(t, p, operator.ResTenants, operator.ActionRead, "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if len(*recs) != 1 {
+		t.Fatalf("logged %d records, want 1: %#v", len(*recs), *recs)
+	}
+	got := (*recs)[0]
+	if got.Decision != operator.DecisionDeny {
+		t.Fatalf("decision = %q", got.Decision)
+	}
+	if got.Resource != operator.ResTenants || got.Action != operator.ActionRead {
+		t.Fatalf("grant = %s:%s", got.Resource, got.Action)
+	}
+}
+
+func TestRequireOperatorPermission_BoundAdminPlatformDenyLogs(t *testing.T) {
+	recs := captureAccessLogs(t)
+	gin.SetMode(gin.TestMode)
+	p := operator.NewPrincipal(operator.KindAPIKey, operator.RoleAdmin, operator.GrantsFor(operator.RoleAdmin))
+	appID := uuid.New()
+	p.AppID = &appID
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(web.OperatorPrincipalKey, &p)
+		c.Next()
+	})
+	r.GET("/admin/tenants", RequireOperatorPermission(operator.ResTenants, operator.ActionRead), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/admin/tenants", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "insufficient permissions") {
+		t.Fatalf("body = %s", w.Body.String())
+	}
+	if len(*recs) != 1 {
+		t.Fatalf("logged %d records, want 1: %#v", len(*recs), *recs)
+	}
+	if (*recs)[0].Decision != operator.DecisionDeny {
+		t.Fatalf("decision = %q", (*recs)[0].Decision)
 	}
 }

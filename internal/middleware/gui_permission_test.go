@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/web"
@@ -37,6 +38,22 @@ func TestRequireGUIPermission_SuperadminAllowed(t *testing.T) {
 	response := guiPermissionGET(t, superadminPrincipal(), operator.ResTenants, operator.ActionWrite, "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestRequireGUIPermission_BoundAdminTenantsReadDenied(t *testing.T) {
+	p := operator.NewPrincipal(operator.KindGUIAccount, operator.RoleAdmin, operator.GrantsFor(operator.RoleAdmin))
+	appID := uuid.New()
+	p.AppID = &appID
+	response := guiPermissionGET(t, p, operator.ResTenants, operator.ActionRead, "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusForbidden)
+	}
+	if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
+		t.Fatalf("forbidden header = %q", response.Header().Get(web.GUIForbiddenHeader))
+	}
+	if strings.HasPrefix(strings.TrimSpace(response.Body.String()), "{") {
+		t.Fatalf("JSON body = %s", response.Body.String())
 	}
 }
 
