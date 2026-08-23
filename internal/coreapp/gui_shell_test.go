@@ -282,6 +282,7 @@ func TestGUIShell_AdminCannotStampSuperadminKey(t *testing.T) {
 		"name":             {"ops"},
 		"key_type":         {admin.KeyTypeAdmin},
 		"operator_role_id": {operator.RoleIDSuperadmin.String()},
+		"expires_at":       {time.Now().Add(90 * 24 * time.Hour).Format("2006-01-02T15:04")},
 	}
 	response := guiPOST(engine, "/gui/api-keys", cookie, form)
 	if response.Code != http.StatusForbidden {
@@ -295,8 +296,9 @@ func TestGUIShell_AdminCannotStampSuperadminKey(t *testing.T) {
 func TestGUIShell_AdminOmittingRoleIsNotIAMDeny(t *testing.T) {
 	engine, cookie := guiShellEngine(t, operator.RoleIDAdmin, operator.RoleAdmin)
 	form := url.Values{
-		"name":     {"ops"},
-		"key_type": {admin.KeyTypeAdmin},
+		"name":       {"ops"},
+		"key_type":   {admin.KeyTypeAdmin},
+		"expires_at": {time.Now().Add(90 * 24 * time.Hour).Format("2006-01-02T15:04")},
 	}
 	response := guiPOST(engine, "/gui/api-keys", cookie, form)
 	if response.Code != http.StatusOK {
@@ -332,6 +334,16 @@ func TestGUIShell_SuperadminApiKeyFormHasRoleSelect(t *testing.T) {
 	if !strings.Contains(body, operator.RoleIDSuperadmin.String()) {
 		t.Fatal("superadmin select missing superadmin option")
 	}
+	if !strings.Contains(body, `type="datetime-local"`) {
+		t.Fatal("create form missing datetime-local expiry field")
+	}
+	wantDay := time.Now().Add(90 * 24 * time.Hour).Format("2006-01-02")
+	if !strings.Contains(body, `value="`+wantDay) {
+		t.Fatalf("create form missing default expiry on %s", wantDay)
+	}
+	if strings.Contains(strings.ToLower(body), "forever") {
+		t.Fatal("create helper must not say forever")
+	}
 }
 
 func TestGUIShell_SuperadminApiKeyFormIncludesCustomRole(t *testing.T) {
@@ -363,6 +375,7 @@ func TestGUIShell_SuperadminApiKeyFormIncludesCustomRole(t *testing.T) {
 		"name":             {"ops"},
 		"key_type":         {admin.KeyTypeAdmin},
 		"operator_role_id": {auditorID.String()},
+		"expires_at":       {time.Now().Add(90 * 24 * time.Hour).Format("2006-01-02T15:04")},
 	})
 	if assign.Code != http.StatusOK {
 		t.Fatalf("stamp status = %d, body = %s", assign.Code, assign.Body.String())

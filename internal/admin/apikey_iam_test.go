@@ -21,6 +21,7 @@ func TestApiKeyCreate_AdminCannotStampSuperadmin(t *testing.T) {
 		"name":             {"ops"},
 		"key_type":         {KeyTypeAdmin},
 		"operator_role_id": {operator.RoleIDSuperadmin.String()},
+		"expires_at":       {futureExpiresAt()},
 	})
 	if got.response.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
@@ -35,8 +36,9 @@ func TestApiKeyCreate_AdminCannotStampSuperadmin(t *testing.T) {
 
 func TestApiKeyCreate_AdminOmittingRoleIsNotIAMDeny(t *testing.T) {
 	got := apiKeyCreatePOST(t, adminPrincipal(), url.Values{
-		"name":     {"ops"},
-		"key_type": {KeyTypeAdmin},
+		"name":       {"ops"},
+		"key_type":   {KeyTypeAdmin},
+		"expires_at": {futureExpiresAt()},
 	})
 	if got.response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
@@ -52,6 +54,7 @@ func TestApiKeyCreate_SuperadminCanStampSuperadminPastIAM(t *testing.T) {
 		"name":             {"root-key"},
 		"key_type":         {KeyTypeAdmin},
 		"operator_role_id": {operator.RoleIDSuperadmin.String()},
+		"expires_at":       {futureExpiresAt()},
 	})
 	if got.response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
@@ -64,11 +67,13 @@ func TestApiKeyCreate_SuperadminCanStampSuperadminPastIAM(t *testing.T) {
 
 func TestApiKeyUpdate_AdminKeepingCurrentSupportSucceeds(t *testing.T) {
 	current := operator.RoleIDSupport
+	stored := storedAdminExpiry()
 	existing := &models.ApiKey{
 		ID:             uuid.MustParse("22222222-2222-2222-2222-222222222222"),
 		KeyType:        KeyTypeAdmin,
 		Name:           "ops",
 		OperatorRoleID: &current,
+		ExpiresAt:      &stored,
 	}
 	got := apiKeyUpdatePUT(t, adminPrincipal(), existing, url.Values{
 		"name":             {"ops-renamed"},
@@ -83,15 +88,20 @@ func TestApiKeyUpdate_AdminKeepingCurrentSupportSucceeds(t *testing.T) {
 	if got.name != "ops-renamed" {
 		t.Fatalf("name = %q", got.name)
 	}
+	if got.expiresAt == nil || !got.expiresAt.Equal(stored) {
+		t.Fatalf("expiresAt = %v, want stored %v", got.expiresAt, stored)
+	}
 }
 
 func TestApiKeyUpdate_AdminChangingSupportToSuperadminDenied(t *testing.T) {
 	current := operator.RoleIDSupport
+	stored := storedAdminExpiry()
 	existing := &models.ApiKey{
 		ID:             uuid.MustParse("22222222-2222-2222-2222-222222222222"),
 		KeyType:        KeyTypeAdmin,
 		Name:           "ops",
 		OperatorRoleID: &current,
+		ExpiresAt:      &stored,
 	}
 	got := apiKeyUpdatePUT(t, adminPrincipal(), existing, url.Values{
 		"name":             {"ops"},
@@ -102,6 +112,95 @@ func TestApiKeyUpdate_AdminChangingSupportToSuperadminDenied(t *testing.T) {
 	}
 	if got.updated {
 		t.Fatal("denied change still persisted")
+	}
+}
+
+func TestApiKeyCreate_AdminEmptyExpiresAtRejected(t *testing.T) {
+	got := apiKeyCreatePOST(t, superadminGUIPrincipal(), url.Values{
+		"name":     {"ops"},
+		"key_type": {KeyTypeAdmin},
+	})
+	if got.response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
+	}
+	if got.created != nil {
+		t.Fatal("empty admin expiry still persisted a key")
+	}
+	if strings.Contains(got.response.Body.String(), "forever") {
+		t.Fatal("error copy must not say forever")
+	}
+}
+
+func TestApiKeyCreate_AdminFutureExpiresAtPersisted(t *testing.T) {
+	got := apiKeyCreatePOST(t, superadminGUIPrincipal(), url.Values{
+		"name":       {"ops"},
+		"key_type":   {KeyTypeAdmin},
+		"expires_at": {futureExpiresAt()},
+	})
+	if got.response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
+	}
+	if got.created == nil || got.created.ExpiresAt == nil {
+		t.Fatal("admin create must persist a non-nil expiry")
+	}
+}
+
+func TestApiKeyUpdate_AdminClearingExpiresAtKeepsStored(t *testing.T) {
+	current := operator.RoleIDSupport
+	stored := storedAdminExpiry()
+	existing := &models.ApiKey{
+		ID:             uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		KeyType:        KeyTypeAdmin,
+		Name:           "ops",
+		OperatorRoleID: &current,
+		ExpiresAt:      &stored,
+	}
+	got := apiKeyUpdatePUT(t, superadminGUIPrincipal(), existing, url.Values{
+		"name":             {"ops"},
+		"operator_role_id": {current.String()},
+		"expires_at":       {""},
+	})
+	if got.response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
+	}
+	if got.expiresAt == nil || !got.expiresAt.Equal(stored) {
+		t.Fatalf("expiresAt = %v, want stored %v", got.expiresAt, stored)
+	}
+}
+
+func TestApiKeyCreateForm_DefaultsExpiresAndOmitsForever(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	renderer, err := web.NewRenderer("/gui")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := gin.New()
+	router.HTMLRender = renderer
+	principal := superadminGUIPrincipal()
+	router.Use(func(c *gin.Context) {
+		c.Set(web.OperatorPrincipalKey, &principal)
+		c.Set(web.GUIAdminBasePathKey, "/gui")
+		c.Next()
+	})
+	h := &GUIHandler{BasePath: "/gui"}
+	router.GET("/gui/api-keys/new", h.ApiKeyCreateForm)
+
+	request := httptest.NewRequest(http.MethodGet, "/gui/api-keys/new", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, `type="datetime-local"`) {
+		t.Fatal("create form missing datetime-local expiry field")
+	}
+	wantDay := time.Now().Add(90 * 24 * time.Hour).Format("2006-01-02")
+	if !strings.Contains(body, `value="`+wantDay) {
+		t.Fatalf("create form missing default expiry on %s: %s", wantDay, body)
+	}
+	if strings.Contains(strings.ToLower(body), "forever") {
+		t.Fatal("create helper must not say forever")
 	}
 }
 
@@ -121,6 +220,14 @@ func assertPersistedRole(t *testing.T, created *models.ApiKey, want uuid.UUID) {
 	if created.OperatorRoleID == nil || *created.OperatorRoleID != want {
 		t.Fatalf("role = %v, want %s", created.OperatorRoleID, want)
 	}
+}
+
+func futureExpiresAt() string {
+	return time.Now().Add(90 * 24 * time.Hour).Format("2006-01-02T15:04")
+}
+
+func storedAdminExpiry() time.Time {
+	return time.Date(2020, 1, 2, 15, 4, 0, 0, time.UTC)
 }
 
 type apiKeyCreateResult struct {
@@ -176,11 +283,12 @@ func apiKeyCreatePOST(t *testing.T, principal operator.Principal, form url.Value
 }
 
 type apiKeyUpdateResult struct {
-	response *httptest.ResponseRecorder
-	updated  bool
-	name     string
-	role     *uuid.UUID
-	events   []operator.IAMEvent
+	response  *httptest.ResponseRecorder
+	updated   bool
+	name      string
+	role      *uuid.UUID
+	expiresAt *time.Time
+	events    []operator.IAMEvent
 }
 
 func apiKeyUpdatePUT(t *testing.T, principal operator.Principal, existing *models.ApiKey, form url.Values) apiKeyUpdateResult {
@@ -213,6 +321,7 @@ func apiKeyUpdatePUT(t *testing.T, principal operator.Principal, existing *model
 		updateAPIKey: func(id, name, description, scopes string, roleID *uuid.UUID, expiresAt *time.Time) error {
 			got.updated = true
 			got.name = name
+			got.expiresAt = expiresAt
 			if roleID != nil {
 				copied := *roleID
 				got.role = &copied

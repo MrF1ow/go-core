@@ -122,19 +122,26 @@ func TestHashApiKeyEmpty(t *testing.T) {
 // Constants tests
 // ---------------------------------------------------------------------------
 
-func TestParseOptionalExpiresAt_EmptyIsForever(t *testing.T) {
-	got, err := parseOptionalExpiresAt("", time.Now())
+func TestParseOptionalExpiresAt_AppEmptyIsForever(t *testing.T) {
+	got, err := parseOptionalExpiresAt("", time.Now(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != nil {
-		t.Fatal("empty expiry must be forever")
+		t.Fatal("empty app expiry must be forever")
+	}
+}
+
+func TestParseOptionalExpiresAt_AdminRequiredEmptyCreateErrors(t *testing.T) {
+	_, err := parseOptionalExpiresAt("", time.Now(), true)
+	if err == nil {
+		t.Fatal("empty admin create expiry must fail")
 	}
 }
 
 func TestParseOptionalExpiresAt_Future(t *testing.T) {
 	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
-	got, err := parseOptionalExpiresAt("2026-09-01T15:04", now)
+	got, err := parseOptionalExpiresAt("2026-09-01T15:04", now, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +152,7 @@ func TestParseOptionalExpiresAt_Future(t *testing.T) {
 
 func TestParseOptionalExpiresAt_PastRejected(t *testing.T) {
 	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
-	_, err := parseOptionalExpiresAt("2026-01-01T00:00", now)
+	_, err := parseOptionalExpiresAt("2026-01-01T00:00", now, false)
 	if err == nil {
 		t.Fatal("past expiry must fail")
 	}
@@ -154,7 +161,7 @@ func TestParseOptionalExpiresAt_PastRejected(t *testing.T) {
 func TestParseOptionalExpiresAtKeeping_UnchangedPastKept(t *testing.T) {
 	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	current := time.Date(2026, 1, 1, 15, 4, 30, 0, time.UTC)
-	got, err := parseOptionalExpiresAtKeeping("2026-01-01T15:04", now, &current)
+	got, err := parseOptionalExpiresAtKeeping("2026-01-01T15:04", now, &current, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,22 +170,34 @@ func TestParseOptionalExpiresAtKeeping_UnchangedPastKept(t *testing.T) {
 	}
 }
 
-func TestParseOptionalExpiresAtKeeping_ClearIsForever(t *testing.T) {
+func TestParseOptionalExpiresAtKeeping_AppEmptyIsForever(t *testing.T) {
 	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	current := time.Date(2026, 1, 1, 15, 4, 0, 0, time.UTC)
-	got, err := parseOptionalExpiresAtKeeping("", now, &current)
+	got, err := parseOptionalExpiresAtKeeping("", now, &current, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != nil {
-		t.Fatal("clearing expiry must be forever")
+		t.Fatal("empty app expiry must be forever")
+	}
+}
+
+func TestParseOptionalExpiresAtKeeping_AdminRequiredEmptyEditKeepsCurrent(t *testing.T) {
+	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	current := time.Date(2026, 1, 1, 15, 4, 0, 0, time.UTC)
+	got, err := parseOptionalExpiresAtKeeping("", now, &current, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != &current {
+		t.Fatalf("got %v, want stored pointer", got)
 	}
 }
 
 func TestParseOptionalExpiresAtKeeping_NewPastRejected(t *testing.T) {
 	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	current := time.Date(2026, 1, 1, 15, 4, 0, 0, time.UTC)
-	_, err := parseOptionalExpiresAtKeeping("2026-02-01T00:00", now, &current)
+	_, err := parseOptionalExpiresAtKeeping("2026-02-01T00:00", now, &current, true)
 	if err == nil {
 		t.Fatal("a different past expiry must fail")
 	}
@@ -187,7 +206,7 @@ func TestParseOptionalExpiresAtKeeping_NewPastRejected(t *testing.T) {
 func TestParseOptionalExpiresAtKeeping_FutureChange(t *testing.T) {
 	now := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	current := time.Date(2026, 1, 1, 15, 4, 0, 0, time.UTC)
-	got, err := parseOptionalExpiresAtKeeping("2026-09-01T15:04", now, &current)
+	got, err := parseOptionalExpiresAtKeeping("2026-09-01T15:04", now, &current, true)
 	if err != nil {
 		t.Fatal(err)
 	}

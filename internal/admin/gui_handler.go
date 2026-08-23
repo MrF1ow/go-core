@@ -1986,11 +1986,13 @@ func (h *GUIHandler) ApiKeyCreateForm(c *gin.Context) {
 		apps = loaded
 	}
 
+	defaultExpires := time.Now().Add(90 * 24 * time.Hour)
 	c.HTML(http.StatusOK, "api_key_form", gin.H{
-		"Apps":          apps,
-		"OperatorRoles": h.assignableRoleOptions(c),
-		"DefaultRoleID": operator.RoleIDViewer.String(),
-		"CanIAM":        h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite),
+		"Apps":             apps,
+		"OperatorRoles":    h.assignableRoleOptions(c),
+		"DefaultRoleID":    operator.RoleIDViewer.String(),
+		"CanIAM":           h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite),
+		"DefaultExpiresAt": formatExpiresAtLocal(&defaultExpires),
 	})
 }
 
@@ -2043,10 +2045,10 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 		appName = app.Name
 	}
 
-	expiresAt, err := parseOptionalExpiresAt(expiresAtStr, time.Now())
+	expiresAt, err := parseOptionalExpiresAt(expiresAtStr, time.Now(), keyType == KeyTypeAdmin)
 	if err != nil {
 		c.String(http.StatusBadRequest,
-			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid expiration date. Leave blank for forever.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">`+expiresAtErrorMessage(err)+`<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
 	}
 	var expiresAtDisplay string
@@ -2307,10 +2309,10 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 		return
 	}
 
-	expiresAt, err := parseOptionalExpiresAtKeeping(c.PostForm("expires_at"), time.Now(), existing.ExpiresAt)
+	expiresAt, err := parseOptionalExpiresAtKeeping(c.PostForm("expires_at"), time.Now(), existing.ExpiresAt, existing.KeyType == KeyTypeAdmin)
 	if err != nil {
 		c.String(http.StatusBadRequest,
-			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid expiration date. Leave blank for forever.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">`+expiresAtErrorMessage(err)+`<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
 	}
 
