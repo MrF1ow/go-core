@@ -87,8 +87,8 @@ func TestPrincipal_AllowsBoundAdmin(t *testing.T) {
 	if !p.Allows(ResUsers, ActionRead) {
 		t.Fatal("bound admin should allow users:read")
 	}
-	if p.Allows(ResDashboard, ActionRead) {
-		t.Fatal("bound admin must not allow dashboard:read")
+	if !p.Allows(ResDashboard, ActionRead) {
+		t.Fatal("bound admin should allow dashboard:read")
 	}
 	if p.Allows(ResAdminIAM, ActionRead) {
 		t.Fatal("bound admin must not allow admin_iam:read")

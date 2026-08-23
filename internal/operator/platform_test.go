@@ -4,6 +4,7 @@ import "testing"
 
 func TestPlatformResource_CatalogCoverage(t *testing.T) {
 	wantApp := map[string]struct{}{
+		ResDashboard:   {},
 		ResUsers:       {},
 		ResSessions:    {},
 		ResLogs:        {},
@@ -14,7 +15,6 @@ func TestPlatformResource_CatalogCoverage(t *testing.T) {
 		ResEndUserRBAC: {},
 	}
 	wantPlatform := map[string]struct{}{
-		ResDashboard:     {},
 		ResTenants:       {},
 		ResApplications:  {},
 		ResOIDC:          {},
