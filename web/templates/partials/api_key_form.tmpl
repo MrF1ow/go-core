@@ -15,19 +15,27 @@
                 </div>
                 <div class="col-md-4">
                     <label for="keyType" class="form-label small text-muted">Key Type</label>
+                    {{if .Bound}}
+                    <input type="hidden" name="key_type" value="app">
+                    <input type="text" class="form-control" id="keyType" value="App Key" disabled>
+                    {{else}}
                     <select class="form-select" id="keyType" name="key_type" required
                             onchange="document.getElementById('appSelectGroup').style.display = this.value === 'app' ? 'block' : 'none'; document.getElementById('keyAppId').required = this.value === 'app'; document.getElementById('adminRoleGroup').style.display = this.value === 'admin' ? 'block' : 'none'; document.getElementById('appScopesGroup').style.display = this.value === 'app' ? 'block' : 'none';">
                         <option value="">Select type...</option>
                         <option value="admin">Admin Key (operator JSON API)</option>
                         <option value="app">App Key (per-application access)</option>
                     </select>
+                    {{end}}
                 </div>
-                <div class="col-md-4" id="appSelectGroup" style="display: none;">
+                <div class="col-md-4" id="appSelectGroup" {{if not .Bound}}style="display: none;"{{end}}>
                     <label for="keyAppId" class="form-label small text-muted">Application</label>
-                    <select class="form-select" id="keyAppId" name="app_id">
-                        <option value="">Select an application...</option>
+                    {{if .Bound}}
+                    <input type="hidden" name="app_id" value="{{.BoundAppID}}">
+                    {{end}}
+                    <select class="form-select" id="keyAppId" {{if not .Bound}}name="app_id"{{end}} {{if .Bound}}disabled{{end}}>
+                        {{if not .Bound}}<option value="">Select an application...</option>{{end}}
                         {{range .Apps}}
-                        <option value="{{.ID}}">{{.Name}} ({{.TenantName}})</option>
+                        <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.BoundAppID}}selected{{end}}>{{.Name}} ({{.TenantName}})</option>
                         {{end}}
                     </select>
                 </div>
@@ -55,7 +63,7 @@
                     <div class="form-text">New admin keys default to viewer.</div>
                     {{end}}
                 </div>
-                <div class="col-md-4" id="appScopesGroup" style="display: none;">
+                <div class="col-md-4" id="appScopesGroup" {{if not .Bound}}style="display: none;"{{end}}>
                     <label for="keyScopes" class="form-label small text-muted">Scopes <span class="text-muted">(optional)</span></label>
                     <input type="text" class="form-control" id="keyScopes" name="scopes"
                            placeholder="e.g. users:read,auth:*">
