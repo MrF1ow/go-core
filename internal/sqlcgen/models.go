@@ -252,6 +252,8 @@ type OperatorAccessLog struct {
 	Resource  string      `json:"resource"`
 	Action    string      `json:"action"`
 	Status    int32       `json:"status"`
+	IpAddress string      `json:"ip_address"`
+	UserAgent string      `json:"user_agent"`
 }
 
 type OperatorIamEvent struct {

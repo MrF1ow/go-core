@@ -31,6 +31,8 @@ type AccessRecord struct {
 	Resource  string     `json:"resource"`
 	Action    string     `json:"action"`
 	Status    int        `json:"status"`
+	IPAddress string     `json:"ip_address"`
+	UserAgent string     `json:"user_agent"`
 }
 
 // ShouldLogAccess is the v1 insert policy.
@@ -58,6 +60,8 @@ func (r *Repository) InsertAccessLog(ctx context.Context, rec AccessRecord) erro
 		Resource:  rec.Resource,
 		Action:    rec.Action,
 		Status:    safeconv.ToInt32(rec.Status),
+		IpAddress: rec.IPAddress,
+		UserAgent: rec.UserAgent,
 	})
 	return err
 }
@@ -86,6 +90,8 @@ func (r *Repository) ListAccessLogs(ctx context.Context, limit int32, offset int
 			Resource:  row.Resource,
 			Action:    row.Action,
 			Status:    int(row.Status),
+			IPAddress: row.IpAddress,
+			UserAgent: row.UserAgent,
 		})
 	}
 	return out, nil
