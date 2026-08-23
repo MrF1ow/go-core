@@ -13,10 +13,12 @@ const (
 
 // Principal is the grant attached after admin authentication.
 // Perms are exact "resource:action" keys. Wildcards are not grants in v1.
+// AppID is nil for platform operators. A set value is that application only.
 type Principal struct {
 	Kind      Kind
 	KeyID     *uuid.UUID
 	AccountID *uuid.UUID
+	AppID     *uuid.UUID
 	RoleName  string
 	perms     map[string]struct{}
 }

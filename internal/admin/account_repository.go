@@ -272,6 +272,7 @@ func rowToModel(row sqlcgen.AdminAccount) models.AdminAccount {
 		Email:               ptrToString(row.Email),
 		PasswordHash:        row.PasswordHash,
 		OperatorRoleID:      row.OperatorRoleID,
+		AppID:               pgtypeUUIDToPtr(row.AppID),
 		TwoFAEnabled:        row.TwoFaEnabled,
 		TwoFAMethod:         ptrToString(row.TwoFaMethod),
 		TwoFASecret:         ptrToString(row.TwoFaSecret),

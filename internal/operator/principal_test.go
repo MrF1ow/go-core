@@ -54,3 +54,15 @@ func TestPrincipal_KeyIDOptional(t *testing.T) {
 		t.Fatal("key id should round-trip")
 	}
 }
+
+func TestPrincipal_AppIDOptional(t *testing.T) {
+	p := SuperadminPrincipal(KindGUIAccount)
+	if p.AppID != nil {
+		t.Fatal("app id should be nil by default")
+	}
+	id := uuid.New()
+	p.AppID = &id
+	if p.AppID == nil || *p.AppID != id {
+		t.Fatal("app id should round-trip")
+	}
+}
