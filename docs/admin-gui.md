@@ -32,7 +32,8 @@ JSON `/admin` routes are a different auth path: header `X-Admin-API-Key`.
 | Tenants / Applications | CRUD |
 | OAuth Configs | Per-app Google / Facebook / GitHub |
 | Users | Search, lock, sessions, social, trusted devices, CSV |
-| Roles / Permissions / User Roles | RBAC |
+| Roles / Permissions / User Roles | End-user RBAC (`end_user_rbac`) |
+| Operator IAM | `/gui/operator`. Roster, create and disable operators, stamp key roles, IAM events, access logs, custom roles |
 | Sessions | Revoke one or many |
 | Session Groups | Cross-app SSO, GlobalLogout |
 | Activity Logs | Filter and export |

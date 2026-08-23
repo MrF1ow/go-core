@@ -26,6 +26,7 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | Document | Description |
 |----------|-------------|
 | [Activity logging](activity-logging.md) | Event categories, anomalies, retention |
+| [Operator IAM](specs/2026-08-22-operator-iam.md) | Admin JSON and GUI grants, roster, evidence |
 | [Session group expiry](session-group-expiry.md) | Cross-app logout when a session TTL expires |
 
 ## Development
