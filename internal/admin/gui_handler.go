@@ -1975,16 +1975,20 @@ func (h *GUIHandler) ApiKeyList(c *gin.Context) {
 // ApiKeyCreateForm returns the API key creation form HTML fragment.
 // GET /gui/api-keys/new
 func (h *GUIHandler) ApiKeyCreateForm(c *gin.Context) {
-	apps, err := h.Repo.ListAllAppsWithTenantName()
-	if err != nil {
-		c.String(http.StatusInternalServerError,
-			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to load applications.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
-		return
+	var apps []AppWithTenant
+	if h.Repo != nil {
+		loaded, err := h.Repo.ListAllAppsWithTenantName()
+		if err != nil {
+			c.String(http.StatusInternalServerError,
+				`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to load applications.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+			return
+		}
+		apps = loaded
 	}
 
 	c.HTML(http.StatusOK, "api_key_form", gin.H{
 		"Apps":          apps,
-		"OperatorRoles": operatorRoleOptions(),
+		"OperatorRoles": h.assignableRoleOptions(c),
 		"DefaultRoleID": operator.RoleIDViewer.String(),
 		"CanIAM":        h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite),
 	})
@@ -2277,7 +2281,7 @@ func (h *GUIHandler) ApiKeyEditForm(c *gin.Context) {
 		"KeySuffix":      apiKey.KeySuffix,
 		"OperatorRoleID": uuidPtrString(apiKey.OperatorRoleID),
 		"ExpiresAtLocal": formatExpiresAtLocal(apiKey.ExpiresAt),
-		"OperatorRoles":  operatorRoleOptions(),
+		"OperatorRoles":  h.assignableRoleOptions(c),
 		"CanIAM":         h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite),
 	})
 }
