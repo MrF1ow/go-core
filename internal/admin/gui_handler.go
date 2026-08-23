@@ -95,6 +95,8 @@ type GUIHandler struct {
 	DisableAccount                 func(uuid.UUID) error
 	CountEnabledSuperadmins        func() (int64, error)
 	GetAPIKey                      func(string) (*models.ApiKey, error)
+	GetUserDetail                  func(string) (*UserDetail, error)
+	ListUsers                      func(page, pageSize int, appID, search string) ([]UserListItem, int64, error)
 	UpdateAPIKeyRole               func(id string, roleID *uuid.UUID) error
 	AbortForbidden                 func(*gin.Context) // HTML 403; wired to middleware.AbortGUIForbidden
 	AbortInternal                  func(*gin.Context) // HTML 500; wired to middleware.AbortGUIInternal
@@ -272,7 +274,7 @@ func (h *GUIHandler) Dashboard(c *gin.Context) {
 // DashboardStats returns the stats cards HTML fragment for HTMX.
 // GET /gui/dashboard/stats
 func (h *GUIHandler) DashboardStats(c *gin.Context) {
-	stats, err := h.DashboardService.GetStats()
+	stats, err := h.DashboardService.GetStats(boundAppID(c))
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger">Failed to load dashboard stats.</div>`)
@@ -284,7 +286,7 @@ func (h *GUIHandler) DashboardStats(c *gin.Context) {
 // DashboardActivity returns the recent activity table HTML fragment for HTMX.
 // GET /gui/dashboard/activity
 func (h *GUIHandler) DashboardActivity(c *gin.Context) {
-	logs, err := h.DashboardService.GetRecentActivity(10)
+	logs, err := h.DashboardService.GetRecentActivity(10, boundAppID(c))
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger">Failed to load recent activity.</div>`)
@@ -1144,8 +1146,7 @@ func (h *GUIHandler) AppFormCancel(c *gin.Context) {
 // OAuthPage renders the OAuth config management page.
 // GET /gui/oauth
 func (h *GUIHandler) OAuthPage(c *gin.Context) {
-	// Load all apps with tenant names for the filter dropdown
-	apps, err := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
 	if err != nil {
 		apps = nil // Degrade gracefully
 	}
@@ -1164,7 +1165,7 @@ func (h *GUIHandler) OAuthList(c *gin.Context) {
 		page = 1
 	}
 	pageSize := 10
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 
 	configs, total, err := h.Repo.ListOAuthConfigsWithDetails(page, pageSize, appID)
 	if err != nil {
@@ -1195,7 +1196,7 @@ func (h *GUIHandler) OAuthList(c *gin.Context) {
 // OAuthCreateForm returns the empty create form HTML fragment for HTMX.
 // GET /gui/oauth/new
 func (h *GUIHandler) OAuthCreateForm(c *gin.Context) {
-	apps, err := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to load applications.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
@@ -1221,7 +1222,7 @@ func (h *GUIHandler) OAuthCreateForm(c *gin.Context) {
 // OAuthCreate handles creating a new OAuth config.
 // POST /gui/oauth
 func (h *GUIHandler) OAuthCreate(c *gin.Context) {
-	appID := c.PostForm("app_id")
+	appID := restrictAppQuery(c, c.PostForm("app_id"))
 	provider := strings.TrimSpace(c.PostForm("provider"))
 	clientID := strings.TrimSpace(c.PostForm("client_id"))
 	clientSecret := strings.TrimSpace(c.PostForm("client_secret"))
@@ -1285,13 +1286,13 @@ func (h *GUIHandler) OAuthCreate(c *gin.Context) {
 func (h *GUIHandler) OAuthEditForm(c *gin.Context) {
 	id := c.Param("id")
 	config, err := h.Repo.GetOAuthConfigByID(id)
-	if err != nil {
+	if err != nil || foreignApp(c, config.AppID) {
 		c.String(http.StatusNotFound,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">OAuth config not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
 	}
 
-	apps, err := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to load applications.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
@@ -1324,6 +1325,12 @@ func (h *GUIHandler) OAuthEditForm(c *gin.Context) {
 // PUT /gui/oauth/:id
 func (h *GUIHandler) OAuthUpdate(c *gin.Context) {
 	id := c.Param("id")
+	config, err := h.Repo.GetOAuthConfigByID(id)
+	if err != nil || foreignApp(c, config.AppID) {
+		c.String(http.StatusNotFound,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">OAuth config not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
 	clientID := strings.TrimSpace(c.PostForm("client_id"))
 	clientSecret := strings.TrimSpace(c.PostForm("client_secret"))
 	redirectURL := strings.TrimSpace(c.PostForm("redirect_url"))
@@ -1356,7 +1363,7 @@ func (h *GUIHandler) OAuthUpdate(c *gin.Context) {
 func (h *GUIHandler) OAuthDeleteConfirm(c *gin.Context) {
 	id := c.Param("id")
 	config, err := h.Repo.GetOAuthConfigByID(id)
-	if err != nil {
+	if err != nil || foreignApp(c, config.AppID) {
 		c.String(http.StatusNotFound,
 			`<div class="modal-body"><div class="alert alert-danger">OAuth config not found.</div></div>`)
 		return
@@ -1385,6 +1392,12 @@ func (h *GUIHandler) OAuthDeleteConfirm(c *gin.Context) {
 // DELETE /gui/oauth/:id
 func (h *GUIHandler) OAuthDelete(c *gin.Context) {
 	id := c.Param("id")
+	config, err := h.Repo.GetOAuthConfigByID(id)
+	if err != nil || foreignApp(c, config.AppID) {
+		c.String(http.StatusNotFound,
+			`<div class="alert alert-danger">OAuth config not found.</div>`)
+		return
+	}
 	if err := h.Repo.DeleteOAuthConfig(id); err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger">Failed to delete OAuth config.</div>`)
@@ -1396,7 +1409,8 @@ func (h *GUIHandler) OAuthDelete(c *gin.Context) {
 
 	page := 1
 	pageSize := 10
-	configs, total, err := h.Repo.ListOAuthConfigsWithDetails(page, pageSize, "")
+	appID := restrictAppQuery(c, "")
+	configs, total, err := h.Repo.ListOAuthConfigsWithDetails(page, pageSize, appID)
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger">OAuth config deleted but failed to refresh list.</div>`)
@@ -1431,6 +1445,12 @@ func (h *GUIHandler) OAuthFormCancel(c *gin.Context) {
 // PUT /gui/oauth/:id/toggle
 func (h *GUIHandler) OAuthToggleEnabled(c *gin.Context) {
 	id := c.Param("id")
+	existing, err := h.Repo.GetOAuthConfigByID(id)
+	if err != nil || foreignApp(c, existing.AppID) {
+		c.String(http.StatusNotFound,
+			`<span class="badge bg-warning bg-opacity-10 text-warning">Error</span>`)
+		return
+	}
 	config, err := h.Repo.ToggleOAuthConfigEnabled(id)
 	if err != nil {
 		c.String(http.StatusInternalServerError,
@@ -1515,7 +1535,7 @@ func (h *GUIHandler) persistAPIKeyUpdate(id, name, description, scopes string, r
 func (h *GUIHandler) UserPage(c *gin.Context) {
 	data := h.page(c)
 	data.ActivePage = "users"
-	apps, err := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
 	if err != nil {
 		data.Error = "Failed to load applications"
 		c.HTML(http.StatusInternalServerError, "users", data)
@@ -1533,10 +1553,10 @@ func (h *GUIHandler) UserList(c *gin.Context) {
 	}
 	pageSize := 15
 
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	search := c.Query("search")
 
-	users, total, err := h.Repo.ListUsersWithDetails(page, pageSize, appID, search)
+	users, total, err := h.listUsers(page, pageSize, appID, search)
 	if err != nil {
 		c.HTML(http.StatusInternalServerError, "user_list", gin.H{
 			"Users": nil,
@@ -1562,11 +1582,9 @@ func (h *GUIHandler) UserList(c *gin.Context) {
 func (h *GUIHandler) UserDetail(c *gin.Context) {
 	id := c.Param("id")
 
-	detail, err := h.Repo.GetUserDetailByID(id)
-	if err != nil {
-		c.HTML(http.StatusNotFound, "user_detail", gin.H{
-			"Error": "User not found",
-		})
+	detail, err := h.userDetailByID(id)
+	if err != nil || foreignApp(c, detail.AppID) {
+		abortGUINotFoundPage(c, "user_detail", h.userDetailView(c, &UserDetail{}))
 		return
 	}
 
@@ -1587,9 +1605,15 @@ func (h *GUIHandler) UserDetail(c *gin.Context) {
 // UserRevokeTrustedDevice revokes a single trusted device for a user (admin action).
 // DELETE /gui/users/:id/trusted-devices/:device_id
 func (h *GUIHandler) UserRevokeTrustedDevice(c *gin.Context) {
+	id := c.Param("id")
 	deviceIDStr := c.Param("device_id")
 	if h.TrustedDeviceRepo == nil {
 		c.String(http.StatusServiceUnavailable, "Trusted device feature is disabled.")
+		return
+	}
+	detail, err := h.userDetailByID(id)
+	if err != nil || foreignApp(c, detail.AppID) {
+		abortGUINotFound(c, "User not found")
 		return
 	}
 	deviceID, err := uuid.Parse(deviceIDStr)
@@ -1610,6 +1634,11 @@ func (h *GUIHandler) UserRevokeAllTrustedDevices(c *gin.Context) {
 	id := c.Param("id")
 	if h.TrustedDeviceRepo == nil {
 		c.String(http.StatusServiceUnavailable, "Trusted device feature is disabled.")
+		return
+	}
+	detail, err := h.userDetailByID(id)
+	if err != nil || foreignApp(c, detail.AppID) {
+		abortGUINotFound(c, "User not found")
 		return
 	}
 	userUUID, err := uuid.Parse(id)
@@ -1634,6 +1663,12 @@ func (h *GUIHandler) UserRevokeAllTrustedDevices(c *gin.Context) {
 // UserToggleActive toggles a user's IsActive flag and revokes tokens on deactivation (HTMX fragment)
 func (h *GUIHandler) UserToggleActive(c *gin.Context) {
 	id := c.Param("id")
+
+	detail, err := h.userDetailByID(id)
+	if err != nil || foreignApp(c, detail.AppID) {
+		abortGUINotFound(c, "User not found")
+		return
+	}
 
 	newActive, appID, err := h.Repo.ToggleUserActive(id)
 	if err != nil {
@@ -1699,6 +1734,12 @@ func (h *GUIHandler) UserToggleActive(c *gin.Context) {
 func (h *GUIHandler) UserUnlock(c *gin.Context) {
 	id := c.Param("id")
 
+	detail, err := h.userDetailByID(id)
+	if err != nil || foreignApp(c, detail.AppID) {
+		abortGUINotFound(c, "User not found")
+		return
+	}
+
 	userEmail, appIDStr, err := h.Repo.UnlockUser(id)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to unlock user account")
@@ -1743,7 +1784,7 @@ func (h *GUIHandler) UserUnlock(c *gin.Context) {
 func (h *GUIHandler) LogsPage(c *gin.Context) {
 	data := h.page(c)
 	data.ActivePage = "logs"
-	apps, err := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
 	if err != nil {
 		data.Error = "Failed to load applications"
 		c.HTML(http.StatusInternalServerError, "activity_logs", data)
@@ -1779,7 +1820,7 @@ func (h *GUIHandler) LogList(c *gin.Context) {
 
 	eventType := c.Query("event_type")
 	severity := c.Query("severity")
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	search := c.Query("search")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
@@ -1815,10 +1856,8 @@ func (h *GUIHandler) LogDetail(c *gin.Context) {
 	id := c.Param("id")
 
 	detail, err := h.Repo.GetActivityLogDetail(id)
-	if err != nil {
-		c.HTML(http.StatusNotFound, "activity_log_detail", gin.H{
-			"Error": "Activity log not found",
-		})
+	if err != nil || foreignApp(c, detail.AppID) {
+		abortGUINotFoundPage(c, "activity_log_detail", &ActivityLogDetail{})
 		return
 	}
 
@@ -1835,7 +1874,7 @@ func (h *GUIHandler) LogExport(c *gin.Context) {
 
 	eventType := c.Query("event_type")
 	severity := c.Query("severity")
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	search := c.Query("search")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
@@ -1950,9 +1989,9 @@ func (h *GUIHandler) ApiKeyList(c *gin.Context) {
 	}
 	pageSize := 20
 
-	keyType := c.Query("key_type")
+	keyType, appID := h.apiKeyListFilter(c)
 
-	keys, total, err := h.Repo.ListApiKeys(page, pageSize, keyType)
+	keys, total, err := h.Repo.ListApiKeys(page, pageSize, keyType, appID)
 	if err != nil {
 		c.HTML(http.StatusInternalServerError, "api_key_list", gin.H{
 			"Keys":  nil,
@@ -1976,15 +2015,17 @@ func (h *GUIHandler) ApiKeyList(c *gin.Context) {
 // ApiKeyCreateForm returns the API key creation form HTML fragment.
 // GET /gui/api-keys/new
 func (h *GUIHandler) ApiKeyCreateForm(c *gin.Context) {
-	var apps []AppWithTenant
-	if h.Repo != nil {
-		loaded, err := h.Repo.ListAllAppsWithTenantName()
-		if err != nil {
-			c.String(http.StatusInternalServerError,
-				`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to load applications.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
-			return
-		}
-		apps = loaded
+	apps, err := h.appsForGUI(c)
+	if err != nil {
+		c.String(http.StatusInternalServerError,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to load applications.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
+
+	bound := boundAppID(c)
+	boundID := ""
+	if bound != nil {
+		boundID = bound.String()
 	}
 
 	defaultExpires := time.Now().Add(90 * 24 * time.Hour)
@@ -1994,6 +2035,8 @@ func (h *GUIHandler) ApiKeyCreateForm(c *gin.Context) {
 		"DefaultRoleID":    operator.RoleIDViewer.String(),
 		"CanIAM":           h.principalCan(c, operator.ResAdminIAM, operator.ActionWrite),
 		"DefaultExpiresAt": formatExpiresAtLocal(&defaultExpires),
+		"Bound":            bound != nil,
+		"BoundAppID":       boundID,
 	})
 }
 
@@ -2006,6 +2049,16 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 	scopes := strings.TrimSpace(c.PostForm("scopes"))
 	appIDStr := strings.TrimSpace(c.PostForm("app_id"))
 	expiresAtStr := strings.TrimSpace(c.PostForm("expires_at"))
+
+	if bound := boundAppID(c); bound != nil {
+		if keyType == KeyTypeAdmin {
+			c.String(http.StatusBadRequest,
+				`<div class="alert alert-danger alert-dismissible fade show" role="alert">App-scoped operators cannot create admin keys.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+			return
+		}
+		keyType = KeyTypeApp
+		appIDStr = bound.String()
+	}
 
 	// Validate required fields
 	if name == "" {
@@ -2131,7 +2184,7 @@ func (h *GUIHandler) ApiKeyCreate(c *gin.Context) {
 func (h *GUIHandler) ApiKeyRevokeConfirm(c *gin.Context) {
 	id := c.Param("id")
 	apiKey, err := h.Repo.GetApiKeyByID(id)
-	if err != nil {
+	if err != nil || apiKeyForeign(c, apiKey) {
 		c.String(http.StatusNotFound,
 			`<div class="modal-body"><p class="text-danger">API key not found.</p></div>`)
 		return
@@ -2150,6 +2203,12 @@ func (h *GUIHandler) ApiKeyRevokeConfirm(c *gin.Context) {
 // PUT /gui/api-keys/:id/revoke
 func (h *GUIHandler) ApiKeyRevoke(c *gin.Context) {
 	id := c.Param("id")
+	apiKey, err := h.loadAPIKey(id)
+	if err != nil || apiKeyForeign(c, apiKey) {
+		c.String(http.StatusNotFound,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">API key not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
 	var targetID *uuid.UUID
 	if parsed, err := uuid.Parse(id); err == nil {
 		copied := parsed
@@ -2176,9 +2235,9 @@ func (h *GUIHandler) ApiKeyRevoke(c *gin.Context) {
 		page = 1
 	}
 	pageSize := 20
-	keyType := c.Query("key_type")
+	keyType, appID := h.apiKeyListFilter(c)
 
-	keys, total, err := h.Repo.ListApiKeys(page, pageSize, keyType)
+	keys, total, err := h.Repo.ListApiKeys(page, pageSize, keyType, appID)
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger">Failed to refresh list.</div>`)
@@ -2202,7 +2261,7 @@ func (h *GUIHandler) ApiKeyRevoke(c *gin.Context) {
 func (h *GUIHandler) ApiKeyDeleteConfirm(c *gin.Context) {
 	id := c.Param("id")
 	apiKey, err := h.Repo.GetApiKeyByID(id)
-	if err != nil {
+	if err != nil || apiKeyForeign(c, apiKey) {
 		c.String(http.StatusNotFound,
 			`<div class="modal-body"><p class="text-danger">API key not found.</p></div>`)
 		return
@@ -2222,6 +2281,12 @@ func (h *GUIHandler) ApiKeyDeleteConfirm(c *gin.Context) {
 // DELETE /gui/api-keys/:id
 func (h *GUIHandler) ApiKeyDelete(c *gin.Context) {
 	id := c.Param("id")
+	apiKey, err := h.loadAPIKey(id)
+	if err != nil || apiKeyForeign(c, apiKey) {
+		c.String(http.StatusNotFound,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">API key not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
 	if err := h.Repo.DeleteApiKey(id); err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to delete API key.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
@@ -2236,9 +2301,9 @@ func (h *GUIHandler) ApiKeyDelete(c *gin.Context) {
 		page = 1
 	}
 	pageSize := 20
-	keyType := c.Query("key_type")
+	keyType, appID := h.apiKeyListFilter(c)
 
-	keys, total, err := h.Repo.ListApiKeys(page, pageSize, keyType)
+	keys, total, err := h.Repo.ListApiKeys(page, pageSize, keyType, appID)
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger">Failed to refresh list.</div>`)
@@ -2268,7 +2333,7 @@ func (h *GUIHandler) ApiKeyFormCancel(c *gin.Context) {
 func (h *GUIHandler) ApiKeyEditForm(c *gin.Context) {
 	id := c.Param("id")
 	apiKey, err := h.Repo.GetApiKeyByID(id)
-	if err != nil {
+	if err != nil || apiKeyForeign(c, apiKey) {
 		c.String(http.StatusNotFound,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">API key not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
@@ -2304,7 +2369,7 @@ func (h *GUIHandler) ApiKeyUpdate(c *gin.Context) {
 	}
 
 	existing, err := h.loadAPIKey(id)
-	if err != nil {
+	if err != nil || apiKeyForeign(c, existing) {
 		c.String(http.StatusNotFound,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">API key not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
@@ -2372,7 +2437,7 @@ func (h *GUIHandler) ApiKeyUsagePage(c *gin.Context) {
 	}
 
 	apiKey, err := h.Repo.GetApiKeyByID(id)
-	if err != nil {
+	if err != nil || apiKeyForeign(c, apiKey) {
 		data := h.page(c)
 		data.ActivePage = "api-keys"
 		data.FlashError = "API key not found"
@@ -4396,10 +4461,7 @@ func (h *GUIHandler) MyAccountPasskeyRename(c *gin.Context) {
 // RolesPage renders the roles management page.
 // GET /gui/roles
 func (h *GUIHandler) RolesPage(c *gin.Context) {
-	apps, err := h.RBACService.Repo.ListAllApps()
-	if err != nil {
-		apps = nil
-	}
+	apps := h.rbacAppsForGUI(c)
 
 	data := h.page(c)
 	data.ActivePage = "roles"
@@ -4410,7 +4472,7 @@ func (h *GUIHandler) RolesPage(c *gin.Context) {
 // RoleList returns the role table HTML fragment for HTMX.
 // GET /gui/roles/list?app_id=X
 func (h *GUIHandler) RoleList(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	if appID == "" {
 		c.String(http.StatusBadRequest,
 			`<div class="alert alert-warning">Please select an application.</div>`)
@@ -4462,14 +4524,14 @@ func (h *GUIHandler) RoleCreateForm(c *gin.Context) {
 		Description string
 	}
 	// Try to read app_id from query string (set by JS reading the filter dropdown)
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	c.HTML(http.StatusOK, "role_form", formData{AppID: appID})
 }
 
 // RoleCreate handles creating a new role.
 // POST /gui/roles
 func (h *GUIHandler) RoleCreate(c *gin.Context) {
-	appID := strings.TrimSpace(c.PostForm("app_id"))
+	appID := restrictAppQuery(c, strings.TrimSpace(c.PostForm("app_id")))
 	name := strings.TrimSpace(c.PostForm("name"))
 	description := strings.TrimSpace(c.PostForm("description"))
 
@@ -4494,7 +4556,7 @@ func (h *GUIHandler) RoleCreate(c *gin.Context) {
 func (h *GUIHandler) RoleEditForm(c *gin.Context) {
 	id := c.Param("id")
 	role, err := h.RBACService.GetRoleByID(id)
-	if err != nil {
+	if err != nil || foreignApp(c, role.AppID) {
 		c.String(http.StatusNotFound,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Role not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
@@ -4517,6 +4579,12 @@ func (h *GUIHandler) RoleEditForm(c *gin.Context) {
 // PUT /gui/roles/:id
 func (h *GUIHandler) RoleUpdate(c *gin.Context) {
 	id := c.Param("id")
+	role, err := h.RBACService.GetRoleByID(id)
+	if err != nil || foreignApp(c, role.AppID) {
+		c.String(http.StatusNotFound,
+			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Role not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+		return
+	}
 	name := strings.TrimSpace(c.PostForm("name"))
 	description := strings.TrimSpace(c.PostForm("description"))
 
@@ -4541,7 +4609,7 @@ func (h *GUIHandler) RoleUpdate(c *gin.Context) {
 func (h *GUIHandler) RoleDeleteConfirm(c *gin.Context) {
 	id := c.Param("id")
 	role, err := h.RBACService.GetRoleByID(id)
-	if err != nil {
+	if err != nil || foreignApp(c, role.AppID) {
 		c.String(http.StatusNotFound,
 			`<div class="modal-body"><div class="alert alert-danger">Role not found.</div></div>`)
 		return
@@ -4564,7 +4632,7 @@ func (h *GUIHandler) RoleDelete(c *gin.Context) {
 
 	// Get the role first to know the app ID for refreshing the list
 	role, err := h.RBACService.GetRoleByID(id)
-	if err != nil {
+	if err != nil || foreignApp(c, role.AppID) {
 		c.String(http.StatusNotFound,
 			`<div class="alert alert-danger">Role not found.</div>`)
 		return
@@ -4627,7 +4695,7 @@ func (h *GUIHandler) RolePermissions(c *gin.Context) {
 	roleID := c.Param("id")
 
 	role, err := h.RBACService.GetRoleByID(roleID)
-	if err != nil {
+	if err != nil || foreignApp(c, role.AppID) {
 		c.String(http.StatusNotFound,
 			`<div class="modal-body"><div class="alert alert-danger">Role not found.</div></div>`)
 		return
@@ -4682,6 +4750,12 @@ func (h *GUIHandler) RolePermissions(c *gin.Context) {
 // PUT /gui/roles/:id/permissions
 func (h *GUIHandler) RolePermissionsUpdate(c *gin.Context) {
 	roleID := c.Param("id")
+	role, err := h.RBACService.GetRoleByID(roleID)
+	if err != nil || foreignApp(c, role.AppID) {
+		c.String(http.StatusNotFound,
+			`<div class="modal-body"><div class="alert alert-danger">Role not found.</div></div>`)
+		return
+	}
 	permissionIDs := c.PostFormArray("permission_ids")
 
 	if err := h.RBACService.SetRolePermissions(roleID, permissionIDs); err != nil {
@@ -4772,10 +4846,7 @@ func (h *GUIHandler) PermissionFormCancel(c *gin.Context) {
 // UserRolesPage renders the user-roles management page.
 // GET /gui/user-roles
 func (h *GUIHandler) UserRolesPage(c *gin.Context) {
-	apps, err := h.RBACService.Repo.ListAllApps()
-	if err != nil {
-		apps = nil
-	}
+	apps := h.rbacAppsForGUI(c)
 
 	data := h.page(c)
 	data.ActivePage = "user-roles"
@@ -4786,7 +4857,7 @@ func (h *GUIHandler) UserRolesPage(c *gin.Context) {
 // UserRoleList returns the user-role table HTML fragment for HTMX.
 // GET /gui/user-roles/list?app_id=X&page=N
 func (h *GUIHandler) UserRoleList(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	if appID == "" {
 		c.String(http.StatusBadRequest,
 			`<div class="alert alert-warning">Please select an application.</div>`)
@@ -4800,10 +4871,7 @@ func (h *GUIHandler) UserRoleList(c *gin.Context) {
 // UserRoleCreateForm returns the assign role form HTML fragment for HTMX.
 // GET /gui/user-roles/new
 func (h *GUIHandler) UserRoleCreateForm(c *gin.Context) {
-	apps, err := h.RBACService.Repo.ListAllApps()
-	if err != nil {
-		apps = nil
-	}
+	apps := h.rbacAppsForGUI(c)
 
 	type formData struct {
 		Apps []models.Application
@@ -4814,7 +4882,7 @@ func (h *GUIHandler) UserRoleCreateForm(c *gin.Context) {
 // UserRoleCreate handles assigning a role to a user.
 // POST /gui/user-roles
 func (h *GUIHandler) UserRoleCreate(c *gin.Context) {
-	appID := strings.TrimSpace(c.PostForm("app_id"))
+	appID := restrictAppQuery(c, strings.TrimSpace(c.PostForm("app_id")))
 	userID := strings.TrimSpace(c.PostForm("user_id"))
 	roleID := strings.TrimSpace(c.PostForm("role_id"))
 
@@ -4822,6 +4890,13 @@ func (h *GUIHandler) UserRoleCreate(c *gin.Context) {
 		c.String(http.StatusBadRequest,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Application, user ID, and role are all required.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 		return
+	}
+	if boundAppID(c) != nil {
+		detail, err := h.userDetailByID(userID)
+		if err != nil || foreignApp(c, detail.AppID) {
+			abortGUINotFound(c, `<div class="alert alert-danger alert-dismissible fade show" role="alert">User not found.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
+			return
+		}
 	}
 
 	if err := h.RBACService.AssignRoleToUser(userID, roleID, appID, nil); err != nil {
@@ -4843,12 +4918,19 @@ func (h *GUIHandler) UserRoleUpdate(c *gin.Context) {
 	userID := strings.TrimSpace(c.PostForm("user_id"))
 	oldRoleID := strings.TrimSpace(c.PostForm("old_role_id"))
 	newRoleID := strings.TrimSpace(c.PostForm("new_role_id"))
-	appID := strings.TrimSpace(c.PostForm("app_id"))
+	appID := restrictAppQuery(c, strings.TrimSpace(c.PostForm("app_id")))
 
 	if userID == "" || oldRoleID == "" || newRoleID == "" || appID == "" {
 		c.String(http.StatusBadRequest,
 			`<div class="alert alert-danger">Missing required parameters.</div>`)
 		return
+	}
+	if boundAppID(c) != nil {
+		detail, err := h.userDetailByID(userID)
+		if err != nil || foreignApp(c, detail.AppID) {
+			abortGUINotFound(c, `<div class="alert alert-danger">User not found.</div>`)
+			return
+		}
 	}
 
 	// No-op if role did not change.
@@ -4877,6 +4959,7 @@ func (h *GUIHandler) UserRoleUpdate(c *gin.Context) {
 
 // renderUserRoleList fetches the user-role list for an app and renders it as an HTMX fragment.
 func (h *GUIHandler) renderUserRoleList(c *gin.Context, appID string, page int) {
+	appID = restrictAppQuery(c, appID)
 	if page < 1 {
 		page = 1
 	}
@@ -4918,7 +5001,7 @@ func (h *GUIHandler) renderUserRoleList(c *gin.Context, appID string, page int) 
 // UserRoleRolesForApp returns HTML <option> elements for the roles in an app.
 // GET /gui/user-roles/roles-for-app?app_id=X
 func (h *GUIHandler) UserRoleRolesForApp(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	if appID == "" {
 		c.String(http.StatusOK, `<option value="">-- Select App first --</option>`)
 		return
@@ -4941,7 +5024,7 @@ func (h *GUIHandler) UserRoleRolesForApp(c *gin.Context) {
 // UserRoleSearchUsers returns a list of matching users as clickable HTML items.
 // GET /gui/user-roles/search-users?app_id=X&q=term
 func (h *GUIHandler) UserRoleSearchUsers(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	q := strings.TrimSpace(c.Query("q"))
 
 	if appID == "" {
@@ -5004,7 +5087,7 @@ func (h *GUIHandler) UserRoleRevokeConfirm(c *gin.Context) {
 	c.HTML(http.StatusOK, "user_role_revoke_confirm", revokeData{
 		UserID:    c.Query("user_id"),
 		RoleID:    c.Query("role_id"),
-		AppID:     c.Query("app_id"),
+		AppID:     restrictAppQuery(c, c.Query("app_id")),
 		UserEmail: c.Query("user_email"),
 		RoleName:  c.Query("role_name"),
 	})
@@ -5015,7 +5098,7 @@ func (h *GUIHandler) UserRoleRevokeConfirm(c *gin.Context) {
 func (h *GUIHandler) UserRoleRevoke(c *gin.Context) {
 	userID := c.Query("user_id")
 	roleID := c.Query("role_id")
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 
 	if userID == "" || roleID == "" || appID == "" {
 		c.String(http.StatusBadRequest,
@@ -5054,6 +5137,11 @@ func (h *GUIHandler) SocialAccountUnlinkConfirm(c *gin.Context) {
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="modal-body"><div class="alert alert-danger">Failed to load user details.</div></div>`)
+		return
+	}
+	if foreignApp(c, detail.AppID) {
+		c.String(http.StatusNotFound,
+			`<div class="modal-body"><div class="alert alert-danger">Social account not found.</div></div>`)
 		return
 	}
 
@@ -5100,6 +5188,11 @@ func (h *GUIHandler) SocialAccountUnlink(c *gin.Context) {
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger">Failed to load user details.</div>`)
+		return
+	}
+	if foreignApp(c, detail.AppID) {
+		c.String(http.StatusNotFound,
+			`<div class="alert alert-danger">Social account not found.</div>`)
 		return
 	}
 
@@ -5159,6 +5252,11 @@ func (h *GUIHandler) PasskeyDeleteConfirm(c *gin.Context) {
 			`<div class="modal-body"><div class="alert alert-danger">Failed to load user details.</div></div>`)
 		return
 	}
+	if foreignApp(c, detail.AppID) {
+		c.String(http.StatusNotFound,
+			`<div class="modal-body"><div class="alert alert-danger">Passkey not found.</div></div>`)
+		return
+	}
 
 	type confirmData struct {
 		PasskeyID   string
@@ -5190,6 +5288,12 @@ func (h *GUIHandler) PasskeyDelete(c *gin.Context) {
 	}
 
 	userID := cred.UserID.String()
+	detail, err := h.Repo.GetUserDetailByID(userID)
+	if err != nil || foreignApp(c, detail.AppID) {
+		c.String(http.StatusNotFound,
+			`<div class="alert alert-danger">Passkey not found.</div>`)
+		return
+	}
 
 	if err := h.Repo.DeleteWebAuthnCredential(id); err != nil {
 		c.String(http.StatusInternalServerError,
@@ -5540,7 +5644,7 @@ func schemeFromRequest(c *gin.Context) string {
 func (h *GUIHandler) SessionsPage(c *gin.Context) {
 	data := h.page(c)
 	data.ActivePage = "sessions"
-	apps, err := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
 	if err != nil {
 		data.Error = "Failed to load applications"
 		c.HTML(http.StatusInternalServerError, "sessions", data)
@@ -5576,7 +5680,7 @@ func (h *GUIHandler) SessionList(c *gin.Context) {
 	}
 	pageSize := 20
 
-	filterAppID := c.Query("app_id")
+	filterAppID := restrictAppQuery(c, c.Query("app_id"))
 	search := strings.ToLower(c.Query("search"))
 	ipSearch := strings.ToLower(c.Query("ip"))
 
@@ -5587,7 +5691,7 @@ func (h *GUIHandler) SessionList(c *gin.Context) {
 	if filterAppID != "" {
 		appIDs = []string{filterAppID}
 	} else {
-		apps, err := h.Repo.ListAllAppsWithTenantName()
+		apps, err := h.appsForGUI(c)
 		if err != nil {
 			c.HTML(http.StatusInternalServerError, "session_list", gin.H{"Sessions": nil, "Error": "Failed to load apps"})
 			return
@@ -5722,6 +5826,13 @@ func (h *GUIHandler) SessionDetail(c *gin.Context) {
 	appID := c.Param("app_id")
 	sessionID := c.Param("session_id")
 
+	if foreignAppID(c, appID) {
+		abortGUINotFoundPage(c, "session_detail", gin.H{
+			"Error": "Session not found",
+		})
+		return
+	}
+
 	data, err := redis.GetSession(appID, sessionID)
 	if err != nil {
 		c.HTML(http.StatusNotFound, "session_detail", gin.H{
@@ -5775,6 +5886,11 @@ func (h *GUIHandler) SessionRevoke(c *gin.Context) {
 	sessionID := c.Param("session_id")
 	userID := c.Query("user_id")
 
+	if foreignAppID(c, appID) {
+		abortGUINotFound(c, "Session not found")
+		return
+	}
+
 	if userID == "" {
 		// Try to get user_id from the session itself
 		data, err := redis.GetSession(appID, sessionID)
@@ -5801,7 +5917,9 @@ func (h *GUIHandler) SessionRevoke(c *gin.Context) {
 		}
 		// Revoke the user's sessions in all peer apps of the same SSO session group.
 		// Admin revocation is unconditional (privileged override, ignores GlobalLogout flag).
-		h.revokeSessionsInPeerApps(appID, userID, accessTokenTTL)
+		if boundAppID(c) == nil {
+			h.revokeSessionsInPeerApps(appID, userID, accessTokenTTL)
+		}
 	}
 
 	// Check if this was called from user detail page
@@ -5818,7 +5936,7 @@ func (h *GUIHandler) SessionRevoke(c *gin.Context) {
 // SessionRevokeAllForUser revokes all sessions for a specific user (HTMX action).
 // DELETE /gui/sessions/revoke-all-user
 func (h *GUIHandler) SessionRevokeAllForUser(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	userID := c.Query("user_id")
 
 	if appID == "" || userID == "" {
@@ -5839,7 +5957,9 @@ func (h *GUIHandler) SessionRevokeAllForUser(c *gin.Context) {
 
 	// Revoke the user's sessions in all peer apps of the same SSO session group.
 	// Admin revocation is unconditional (privileged override, ignores GlobalLogout flag).
-	h.revokeSessionsInPeerApps(appID, userID, accessTokenTTL)
+	if boundAppID(c) == nil {
+		h.revokeSessionsInPeerApps(appID, userID, accessTokenTTL)
+	}
 
 	// Check if this was called from user detail page
 	if c.Query("from_user_detail") == "1" {
@@ -5895,15 +6015,13 @@ func (h *GUIHandler) revokeSessionsInPeerApps(appID, userID string, accessTokenT
 // GET /gui/users/:id/sessions
 func (h *GUIHandler) UserSessions(c *gin.Context) {
 	userID := c.Param("id")
-	appID := c.Query("app_id")
-
+	detail, err := h.userDetailByID(userID)
+	if err != nil || foreignApp(c, detail.AppID) {
+		abortGUINotFoundPage(c, "user_sessions", gin.H{"Sessions": nil})
+		return
+	}
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	if appID == "" {
-		// Look up the user's app_id
-		detail, err := h.Repo.GetUserDetailByID(userID)
-		if err != nil {
-			c.HTML(http.StatusNotFound, "user_sessions", gin.H{"Sessions": nil})
-			return
-		}
 		appID = detail.AppID.String()
 	}
 
@@ -6028,7 +6146,10 @@ func formatTimeAgo(t time.Time) string {
 // IPRulePage renders the IP Rules management page.
 // GET /gui/ip-rules
 func (h *GUIHandler) IPRulePage(c *gin.Context) {
-	apps, _ := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
+	if err != nil {
+		apps = nil
+	}
 
 	data := h.page(c)
 	data.ActivePage = "ip-rules"
@@ -6044,7 +6165,7 @@ func (h *GUIHandler) IPRuleList(c *gin.Context) {
 		return
 	}
 
-	appIDStr := c.Query("app_id")
+	appIDStr := restrictAppQuery(c, c.Query("app_id"))
 	if appIDStr == "" {
 		c.String(http.StatusOK, `<div class="text-center py-5 text-muted"><i class="bi bi-funnel fs-1"></i><p class="mt-2 mb-0">Select an application above to view its IP rules.</p></div>`)
 		return
@@ -6078,7 +6199,7 @@ func (h *GUIHandler) IPRuleList(c *gin.Context) {
 // IPRuleCreateForm renders the IP rule create form (HTMX partial).
 // GET /gui/ip-rules/new
 func (h *GUIHandler) IPRuleCreateForm(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 
 	type formData struct {
 		IsEdit      bool
@@ -6106,7 +6227,7 @@ func (h *GUIHandler) IPRuleCreate(c *gin.Context) {
 		return
 	}
 
-	appIDStr := c.PostForm("app_id")
+	appIDStr := restrictAppQuery(c, c.PostForm("app_id"))
 	appID, err := uuid.Parse(appIDStr)
 	if err != nil {
 		c.String(http.StatusOK, `<div class="alert alert-danger">Invalid application ID.</div>`)
@@ -6157,8 +6278,8 @@ func (h *GUIHandler) IPRuleEditForm(c *gin.Context) {
 	}
 
 	rule, err := h.IPRuleRepo.GetByID(ruleID)
-	if err != nil {
-		c.String(http.StatusOK, `<div class="alert alert-danger">IP rule not found.</div>`)
+	if err != nil || foreignApp(c, rule.AppID) {
+		abortGUINotFound(c, `<div class="alert alert-danger">IP rule not found.</div>`)
 		return
 	}
 
@@ -6200,8 +6321,8 @@ func (h *GUIHandler) IPRuleUpdate(c *gin.Context) {
 	}
 
 	rule, err := h.IPRuleRepo.GetByID(ruleID)
-	if err != nil {
-		c.String(http.StatusOK, `<div class="alert alert-danger">IP rule not found.</div>`)
+	if err != nil || foreignApp(c, rule.AppID) {
+		abortGUINotFound(c, `<div class="alert alert-danger">IP rule not found.</div>`)
 		return
 	}
 
@@ -6244,8 +6365,8 @@ func (h *GUIHandler) IPRuleDeleteConfirm(c *gin.Context) {
 	}
 
 	rule, err := h.IPRuleRepo.GetByID(ruleID)
-	if err != nil {
-		c.String(http.StatusOK, `<div class="alert alert-danger">IP rule not found.</div>`)
+	if err != nil || foreignApp(c, rule.AppID) {
+		abortGUINotFound(c, `<div class="alert alert-danger">IP rule not found.</div>`)
 		return
 	}
 
@@ -6267,8 +6388,8 @@ func (h *GUIHandler) IPRuleDelete(c *gin.Context) {
 	}
 
 	rule, err := h.IPRuleRepo.GetByID(ruleID)
-	if err != nil {
-		c.String(http.StatusOK, `<div class="alert alert-danger">IP rule not found.</div>`)
+	if err != nil || foreignApp(c, rule.AppID) {
+		abortGUINotFound(c, `<div class="alert alert-danger">IP rule not found.</div>`)
 		return
 	}
 
@@ -6313,7 +6434,7 @@ func (h *GUIHandler) IPRuleCheckAccess(c *gin.Context) {
 		return
 	}
 
-	appIDStr := c.PostForm("app_id")
+	appIDStr := restrictAppQuery(c, c.PostForm("app_id"))
 	ipAddress := strings.TrimSpace(c.PostForm("ip_address"))
 
 	if appIDStr == "" || ipAddress == "" {
@@ -6395,7 +6516,7 @@ func (h *GUIHandler) WebhookList(c *gin.Context) {
 	if page < 1 {
 		page = 1
 	}
-	appIDStr := c.Query("app_id")
+	appIDStr := restrictAppQuery(c, c.Query("app_id"))
 
 	var endpoints []models.WebhookEndpoint
 	var total int64
@@ -6421,7 +6542,10 @@ func (h *GUIHandler) WebhookList(c *gin.Context) {
 	}
 
 	totalPages := int(math.Ceil(float64(total) / float64(20)))
-	apps, _ := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
+	if err != nil {
+		apps = nil
+	}
 
 	c.HTML(http.StatusOK, "webhook_list", gin.H{
 		"Endpoints":  endpoints,
@@ -6441,7 +6565,7 @@ func (h *GUIHandler) WebhookCreateForm(c *gin.Context) {
 		c.String(http.StatusServiceUnavailable, `<div class="alert alert-danger">Webhook service unavailable</div>`)
 		return
 	}
-	apps, err := h.Repo.ListAllAppsWithTenantName()
+	apps, err := h.appsForGUI(c)
 	if err != nil {
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger alert-dismissible fade show" role="alert">Failed to load applications.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
@@ -6462,7 +6586,7 @@ func (h *GUIHandler) WebhookCreate(c *gin.Context) {
 		return
 	}
 
-	appIDStr := strings.TrimSpace(c.PostForm("app_id"))
+	appIDStr := restrictAppQuery(c, strings.TrimSpace(c.PostForm("app_id")))
 	eventType := strings.TrimSpace(c.PostForm("event_type"))
 	url := strings.TrimSpace(c.PostForm("url"))
 
@@ -6487,7 +6611,10 @@ func (h *GUIHandler) WebhookCreate(c *gin.Context) {
 
 	_, secret, svcErr := h.WebhookService.RegisterEndpoint(appID, eventType, url)
 	if svcErr != nil {
-		apps, _ := h.Repo.ListAllAppsWithTenantName()
+		apps, err := h.appsForGUI(c)
+		if err != nil {
+			apps = nil
+		}
 		c.HTML(http.StatusBadRequest, "webhook_form", gin.H{
 			"Error":      svcErr.Error(),
 			"Apps":       apps,
@@ -6521,7 +6648,7 @@ func (h *GUIHandler) WebhookDeleteConfirm(c *gin.Context) {
 	}
 
 	ep, svcErr := h.WebhookService.GetEndpoint(id)
-	if svcErr != nil || ep == nil {
+	if svcErr != nil || ep == nil || foreignApp(c, ep.AppID) {
 		c.String(http.StatusNotFound, `<div class="alert alert-danger">Webhook endpoint not found</div>`)
 		return
 	}
@@ -6545,6 +6672,11 @@ func (h *GUIHandler) WebhookDelete(c *gin.Context) {
 		c.String(http.StatusBadRequest, `<div class="alert alert-danger">Invalid webhook ID</div>`)
 		return
 	}
+	ep, svcErr := h.WebhookService.GetEndpoint(id)
+	if svcErr != nil || ep == nil || foreignApp(c, ep.AppID) {
+		c.String(http.StatusNotFound, `<div class="alert alert-danger">Webhook endpoint not found</div>`)
+		return
+	}
 	if err := h.WebhookService.DeleteEndpoint(id); err != nil {
 		c.String(http.StatusInternalServerError, `<div class="alert alert-danger">Failed to delete webhook endpoint</div>`)
 		return
@@ -6563,6 +6695,11 @@ func (h *GUIHandler) WebhookToggle(c *gin.Context) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.String(http.StatusBadRequest, `<div class="alert alert-danger">Invalid webhook ID</div>`)
+		return
+	}
+	ep, svcErr := h.WebhookService.GetEndpoint(id)
+	if svcErr != nil || ep == nil || foreignApp(c, ep.AppID) {
+		c.String(http.StatusNotFound, `<div class="alert alert-danger">Webhook endpoint not found</div>`)
 		return
 	}
 	active := c.PostForm("active") == "true"
@@ -6591,6 +6728,11 @@ func (h *GUIHandler) WebhookDeliveries(c *gin.Context) {
 		c.String(http.StatusBadRequest, `<div class="alert alert-danger">Invalid webhook ID</div>`)
 		return
 	}
+	ep, getErr := h.WebhookService.GetEndpoint(id)
+	if getErr != nil || ep == nil || foreignApp(c, ep.AppID) {
+		c.String(http.StatusNotFound, `<div class="alert alert-danger">Webhook endpoint not found</div>`)
+		return
+	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if page < 1 {
@@ -6605,7 +6747,6 @@ func (h *GUIHandler) WebhookDeliveries(c *gin.Context) {
 		return
 	}
 
-	ep, _ := h.WebhookService.GetEndpoint(id)
 	totalPages := int(math.Ceil(float64(total) / float64(20)))
 
 	c.HTML(http.StatusOK, "webhook_deliveries", gin.H{
@@ -6745,7 +6886,7 @@ func (h *GUIHandler) UserExport(c *gin.Context) {
 	if format != "csv" && format != "json" {
 		format = "csv"
 	}
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	search := c.Query("search")
 
 	items, truncated, err := h.Repo.ExportUsers(appID, search)
@@ -6796,7 +6937,7 @@ func (h *GUIHandler) UserExport(c *gin.Context) {
 // UserImportModal returns the import modal partial for the Users page.
 // GET /gui/users/import/modal
 func (h *GUIHandler) UserImportModal(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictAppQuery(c, c.Query("app_id"))
 	csrfToken, _ := c.Get(web.CSRFTokenKey)
 	c.HTML(http.StatusOK, "user_import_modal", gin.H{
 		"AppID":     appID,
@@ -6816,7 +6957,7 @@ func (h *GUIHandler) UserImport(c *gin.Context) {
 		})
 	}
 
-	appID := strings.TrimSpace(c.PostForm("app_id"))
+	appID := restrictAppQuery(c, strings.TrimSpace(c.PostForm("app_id")))
 	if appID == "" {
 		renderErr("Application ID is required. Select an application before importing.")
 		return

@@ -20,7 +20,6 @@ import (
 	"github.com/MrF1ow/go-core/pkg/models"
 )
 
-// errNotFound is returned when a record is not found.
 // errNotFound is the sentinel used when a record lookup returns no rows.
 var errNotFound = pgx.ErrNoRows
 
@@ -1399,16 +1398,27 @@ func (r *Repository) CreateApiKey(apiKey *models.ApiKey) error {
 	return nil
 }
 
-// ListApiKeys returns a paginated list of API keys with optional type filter.
-func (r *Repository) ListApiKeys(page, pageSize int, keyType string) ([]ApiKeyListItem, int64, error) {
+// ListApiKeys returns a paginated list of API keys with optional type and app filters.
+func (r *Repository) ListApiKeys(page, pageSize int, keyType, appID string) ([]ApiKeyListItem, int64, error) {
 	ctx := context.Background()
 
 	var keyTypeFilter *string
 	if keyType != "" {
 		keyTypeFilter = &keyType
 	}
+	var appFilter pgtype.UUID
+	if appID != "" {
+		uid, err := uuid.Parse(appID)
+		if err != nil {
+			return nil, 0, err
+		}
+		appFilter = pgtype.UUID{Bytes: uid, Valid: true}
+	}
 
-	total, err := r.queries.AdminCountApiKeys(ctx, keyTypeFilter)
+	total, err := r.queries.AdminCountApiKeys(ctx, sqlcgen.AdminCountApiKeysParams{
+		KeyType: keyTypeFilter,
+		AppID:   appFilter,
+	})
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1418,6 +1428,7 @@ func (r *Repository) ListApiKeys(page, pageSize int, keyType string) ([]ApiKeyLi
 		Limit:   safeconv.ToInt32(pageSize),
 		Offset:  safeconv.ToInt32(offset),
 		KeyType: keyTypeFilter,
+		AppID:   appFilter,
 	})
 	if err != nil {
 		return nil, 0, err

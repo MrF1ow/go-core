@@ -66,12 +66,34 @@ func (q *Queries) AdminCountActiveTrustedDevices(ctx context.Context) (int64, er
 	return count, err
 }
 
+const adminCountActiveTrustedDevicesByApp = `-- name: AdminCountActiveTrustedDevicesByApp :one
+SELECT COUNT(*) FROM trusted_devices WHERE expires_at > NOW() AND app_id = $1
+`
+
+func (q *Queries) AdminCountActiveTrustedDevicesByApp(ctx context.Context, appID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountActiveTrustedDevicesByApp, appID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const adminCountActiveUsers = `-- name: AdminCountActiveUsers :one
 SELECT COUNT(*) FROM users WHERE is_active = true
 `
 
 func (q *Queries) AdminCountActiveUsers(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, adminCountActiveUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountActiveUsersByApp = `-- name: AdminCountActiveUsersByApp :one
+SELECT COUNT(*) FROM users WHERE is_active = true AND app_id = $1
+`
+
+func (q *Queries) AdminCountActiveUsersByApp(ctx context.Context, appID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountActiveUsersByApp, appID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -119,10 +141,16 @@ const adminCountApiKeys = `-- name: AdminCountApiKeys :one
 SELECT COUNT(*)
 FROM api_keys
 WHERE ($1::text IS NULL OR key_type = $1::text)
+  AND ($2::uuid IS NULL OR app_id = $2::uuid)
 `
 
-func (q *Queries) AdminCountApiKeys(ctx context.Context, keyType *string) (int64, error) {
-	row := q.db.QueryRow(ctx, adminCountApiKeys, keyType)
+type AdminCountApiKeysParams struct {
+	KeyType *string     `json:"key_type"`
+	AppID   pgtype.UUID `json:"app_id"`
+}
+
+func (q *Queries) AdminCountApiKeys(ctx context.Context, arg AdminCountApiKeysParams) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountApiKeys, arg.KeyType, arg.AppID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -185,6 +213,22 @@ func (q *Queries) AdminCountRecentActivityLogs(ctx context.Context, timestamp ti
 	return count, err
 }
 
+const adminCountRecentActivityLogsByApp = `-- name: AdminCountRecentActivityLogsByApp :one
+SELECT COUNT(*) FROM activity_logs WHERE timestamp >= $1 AND app_id = $2
+`
+
+type AdminCountRecentActivityLogsByAppParams struct {
+	Timestamp time.Time `json:"timestamp"`
+	AppID     uuid.UUID `json:"app_id"`
+}
+
+func (q *Queries) AdminCountRecentActivityLogsByApp(ctx context.Context, arg AdminCountRecentActivityLogsByAppParams) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountRecentActivityLogsByApp, arg.Timestamp, arg.AppID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const adminCountSessionGroups = `-- name: AdminCountSessionGroups :one
 SELECT COUNT(*) FROM session_groups
 `
@@ -226,6 +270,17 @@ SELECT COUNT(*) FROM users
 // ============ DASHBOARD ============
 func (q *Queries) AdminCountTotalUsers(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, adminCountTotalUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountTotalUsersByApp = `-- name: AdminCountTotalUsersByApp :one
+SELECT COUNT(*) FROM users WHERE app_id = $1
+`
+
+func (q *Queries) AdminCountTotalUsersByApp(ctx context.Context, appID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountTotalUsersByApp, appID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -276,6 +331,17 @@ SELECT COUNT(*) FROM users WHERE phone_verified = true
 
 func (q *Queries) AdminCountVerifiedPhoneUsers(ctx context.Context) (int64, error) {
 	row := q.db.QueryRow(ctx, adminCountVerifiedPhoneUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const adminCountVerifiedPhoneUsersByApp = `-- name: AdminCountVerifiedPhoneUsersByApp :one
+SELECT COUNT(*) FROM users WHERE phone_verified = true AND app_id = $1
+`
+
+func (q *Queries) AdminCountVerifiedPhoneUsersByApp(ctx context.Context, appID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, adminCountVerifiedPhoneUsersByApp, appID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1547,6 +1613,47 @@ func (q *Queries) AdminGetRecentActivity(ctx context.Context, limit int32) ([]Ac
 	return items, nil
 }
 
+const adminGetRecentActivityByApp = `-- name: AdminGetRecentActivityByApp :many
+SELECT id, app_id, user_id, event_type, timestamp, ip_address, user_agent, details, severity, expires_at, is_anomaly FROM activity_logs WHERE app_id = $1 ORDER BY timestamp DESC LIMIT $2
+`
+
+type AdminGetRecentActivityByAppParams struct {
+	AppID uuid.UUID `json:"app_id"`
+	Limit int32     `json:"limit"`
+}
+
+func (q *Queries) AdminGetRecentActivityByApp(ctx context.Context, arg AdminGetRecentActivityByAppParams) ([]ActivityLog, error) {
+	rows, err := q.db.Query(ctx, adminGetRecentActivityByApp, arg.AppID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ActivityLog{}
+	for rows.Next() {
+		var i ActivityLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppID,
+			&i.UserID,
+			&i.EventType,
+			&i.Timestamp,
+			&i.IpAddress,
+			&i.UserAgent,
+			&i.Details,
+			&i.Severity,
+			&i.ExpiresAt,
+			&i.IsAnomaly,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const adminGetRoleByAppAndName = `-- name: AdminGetRoleByAppAndName :one
 SELECT id, app_id, name, description, is_system, created_at, updated_at FROM roles WHERE app_id = $1 AND name = $2
 `
@@ -2275,14 +2382,16 @@ LEFT JOIN applications a ON a.id = ak.app_id
 LEFT JOIN tenants t ON t.id = a.tenant_id
 LEFT JOIN operator_roles r ON r.id = ak.operator_role_id
 WHERE ($3::text IS NULL OR ak.key_type = $3::text)
+  AND ($4::uuid IS NULL OR ak.app_id = $4::uuid)
 ORDER BY ak.created_at DESC
 LIMIT $1 OFFSET $2
 `
 
 type AdminListApiKeysParams struct {
-	Limit   int32   `json:"limit"`
-	Offset  int32   `json:"offset"`
-	KeyType *string `json:"key_type"`
+	Limit   int32       `json:"limit"`
+	Offset  int32       `json:"offset"`
+	KeyType *string     `json:"key_type"`
+	AppID   pgtype.UUID `json:"app_id"`
 }
 
 type AdminListApiKeysRow struct {
@@ -2303,7 +2412,12 @@ type AdminListApiKeysRow struct {
 }
 
 func (q *Queries) AdminListApiKeys(ctx context.Context, arg AdminListApiKeysParams) ([]AdminListApiKeysRow, error) {
-	rows, err := q.db.Query(ctx, adminListApiKeys, arg.Limit, arg.Offset, arg.KeyType)
+	rows, err := q.db.Query(ctx, adminListApiKeys,
+		arg.Limit,
+		arg.Offset,
+		arg.KeyType,
+		arg.AppID,
+	)
 	if err != nil {
 		return nil, err
 	}

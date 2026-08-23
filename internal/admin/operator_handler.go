@@ -135,7 +135,7 @@ func rosterKeysFrom(override func() ([]operator.RosterEntry, error), repo *Repos
 	if repo == nil {
 		return nil, fmt.Errorf("api key repository is not configured")
 	}
-	items, _, err := repo.ListApiKeys(1, operator.ExportMaxRows, KeyTypeAdmin)
+	items, _, err := repo.ListApiKeys(1, operator.ExportMaxRows, KeyTypeAdmin, "")
 	if err != nil {
 		return nil, err
 	}

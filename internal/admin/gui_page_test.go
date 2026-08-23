@@ -66,13 +66,13 @@ func TestPage_BoundAdminNavOmitsPlatform(t *testing.T) {
 	if data.Can("tenants", "read") {
 		t.Fatal("bound admin can tenants:read")
 	}
-	if data.Can("dashboard", "read") {
-		t.Fatal("bound admin can dashboard:read")
+	if !data.Can("dashboard", "read") {
+		t.Fatal("bound admin cannot dashboard:read")
 	}
+	var sawDashboard bool
 	forbidden := map[string]struct{}{
 		"Tenants":        {},
 		"Operator IAM":   {},
-		"Dashboard":      {},
 		"Settings":       {},
 		"Applications":   {},
 		"System Health":  {},
@@ -85,10 +85,16 @@ func TestPage_BoundAdminNavOmitsPlatform(t *testing.T) {
 			t.Fatal("bound admin nav has Email heading")
 		}
 		for _, item := range g.Items {
+			if item.Label == "Dashboard" {
+				sawDashboard = true
+			}
 			if _, bad := forbidden[item.Label]; bad {
 				t.Fatalf("bound admin nav includes %s", item.Label)
 			}
 		}
+	}
+	if !sawDashboard {
+		t.Fatal("bound admin nav missing Dashboard")
 	}
 }
 

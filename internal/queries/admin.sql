@@ -444,7 +444,8 @@ RETURNING *;
 -- name: AdminCountApiKeys :one
 SELECT COUNT(*)
 FROM api_keys
-WHERE (sqlc.narg('key_type')::text IS NULL OR key_type = sqlc.narg('key_type')::text);
+WHERE (sqlc.narg('key_type')::text IS NULL OR key_type = sqlc.narg('key_type')::text)
+  AND (sqlc.narg('app_id')::uuid IS NULL OR app_id = sqlc.narg('app_id')::uuid);
 
 -- name: AdminListApiKeys :many
 SELECT ak.id, ak.key_type, ak.name,
@@ -460,6 +461,7 @@ LEFT JOIN applications a ON a.id = ak.app_id
 LEFT JOIN tenants t ON t.id = a.tenant_id
 LEFT JOIN operator_roles r ON r.id = ak.operator_role_id
 WHERE (sqlc.narg('key_type')::text IS NULL OR ak.key_type = sqlc.narg('key_type')::text)
+  AND (sqlc.narg('app_id')::uuid IS NULL OR ak.app_id = sqlc.narg('app_id')::uuid)
 ORDER BY ak.created_at DESC
 LIMIT $1 OFFSET $2;
 
@@ -637,3 +639,21 @@ SELECT COUNT(*) FROM users WHERE phone_verified = true;
 
 -- name: AdminGetRecentActivity :many
 SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT $1;
+
+-- name: AdminCountTotalUsersByApp :one
+SELECT COUNT(*) FROM users WHERE app_id = $1;
+
+-- name: AdminCountActiveUsersByApp :one
+SELECT COUNT(*) FROM users WHERE is_active = true AND app_id = $1;
+
+-- name: AdminCountRecentActivityLogsByApp :one
+SELECT COUNT(*) FROM activity_logs WHERE timestamp >= $1 AND app_id = $2;
+
+-- name: AdminCountActiveTrustedDevicesByApp :one
+SELECT COUNT(*) FROM trusted_devices WHERE expires_at > NOW() AND app_id = $1;
+
+-- name: AdminCountVerifiedPhoneUsersByApp :one
+SELECT COUNT(*) FROM users WHERE phone_verified = true AND app_id = $1;
+
+-- name: AdminGetRecentActivityByApp :many
+SELECT * FROM activity_logs WHERE app_id = $1 ORDER BY timestamp DESC LIMIT $2;

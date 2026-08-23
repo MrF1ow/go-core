@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	appRedis "github.com/MrF1ow/go-core/internal/redis"
 	"github.com/MrF1ow/go-core/internal/safeconv"
 	"github.com/MrF1ow/go-core/internal/sqlcgen"
 	"github.com/MrF1ow/go-core/pkg/models"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // DashboardStats holds aggregate counts for the admin dashboard.
@@ -40,42 +42,40 @@ func NewDashboardService(pool *pgxpool.Pool) *DashboardService {
 }
 
 // GetStats returns aggregate counts for the dashboard stat cards.
-func (s *DashboardService) GetStats() (*DashboardStats, error) {
+// A non-nil appID scopes every card to that application.
+func (s *DashboardService) GetStats(appID *uuid.UUID) (*DashboardStats, error) {
+	if appID != nil {
+		return s.getStatsForApp(*appID)
+	}
 	stats := &DashboardStats{}
 	ctx := context.Background()
 
-	// Count total users
 	total, err := s.queries.AdminCountTotalUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
 	stats.TotalUsers = total
 
-	// Count active users
 	active, err := s.queries.AdminCountActiveUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
 	stats.ActiveUsers = active
 
-	// Count inactive users
 	stats.InactiveUsers = stats.TotalUsers - stats.ActiveUsers
 
-	// Count total tenants
 	tenants, err := s.queries.AdminCountTenants(ctx)
 	if err != nil {
 		return nil, err
 	}
 	stats.TotalTenants = tenants
 
-	// Count total applications
 	apps, err := s.queries.AdminCountApps(ctx)
 	if err != nil {
 		return nil, err
 	}
 	stats.TotalApps = apps
 
-	// Count activity logs in the last 24 hours
 	since := time.Now().Add(-24 * time.Hour)
 	recentCount, err := s.queries.AdminCountRecentActivityLogs(ctx, since)
 	if err != nil {
@@ -83,29 +83,25 @@ func (s *DashboardService) GetStats() (*DashboardStats, error) {
 	}
 	stats.RecentEventsCount = recentCount
 
-	// Count active sessions across all apps (from Redis)
 	appIDRows, err := s.queries.AdminListAllAppIDs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for _, appID := range appIDRows {
-		count, err := appRedis.CountAppSessions(appID)
+	for _, id := range appIDRows {
+		count, err := appRedis.CountAppSessions(id)
 		if err != nil {
-			continue // Don't fail dashboard if Redis is unavailable
+			continue
 		}
 		stats.ActiveSessions += count
 	}
 
-	// Count active (non-expired) trusted devices
 	trustedCount, err := s.queries.AdminCountActiveTrustedDevices(ctx)
 	if err != nil {
-		// Non-fatal: table may not exist yet on first startup
 		stats.TrustedDeviceCount = 0
 	} else {
 		stats.TrustedDeviceCount = trustedCount
 	}
 
-	// Count users with verified phone numbers
 	phoneCount, err := s.queries.AdminCountVerifiedPhoneUsers(ctx)
 	if err != nil {
 		stats.VerifiedPhoneCount = 0
@@ -116,9 +112,74 @@ func (s *DashboardService) GetStats() (*DashboardStats, error) {
 	return stats, nil
 }
 
+func (s *DashboardService) getStatsForApp(appID uuid.UUID) (*DashboardStats, error) {
+	stats := &DashboardStats{}
+	ctx := context.Background()
+
+	stats.TotalApps = 1
+	app, err := s.queries.AdminGetAppByID(ctx, appID)
+	if err == nil && app.TenantID != uuid.Nil {
+		stats.TotalTenants = 1
+	}
+
+	total, err := s.queries.AdminCountTotalUsersByApp(ctx, appID)
+	if err != nil {
+		return nil, err
+	}
+	stats.TotalUsers = total
+
+	active, err := s.queries.AdminCountActiveUsersByApp(ctx, appID)
+	if err != nil {
+		return nil, err
+	}
+	stats.ActiveUsers = active
+	stats.InactiveUsers = stats.TotalUsers - stats.ActiveUsers
+
+	since := time.Now().Add(-24 * time.Hour)
+	recentCount, err := s.queries.AdminCountRecentActivityLogsByApp(ctx, sqlcgen.AdminCountRecentActivityLogsByAppParams{
+		Timestamp: since,
+		AppID:     appID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	stats.RecentEventsCount = recentCount
+
+	count, sessErr := appRedis.CountAppSessions(appID.String())
+	if sessErr == nil {
+		stats.ActiveSessions = count
+	}
+
+	trustedCount, err := s.queries.AdminCountActiveTrustedDevicesByApp(ctx, appID)
+	if err != nil {
+		stats.TrustedDeviceCount = 0
+	} else {
+		stats.TrustedDeviceCount = trustedCount
+	}
+
+	phoneCount, err := s.queries.AdminCountVerifiedPhoneUsersByApp(ctx, appID)
+	if err != nil {
+		stats.VerifiedPhoneCount = 0
+	} else {
+		stats.VerifiedPhoneCount = phoneCount
+	}
+
+	return stats, nil
+}
+
 // GetRecentActivity returns the most recent activity log entries.
-func (s *DashboardService) GetRecentActivity(limit int) ([]models.ActivityLog, error) {
-	rows, err := s.queries.AdminGetRecentActivity(context.Background(), safeconv.ToInt32(limit))
+func (s *DashboardService) GetRecentActivity(limit int, appID *uuid.UUID) ([]models.ActivityLog, error) {
+	ctx := context.Background()
+	var rows []sqlcgen.ActivityLog
+	var err error
+	if appID != nil {
+		rows, err = s.queries.AdminGetRecentActivityByApp(ctx, sqlcgen.AdminGetRecentActivityByAppParams{
+			AppID: *appID,
+			Limit: safeconv.ToInt32(limit),
+		})
+	} else {
+		rows, err = s.queries.AdminGetRecentActivity(ctx, safeconv.ToInt32(limit))
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -97,8 +97,8 @@ func TestGUIShell_BoundAdminUsersOK(t *testing.T) {
 	if !strings.Contains(body, `data-page="users"`) {
 		t.Fatal("bound admin sidebar missing Users")
 	}
-	if strings.Contains(body, "bi-speedometer2") {
-		t.Fatal("bound admin nav includes Dashboard")
+	if !strings.Contains(body, "bi-speedometer2") {
+		t.Fatal("bound admin nav missing Dashboard")
 	}
 	if strings.Contains(body, "Operator IAM") {
 		t.Fatal("bound admin nav includes Operator IAM")
@@ -124,16 +124,33 @@ func TestGUIShell_BoundAdminOperatorIAMForbidden(t *testing.T) {
 	}
 }
 
-func TestGUIShell_BoundAdminDashboardForbidden(t *testing.T) {
+func TestGUIShell_BoundAdminDashboardOK(t *testing.T) {
 	engine, cookie := boundAdminGUIShell(t)
 	for _, path := range []string{"/gui/", "/gui/dashboard"} {
 		response := guiGET(engine, path, cookie, "", "")
-		if response.Code != http.StatusForbidden {
+		if response.Code != http.StatusOK {
 			t.Fatalf("%s status = %d, body = %s", path, response.Code, response.Body.String())
 		}
-		if response.Header().Get(web.GUIForbiddenHeader) != web.GUIForbiddenValue {
-			t.Fatalf("%s missing %s", path, web.GUIForbiddenHeader)
-		}
+	}
+}
+
+func TestGUIShell_BoundAdminUserForeignNotFound(t *testing.T) {
+	fx := boundAdminGUIShellFX(t)
+	foreign := guiGET(fx.engine, "/gui/users/"+fx.foreignUserID.String(), fx.cookie, "", "")
+	if foreign.Code != http.StatusNotFound {
+		t.Fatalf("foreign user status = %d, body = %s", foreign.Code, foreign.Body.String())
+	}
+	home := guiGET(fx.engine, "/gui/users/"+fx.homeUserID.String(), fx.cookie, "", "")
+	if home.Code != http.StatusOK {
+		t.Fatalf("home user status = %d, body = %s", home.Code, home.Body.String())
+	}
+}
+
+func TestGUIShell_BoundViewerUserForeignNotFound(t *testing.T) {
+	fx := boundViewerGUIShellFX(t)
+	foreign := guiGET(fx.engine, "/gui/users/"+fx.foreignUserID.String(), fx.cookie, "", "")
+	if foreign.Code != http.StatusNotFound {
+		t.Fatalf("foreign user status = %d, body = %s", foreign.Code, foreign.Body.String())
 	}
 }
 
@@ -314,8 +331,8 @@ func TestGUIShell_ViewerNestedSessionsForbidden(t *testing.T) {
 }
 
 func TestGUIShell_ViewerUserDetailOK(t *testing.T) {
-	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
-	response := guiGET(engine, "/gui/users/"+uuid.New().String(), cookie, "", "")
+	fx := newGUIShell(t, operator.RoleIDViewer, operator.RoleViewer)
+	response := guiGET(fx.engine, "/gui/users/"+fx.homeUserID.String(), fx.cookie, "", "")
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d", response.Code)
 	}
@@ -822,6 +839,10 @@ type guiShell struct {
 	events        []operator.IAMEvent
 	roles         map[uuid.UUID]sqlcgen.OperatorRole
 	roleGrants    map[uuid.UUID][]string
+	boundAppID    uuid.UUID
+	otherAppID    uuid.UUID
+	homeUserID    uuid.UUID
+	foreignUserID uuid.UUID
 }
 
 func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engine, *http.Cookie) {
@@ -832,10 +853,22 @@ func guiShellEngine(t *testing.T, roleID uuid.UUID, roleName string) (*gin.Engin
 
 func boundAdminGUIShell(t *testing.T) (*gin.Engine, *http.Cookie) {
 	t.Helper()
-	fx := newGUIShell(t, operator.RoleIDAdmin, operator.RoleAdmin)
-	appID := uuid.New()
-	fx.account.AppID = &appID
+	fx := boundAdminGUIShellFX(t)
 	return fx.engine, fx.cookie
+}
+
+func boundAdminGUIShellFX(t *testing.T) *guiShell {
+	t.Helper()
+	fx := newGUIShell(t, operator.RoleIDAdmin, operator.RoleAdmin)
+	fx.account.AppID = &fx.boundAppID
+	return fx
+}
+
+func boundViewerGUIShellFX(t *testing.T) *guiShell {
+	t.Helper()
+	fx := newGUIShell(t, operator.RoleIDViewer, operator.RoleViewer)
+	fx.account.AppID = &fx.boundAppID
+	return fx
 }
 
 func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
@@ -872,6 +905,10 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 		viewerKey:     viewerKey,
 		accounts:      accounts,
 		cookie:        &http.Cookie{Name: web.AdminSessionCookie, Value: "session-id"},
+		boundAppID:    uuid.New(),
+		otherAppID:    uuid.New(),
+		homeUserID:    uuid.New(),
+		foreignUserID: uuid.New(),
 		roles: map[uuid.UUID]sqlcgen.OperatorRole{
 			operator.RoleIDViewer:     {ID: operator.RoleIDViewer, Name: operator.RoleViewer, IsSystem: true},
 			operator.RoleIDSupport:    {ID: operator.RoleIDSupport, Name: operator.RoleSupport, IsSystem: true},
@@ -1111,6 +1148,20 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 			}
 			return &copied, nil
 		},
+		GetUserDetail: func(id string) (*admin.UserDetail, error) {
+			parsed, err := uuid.Parse(id)
+			if err != nil {
+				return nil, pgx.ErrNoRows
+			}
+			switch parsed {
+			case fx.homeUserID:
+				return &admin.UserDetail{ID: parsed, AppID: fx.boundAppID}, nil
+			case fx.foreignUserID:
+				return &admin.UserDetail{ID: parsed, AppID: fx.otherAppID}, nil
+			default:
+				return nil, pgx.ErrNoRows
+			}
+		},
 		UpdateAPIKeyRole: func(id string, next *uuid.UUID) error {
 			parsed, err := uuid.Parse(id)
 			if err != nil {
@@ -1161,9 +1212,7 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 		data.ActivePage = "users"
 		c.HTML(http.StatusOK, "users", data)
 	})
-	guiAuth.GET("/users/:id", requireGUI(operator.ResUsers, operator.ActionRead), func(c *gin.Context) {
-		c.Status(http.StatusOK)
-	})
+	guiAuth.GET("/users/:id", requireGUI(operator.ResUsers, operator.ActionRead), h.UserDetail)
 	guiAuth.GET("/users/:id/sessions", requireGUI(operator.ResSessions, operator.ActionRead), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
