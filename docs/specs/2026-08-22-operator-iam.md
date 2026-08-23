@@ -21,14 +21,7 @@ Admin API keys are created in the GUI. JSON has `PUT /admin/operator/keys/:id/ro
 
 ## Still later
 
-These need their own specs. They are not leftover phases.
-
-| Item | Current behavior |
-|------|------------------|
-| Forced must-expire | Empty `expires_at` is forever |
-| Per-app operators | One operator principal across tenants |
-| IP or UA on `operator_access_logs` | Rows have method, path, and decision. No IP, no UA |
-| SOC 2 Type I/II organizational evidence | Product logs exist. An audit program does not |
+Product work is in [remaining](../2026-08-23-operator-iam-remaining/overview.md). SOC 2 Type I/II organizational evidence stays out of that directory too.
 
 Dashboard `/gui/dashboard/stats` stays `dashboard:read`. That is a locked decision, not unfinished work.
 
