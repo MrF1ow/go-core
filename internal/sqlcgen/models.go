@@ -43,6 +43,7 @@ type AdminAccount struct {
 	UpdatedAt           time.Time          `json:"updated_at"`
 	LastLoginAt         pgtype.Timestamptz `json:"last_login_at"`
 	DisabledAt          pgtype.Timestamptz `json:"disabled_at"`
+	AppID               pgtype.UUID        `json:"app_id"`
 }
 
 type ApiKey struct {

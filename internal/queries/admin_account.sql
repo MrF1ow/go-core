@@ -95,4 +95,4 @@ WHERE id = $1;
 
 -- name: CountEnabledSuperadminAccounts :one
 SELECT COUNT(*) FROM admin_accounts
-WHERE operator_role_id = $1 AND disabled_at IS NULL;
+WHERE operator_role_id = $1 AND disabled_at IS NULL AND app_id IS NULL;
