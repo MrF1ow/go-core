@@ -36,7 +36,11 @@
                     <label for="editKeyExpiresAt" class="form-label small text-muted">Expires at</label>
                     <input type="datetime-local" class="form-control" id="editKeyExpiresAt" name="expires_at"
                            value="{{.ExpiresAtLocal}}">
+                    {{if eq .KeyType "admin"}}
+                    <div class="form-text">Leave blank to keep the stored expiry.</div>
+                    {{else}}
                     <div class="form-text">Leave blank for forever.</div>
+                    {{end}}
                 </div>
                 {{if eq .KeyType "admin"}}
                 {{if .CanIAM}}

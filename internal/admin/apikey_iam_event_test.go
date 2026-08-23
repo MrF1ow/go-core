@@ -16,6 +16,7 @@ func TestApiKeyCreate_SuperadminRecordsCreatePrincipal(t *testing.T) {
 		"name":             {"root-key"},
 		"key_type":         {KeyTypeAdmin},
 		"operator_role_id": {operator.RoleIDSuperadmin.String()},
+		"expires_at":       {futureExpiresAt()},
 	})
 	if got.response.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", got.response.Code, got.response.Body.String())
@@ -46,11 +47,13 @@ func TestApiKeyCreate_SuperadminRecordsCreatePrincipal(t *testing.T) {
 
 func TestApiKeyUpdate_RoleChangeRecordsAssign(t *testing.T) {
 	current := operator.RoleIDViewer
+	stored := storedAdminExpiry()
 	existing := &models.ApiKey{
 		ID:             uuid.MustParse("22222222-2222-2222-2222-222222222222"),
 		KeyType:        KeyTypeAdmin,
 		Name:           "ops",
 		OperatorRoleID: &current,
+		ExpiresAt:      &stored,
 	}
 	got := apiKeyUpdatePUT(t, superadminGUIPrincipal(), existing, url.Values{
 		"name":             {"ops"},
@@ -76,11 +79,13 @@ func TestApiKeyUpdate_RoleChangeRecordsAssign(t *testing.T) {
 
 func TestApiKeyUpdate_SameRoleRecordsNothing(t *testing.T) {
 	current := operator.RoleIDSupport
+	stored := storedAdminExpiry()
 	existing := &models.ApiKey{
 		ID:             uuid.MustParse("22222222-2222-2222-2222-222222222222"),
 		KeyType:        KeyTypeAdmin,
 		Name:           "ops",
 		OperatorRoleID: &current,
+		ExpiresAt:      &stored,
 	}
 	got := apiKeyUpdatePUT(t, superadminGUIPrincipal(), existing, url.Values{
 		"name":             {"ops-renamed"},

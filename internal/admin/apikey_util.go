@@ -64,19 +64,26 @@ func HashApiKey(rawKey string) string {
 	return hex.EncodeToString(h[:])
 }
 
-func parseOptionalExpiresAt(raw string, now time.Time) (*time.Time, error) {
-	return parseOptionalExpiresAtKeeping(raw, now, nil)
+func parseOptionalExpiresAt(raw string, now time.Time, required bool) (*time.Time, error) {
+	return parseOptionalExpiresAtKeeping(raw, now, nil, required)
 }
 
 // parseOptionalExpiresAtKeeping treats a posted datetime-local value that still
 // matches the stored instant (minute precision, same format as the edit form)
 // as "leave expiry alone". That lets operators change name, description, or
-// role on a key whose expiry has already passed. Clearing the field is forever.
-// Any other posted value must be strictly after now, same as create.
-func parseOptionalExpiresAtKeeping(raw string, now time.Time, current *time.Time) (*time.Time, error) {
+// role on a key whose expiry has already passed. Empty admin edit keeps the
+// stored instant so name/role edits on expired keys still work. Any other
+// posted value must be strictly after now, same as create.
+func parseOptionalExpiresAtKeeping(raw string, now time.Time, current *time.Time, required bool) (*time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return nil, nil
+		if !required {
+			return nil, nil
+		}
+		if current != nil {
+			return current, nil
+		}
+		return nil, errExpiresRequired
 	}
 	if current != nil && raw == formatExpiresAtLocal(current) {
 		return current, nil
@@ -89,6 +96,13 @@ func parseOptionalExpiresAtKeeping(raw string, now time.Time, current *time.Time
 		return nil, errExpiresInPast
 	}
 	return &t, nil
+}
+
+func expiresAtErrorMessage(err error) string {
+	if errors.Is(err, errExpiresRequired) {
+		return "Expiration date is required."
+	}
+	return "Invalid expiration date."
 }
 
 func formatExpiresAtLocal(t *time.Time) string {
@@ -120,5 +134,6 @@ func operatorRoleOptions() []operatorRoleOption {
 }
 
 var (
-	errExpiresInPast = errors.New("expiration date must be in the future")
+	errExpiresInPast   = errors.New("expiration date must be in the future")
+	errExpiresRequired = errors.New("expiration date is required")
 )

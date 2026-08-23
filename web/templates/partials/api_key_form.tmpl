@@ -40,8 +40,9 @@
                 </div>
                 <div class="col-md-4">
                     <label for="keyExpiresAt" class="form-label small text-muted">Expires at</label>
-                    <input type="datetime-local" class="form-control" id="keyExpiresAt" name="expires_at">
-                    <div class="form-text">Leave blank for forever. The key dies at this time on its own.</div>
+                    <input type="datetime-local" class="form-control" id="keyExpiresAt" name="expires_at"
+                           value="{{.DefaultExpiresAt}}">
+                    <div class="form-text">Admin keys must expire. App keys may be left blank.</div>
                 </div>
                 <div class="col-md-4" id="adminRoleGroup" style="display: none;">
                     {{if .CanIAM}}

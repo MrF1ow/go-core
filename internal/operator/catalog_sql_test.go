@@ -63,6 +63,30 @@ func TestAdminKeyOperatorRoleRequiredMigration(t *testing.T) {
 	}
 }
 
+func TestAdminKeyMustExpireMigration(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/021_admin_key_must_expire.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(sql)
+	if !strings.Contains(text, "NOW() + INTERVAL '365 days'") {
+		t.Fatal("021 missing 365-day backfill")
+	}
+	if !strings.Contains(text, "api_keys_admin_must_expire") {
+		t.Fatal("021 missing CHECK name")
+	}
+	if !strings.Contains(text, "CHECK (key_type <> 'admin' OR expires_at IS NOT NULL)") {
+		t.Fatal("021 missing admin-key expiry CHECK")
+	}
+	schema, err := os.ReadFile("../schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(schema), "api_keys_admin_must_expire") {
+		t.Fatal("schema.sql missing admin-key expiry CHECK")
+	}
+}
+
 func TestOperatorIAMEvidenceMigrationExists(t *testing.T) {
 	sql, err := os.ReadFile("../../migrations/018_operator_iam_evidence.sql")
 	if err != nil {
