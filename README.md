@@ -103,6 +103,8 @@ Everything below is off or defaulted until you configure it. `DefaultConfig()` g
 - Session groups (cross-app SSO)
 - Activity logging
 
+Workers authenticate to `/app/:id` with `X-App-API-Key` and `X-App-ID`. IP rules for that app apply to those routes.
+
 ## Running the Example
 
 Check out `examples/basic/main.go` for a working setup. You'll need PostgreSQL running with migrations applied.

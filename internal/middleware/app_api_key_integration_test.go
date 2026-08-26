@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/MrF1ow/go-core/internal/admin"
+	"github.com/MrF1ow/go-core/internal/geoip"
 	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/MrF1ow/go-core/web"
 	"github.com/gin-gonic/gin"
@@ -113,6 +114,9 @@ func buildAppRouter(store *mockKeyStore) *gin.Engine {
 	appRoutes := r.Group("/app/:id")
 	appRoutes.Use(AppApiKeyMiddleware(store))
 	appRoutes.Use(AppRouteGuardMiddleware())
+	appRoutes.Use(IPRuleMiddleware(func(uuid.UUID, string) geoip.AccessResult {
+		return geoip.AccessResult{Allowed: true}
+	}))
 	{
 		appRoutes.GET("/email-config", func(c *gin.Context) {
 			authType, _ := c.Get(web.AuthTypeKey)
