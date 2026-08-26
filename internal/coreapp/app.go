@@ -75,6 +75,7 @@ type App struct {
 	operatorRepo        *operator.Repository
 	sessionGroupRevoker *sessiongroup.Revoker
 	settingsService     *admin.SettingsService
+	ipRuleEvaluator     *geoip.IPRuleEvaluator
 
 	// Background services (for graceful shutdown)
 	webhookService        *webhook.Service
@@ -438,6 +439,7 @@ func initialize(cfg core.Config, pool *pgxpool.Pool) (*App, error) {
 		operatorRepo:          operatorRepo,
 		sessionGroupRevoker:   sessionGroupRevoker,
 		settingsService:       settingsService,
+		ipRuleEvaluator:       ipRuleEvaluator,
 		webhookService:        webhookService,
 		cleanupService:        cleanupService,
 		evidenceCleanup:       evidenceCleanup,
@@ -741,6 +743,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 	appRoutes := r.Group("/app/:id")
 	appRoutes.Use(middleware.AppApiKeyMiddleware(a.adminRepo))
 	appRoutes.Use(middleware.AppRouteGuardMiddleware())
+	appRoutes.Use(middleware.IPRuleMiddleware(a.ipRuleEvaluator.EvaluateAccess))
 	{
 		appRoutes.GET("/email-config", a.adminHandler.GetEmailServerConfig)
 		appRoutes.GET("/email-servers", a.adminHandler.ListEmailServerConfigsByApp)
