@@ -87,6 +87,28 @@ func TestIPRule_AllowCIDRMiss(t *testing.T) {
 	}
 }
 
+func TestIPRule_BlockCIDRHit(t *testing.T) {
+	appID := uuid.New()
+	evaluate := func(_ uuid.UUID, clientIP string) geoip.AccessResult {
+		return geoip.AccessResult{Allowed: clientIP != "8.8.8.8"}
+	}
+	w := doIPRuleRequest(evaluate, &appID, "8.8.8.8")
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("Expected 403 for block CIDR hit, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestIPRule_InactiveIgnored(t *testing.T) {
+	appID := uuid.New()
+	evaluate := func(uuid.UUID, string) geoip.AccessResult {
+		return geoip.AccessResult{Allowed: true, Reason: "no_rules_configured"}
+	}
+	w := doIPRuleRequest(evaluate, &appID, "10.0.0.5")
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200 when inactive rules are ignored, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestIPRule_HTTPClientAllowAndDeny(t *testing.T) {
 	appID := uuid.New()
 	evaluate := func(_ uuid.UUID, clientIP string) geoip.AccessResult {
