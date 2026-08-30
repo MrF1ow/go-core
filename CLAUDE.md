@@ -141,4 +141,4 @@ Scopes: `auth`, `user`, `social`, `twofa`, `email`, `middleware`, `database`, `r
 
 ## Cloud Agents
 
-Postgres listens on 5432 and Redis on 6379. `make docker-dev` is not available here (no Docker, and compose publishes Postgres on 5433). Start writes `.env` from `.env.example` with `DB_PORT=5432` and applies migrations to `go_core` and `auth_test`.
+Install and start live in `.cursor/install.sh` and `.cursor/start.sh`, wired from `.cursor/environment.json`. Postgres listens on 5432 and Redis on 6379. `make docker-dev` is not available here (no Docker, and compose publishes Postgres on 5433). Start writes `.env` from `.env.example` with `DB_PORT=5432` and applies migrations to `go_core` and `auth_test`.
