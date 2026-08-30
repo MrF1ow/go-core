@@ -111,15 +111,6 @@
                                 <i class="bi bi-shield-x"></i>
                             </button>
                             {{end}}
-                            <button class="btn btn-outline-danger btn-sm"
-                                    hx-get="{{basePath}}/api-keys/{{.ID}}/delete"
-                                    hx-target="#delete-apikey-modal-body"
-                                    hx-swap="innerHTML"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#deleteApiKeyModal"
-                                    title="Delete">
-                                <i class="bi bi-trash"></i>
-                            </button>
                             {{end}}
                         </td>
                     </tr>

@@ -68,23 +68,6 @@
         </div>
     </div>
 </div>
-
-<!-- Delete confirmation modal -->
-<div class="modal fade" id="deleteApiKeyModal" tabindex="-1" aria-labelledby="deleteApiKeyModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title" id="deleteApiKeyModalLabel">
-                    <i class="bi bi-exclamation-triangle text-danger me-2"></i>Delete API Key
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div id="delete-apikey-modal-body">
-                <!-- Populated by HTMX -->
-            </div>
-        </div>
-    </div>
-</div>
 {{end}}
 
 {{define "scripts"}}
@@ -92,12 +75,6 @@
     // Close revoke modal after successful revocation
     document.body.addEventListener('apiKeyRevoked', function() {
         var modal = bootstrap.Modal.getInstance(document.getElementById('revokeApiKeyModal'));
-        if (modal) modal.hide();
-    });
-
-    // Close delete modal after successful deletion
-    document.body.addEventListener('apiKeyDeleted', function() {
-        var modal = bootstrap.Modal.getInstance(document.getElementById('deleteApiKeyModal'));
         if (modal) modal.hide();
     });
 

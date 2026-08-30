@@ -471,9 +471,6 @@ SELECT * FROM api_keys WHERE id = $1;
 -- name: AdminRevokeApiKey :exec
 UPDATE api_keys SET is_revoked = true, updated_at = NOW() WHERE id = $1;
 
--- name: AdminDeleteApiKey :exec
-DELETE FROM api_keys WHERE id = $1;
-
 -- name: AdminFindActiveKeyByHash :one
 SELECT * FROM api_keys WHERE key_hash = $1 AND is_revoked = false;
 

@@ -92,6 +92,30 @@ func isOperatorRouteRegistration(selector *ast.SelectorExpr) bool {
 	}
 }
 
+func TestGUIApiKeyDeleteRoutesRemoved(t *testing.T) {
+	source, err := os.ReadFile("app.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(source)
+	for _, needle := range []string{
+		`"/api-keys/:id/delete"`,
+		`DELETE("/api-keys/:id"`,
+	} {
+		if strings.Contains(text, needle) {
+			t.Fatalf("app.go still registers %s", needle)
+		}
+	}
+	for _, needle := range []string{
+		`GET("/api-keys/:id/revoke"`,
+		`PUT("/api-keys/:id/revoke"`,
+	} {
+		if !strings.Contains(text, needle) {
+			t.Fatalf("app.go missing %s", needle)
+		}
+	}
+}
+
 func TestGUIRoutesRequirePermissionOnEachRegistration(t *testing.T) {
 	source, err := os.ReadFile("app.go")
 	if err != nil {

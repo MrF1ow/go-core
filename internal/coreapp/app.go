@@ -871,8 +871,6 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 			guiAuth.GET("/api-keys/:id/usage", requireGUI(operator.ResAPIKeys, operator.ActionRead), a.guiHandler.ApiKeyUsagePage)
 			guiAuth.GET("/api-keys/:id/revoke", requireGUI(operator.ResAPIKeys, operator.ActionWrite), a.guiHandler.ApiKeyRevokeConfirm)
 			guiAuth.PUT("/api-keys/:id/revoke", requireGUI(operator.ResAPIKeys, operator.ActionWrite), a.guiHandler.ApiKeyRevoke)
-			guiAuth.GET("/api-keys/:id/delete", requireGUI(operator.ResAPIKeys, operator.ActionWrite), a.guiHandler.ApiKeyDeleteConfirm)
-			guiAuth.DELETE("/api-keys/:id", requireGUI(operator.ResAPIKeys, operator.ActionWrite), a.guiHandler.ApiKeyDelete)
 
 			guiAuth.GET("/operator", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorIAMPage)
 			guiAuth.GET("/operator/roster", requireGUI(operator.ResAdminIAM, operator.ActionRead), a.guiHandler.OperatorRosterList)
