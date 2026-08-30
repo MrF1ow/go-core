@@ -539,6 +539,112 @@ func listOperatorIAMEvents(ctx context.Context, override func(context.Context, i
 	return repo.ListIAMEvents(ctx, limit, 0, targetKeyID, targetAccountID)
 }
 
+type createOperatorKeyRequest struct {
+	Name           string `json:"name" binding:"required"`
+	Description    string `json:"description"`
+	OperatorRoleID string `json:"operator_role_id"`
+	ExpiresAt      string `json:"expires_at"`
+}
+
+type createOperatorKeyResponse struct {
+	ID             uuid.UUID `json:"id"`
+	Name           string    `json:"name"`
+	KeyType        string    `json:"key_type"`
+	KeyPrefix      string    `json:"key_prefix"`
+	KeySuffix      string    `json:"key_suffix"`
+	OperatorRoleID uuid.UUID `json:"operator_role_id"`
+	Role           string    `json:"role"`
+	ExpiresAt      time.Time `json:"expires_at"`
+	Secret         string    `json:"secret"`
+}
+
+// OperatorCreateKey mints a platform admin API key.
+// @Summary Mint a platform admin API key
+// @Description Creates an admin key with null app_id. Raw secret is returned once. Empty role stamps viewer. Expiry is required.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Param request body createOperatorKeyRequest true "Key"
+// @Success 201 {object} createOperatorKeyResponse
+// @Failure 400 {object} dto.ErrorResponse
+// @Failure 401 {object} dto.ErrorResponse
+// @Failure 403 {object} dto.ErrorResponse
+// @Failure 500 {object} dto.ErrorResponse
+// @Security AdminApiKey
+// @Router /admin/operator/keys [post]
+func (h *Handler) OperatorCreateKey(c *gin.Context) {
+	var req createOperatorKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		return
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Name is required"})
+		return
+	}
+	expiresAt, err := parseOptionalExpiresAt(req.ExpiresAt, time.Now(), true)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: expiresAtErrorMessage(err)})
+		return
+	}
+	p, ok := jsonPrincipal(c)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "internal authentication error"})
+		return
+	}
+	roleID, err := operator.ParseAssignedAdminRole(*p, req.OperatorRoleID, KeyTypeAdmin, nil, h.roleExists())
+	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
+		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "insufficient permissions"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
+		return
+	}
+	rawKey, keyHash, keyPrefix, keySuffix, err := GenerateApiKey(KeyTypeAdmin)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create API key"})
+		return
+	}
+	apiKey := &models.ApiKey{
+		KeyType:        KeyTypeAdmin,
+		Name:           name,
+		Description:    strings.TrimSpace(req.Description),
+		OperatorRoleID: roleID,
+		KeyHash:        keyHash,
+		KeyPrefix:      keyPrefix,
+		KeySuffix:      keySuffix,
+		ExpiresAt:      expiresAt,
+	}
+	if err := h.persistOperatorAPIKey(apiKey); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create API key"})
+		return
+	}
+	if apiKey.ID == uuid.Nil || apiKey.OperatorRoleID == nil || apiKey.ExpiresAt == nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create API key"})
+		return
+	}
+	keyID := apiKey.ID
+	h.writeJSONIAMEvent(c, operator.IAMEvent{
+		TargetKind:  operator.KindAPIKey,
+		TargetKeyID: &keyID,
+		NewRoleID:   apiKey.OperatorRoleID,
+		Action:      operator.ActionCreatePrincipal,
+	})
+	c.JSON(http.StatusCreated, createOperatorKeyResponse{
+		ID:             apiKey.ID,
+		Name:           apiKey.Name,
+		KeyType:        KeyTypeAdmin,
+		KeyPrefix:      apiKey.KeyPrefix,
+		KeySuffix:      apiKey.KeySuffix,
+		OperatorRoleID: *apiKey.OperatorRoleID,
+		Role:           operator.SystemRoleName(*apiKey.OperatorRoleID),
+		ExpiresAt:      *apiKey.ExpiresAt,
+		Secret:         rawKey,
+	})
+}
+
 type assignKeyRoleRequest struct {
 	OperatorRoleID string `json:"operator_role_id" binding:"required"`
 }
@@ -667,6 +773,16 @@ func (h *Handler) loadOperatorAPIKey(id string) (*models.ApiKey, error) {
 		return h.Repo.GetApiKeyByID(id)
 	}
 	return nil, fmt.Errorf("api key repository is not configured")
+}
+
+func (h *Handler) persistOperatorAPIKey(key *models.ApiKey) error {
+	if h.CreateAPIKey != nil {
+		return h.CreateAPIKey(key)
+	}
+	if h.Repo == nil {
+		return fmt.Errorf("api key repository is not configured")
+	}
+	return h.Repo.CreateApiKey(key)
 }
 
 func (h *Handler) updateOperatorAPIKeyRole(id string, key *models.ApiKey, roleID *uuid.UUID) error {

@@ -658,6 +658,7 @@ func (a *App) RegisterRoutes(r *gin.Engine) {
 		adminRoutes.GET("/operator/access-logs/export", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorAccessLogsExport)
 		adminRoutes.GET("/operator/iam-events", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorIAMEvents)
 		adminRoutes.GET("/operator/iam-events/export", requireOp(operator.ResAdminIAM, operator.ActionRead), a.adminHandler.OperatorIAMEventsExport)
+		adminRoutes.POST("/operator/keys", requireOp(operator.ResAPIKeys, operator.ActionWrite), a.adminHandler.OperatorCreateKey)
 		adminRoutes.PUT("/operator/keys/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorKeyRole)
 		adminRoutes.POST("/operator/accounts", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorCreateAccount)
 		adminRoutes.PUT("/operator/accounts/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), a.adminHandler.OperatorAccountRole)
