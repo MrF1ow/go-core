@@ -1482,15 +1482,6 @@ func (r *Repository) RevokeApiKey(id string) error {
 	return r.queries.AdminRevokeApiKey(context.Background(), uid)
 }
 
-// DeleteApiKey permanently deletes an API key by ID.
-func (r *Repository) DeleteApiKey(id string) error {
-	uid, err := uuid.Parse(id)
-	if err != nil {
-		return err
-	}
-	return r.queries.AdminDeleteApiKey(context.Background(), uid)
-}
-
 // FindActiveKeyByHash looks up an active (non-revoked, non-expired) API key by its SHA-256 hash.
 // Returns nil, nil if no matching key is found.
 func (r *Repository) FindActiveKeyByHash(keyHash string) (*models.ApiKey, error) {

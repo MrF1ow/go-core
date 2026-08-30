@@ -310,13 +310,12 @@ func (r *AccountRepository) UpdateAppID(id uuid.UUID, appID *uuid.UUID) error {
 }
 
 func (r *AccountRepository) SetDisabledAt(id uuid.UUID, at *time.Time) error {
-	var ts pgtype.Timestamptz
-	if at != nil {
-		ts = pgtype.Timestamptz{Time: *at, Valid: true}
+	if at == nil {
+		return errors.New("disabled_at cannot be cleared")
 	}
 	return r.queries.SetAdminAccountDisabledAt(context.Background(), sqlcgen.SetAdminAccountDisabledAtParams{
 		ID:         id,
-		DisabledAt: ts,
+		DisabledAt: pgtype.Timestamptz{Time: *at, Valid: true},
 	})
 }
 

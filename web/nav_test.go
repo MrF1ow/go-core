@@ -70,6 +70,19 @@ func TestBuildNav_AdminOmitsOperatorIAM(t *testing.T) {
 	}
 }
 
+func TestAPIKeysPageOmitsDeleteModal(t *testing.T) {
+	body, err := templateFS.ReadFile("templates/pages/api_keys.tmpl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, needle := range []string{"deleteApiKeyModal", "apiKeyDeleted", "api_key_delete_confirm"} {
+		if strings.Contains(text, needle) {
+			t.Fatalf("api_keys page still has %q", needle)
+		}
+	}
+}
+
 func TestBuildNav_SuperadminHasEveryRowIncludingOperatorIAM(t *testing.T) {
 	p := operator.NewPrincipal(operator.KindGUIAccount, operator.RoleSuperadmin, operator.GrantsFor(operator.RoleSuperadmin))
 	groups := buildNav("/gui", p.Has)

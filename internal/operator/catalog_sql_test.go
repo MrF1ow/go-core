@@ -129,6 +129,42 @@ func TestAdminAccountAppMigration(t *testing.T) {
 	}
 }
 
+func TestOperatorOneWayRevokeMigration(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/023_operator_one_way_revoke.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(sql)
+	for _, needle := range []string{
+		"admin_accounts_disabled_at_one_way",
+		"api_keys_is_revoked_one_way",
+		"disabled_at cannot be cleared",
+		"is_revoked cannot be cleared",
+		"EXECUTE FUNCTION prevent_admin_account_reenable",
+		"EXECUTE FUNCTION prevent_api_key_unrevoke",
+	} {
+		if !strings.Contains(text, needle) {
+			t.Fatalf("023 missing %q", needle)
+		}
+	}
+	schema, err := os.ReadFile("../schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemaText := string(schema)
+	for _, needle := range []string{
+		"admin_accounts_disabled_at_one_way",
+		"api_keys_is_revoked_one_way",
+		"api_keys_admin_app_id_null",
+		"disabled_at cannot be cleared",
+		"is_revoked cannot be cleared",
+	} {
+		if !strings.Contains(schemaText, needle) {
+			t.Fatalf("schema.sql missing %q", needle)
+		}
+	}
+}
+
 func TestOperatorIAMEvidenceMigrationExists(t *testing.T) {
 	sql, err := os.ReadFile("../../migrations/018_operator_iam_evidence.sql")
 	if err != nil {

@@ -817,15 +817,6 @@ func (q *Queries) AdminCreateTenant(ctx context.Context, arg AdminCreateTenantPa
 	return i, err
 }
 
-const adminDeleteApiKey = `-- name: AdminDeleteApiKey :exec
-DELETE FROM api_keys WHERE id = $1
-`
-
-func (q *Queries) AdminDeleteApiKey(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, adminDeleteApiKey, id)
-	return err
-}
-
 const adminDeleteApp = `-- name: AdminDeleteApp :exec
 DELETE FROM applications WHERE id = $1
 `

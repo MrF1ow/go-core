@@ -346,6 +346,19 @@ func TestGUIShell_ViewerLogoutNotForbidden(t *testing.T) {
 	}
 }
 
+func TestGUIShell_ApiKeyDeleteIs404(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	id := uuid.New().String()
+	deleted := guiDELETE(engine, "/gui/api-keys/"+id, cookie)
+	if deleted.Code != http.StatusNotFound {
+		t.Fatalf("DELETE status = %d, body = %s", deleted.Code, deleted.Body.String())
+	}
+	confirm := guiGET(engine, "/gui/api-keys/"+id+"/delete", cookie, "", "")
+	if confirm.Code != http.StatusNotFound {
+		t.Fatalf("GET delete status = %d, body = %s", confirm.Code, confirm.Body.String())
+	}
+}
+
 func TestGUIShell_ViewerMyAccountOK(t *testing.T) {
 	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
 	response := guiGET(engine, "/gui/my-account", cookie, "", "")

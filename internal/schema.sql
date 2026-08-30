@@ -291,6 +291,40 @@ CREATE INDEX idx_api_keys_expires_at        ON api_keys(expires_at);
 CREATE INDEX idx_api_keys_operator_role_id  ON api_keys(operator_role_id);
 CREATE INDEX idx_api_keys_active_lookup     ON api_keys(key_hash, is_revoked) WHERE is_revoked = FALSE;
 
+CREATE OR REPLACE FUNCTION prevent_admin_account_reenable()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF OLD.disabled_at IS NOT NULL AND NEW.disabled_at IS NULL THEN
+        RAISE EXCEPTION 'disabled_at cannot be cleared';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER admin_accounts_disabled_at_one_way
+    BEFORE UPDATE ON admin_accounts
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_admin_account_reenable();
+
+CREATE OR REPLACE FUNCTION prevent_api_key_unrevoke()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF OLD.is_revoked AND NOT NEW.is_revoked THEN
+        RAISE EXCEPTION 'is_revoked cannot be cleared';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER api_keys_is_revoked_one_way
+    BEFORE UPDATE ON api_keys
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_api_key_unrevoke();
+
 -- ─── api_key_usages ───────────────────────────────────────────────────────────
 
 CREATE TABLE api_key_usages (
