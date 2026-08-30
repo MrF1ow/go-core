@@ -41,7 +41,9 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | [Custom CSS spec](specs/2026-08-20-admin-custom-css-design.md) | Admin GUI extra stylesheet |
 | [Favicon spec](specs/2026-08-20-admin-favicon-design.md) | Admin GUI tab icon |
 | [OIDC branding spec](specs/2026-08-21-oidc-admin-branding-design.md) | Admin branding fallback on OIDC pages |
-| [Operator IAM remaining](specs/2026-08-23-operator-iam-remaining/overview.md) | Must-expire, access-log IP/UA, per-app operators |
+| [Operator IAM remaining](specs/2026-08-23-operator-iam-remaining/overview.md) | Shipped recap of must-expire, access-log IP/UA, per-app operators |
+| [Operator key lifecycle](specs/2026-08-30-operator-key-lifecycle/plan.md) | JSON mint of platform admin keys, one-way revoke |
+| [Operator deferred work](specs/2026-08-30-operator-key-lifecycle/deferred.md) | Per-app admin keys, grant matrix, and parked IAM extras |
 | [Changelog](../CHANGELOG.md) | Release history |
 | [Security policy](../SECURITY.md) | Vulnerability reporting |
 

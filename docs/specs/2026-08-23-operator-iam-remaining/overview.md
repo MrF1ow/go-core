@@ -1,10 +1,10 @@
 # Operator IAM remaining
 
 **Date:** 2026-08-23
-**Status:** plan, not implemented
+**Status:** shipped on `main` through [PR #39](https://github.com/MrF1ow/go-core/pull/39). Leftover product is [deferred](../2026-08-30-operator-key-lifecycle/deferred.md). Next impl plan is [key lifecycle](../2026-08-30-operator-key-lifecycle/plan.md).
 **Depends on:** [shipped recap](../2026-08-22-operator-iam.md) on `main` through [PR #31](https://github.com/MrF1ow/go-core/pull/31)
 
-The IAM program is on `main`. This directory is the parked leftovers that are still product work, plus one item that is not.
+The IAM program is on `main`. This directory was the parked leftovers. Access client, must-expire, and per-app GUI operators shipped as PRs #34 through #39. Do not re-implement them.
 
 ## Should this be a loop?
 
