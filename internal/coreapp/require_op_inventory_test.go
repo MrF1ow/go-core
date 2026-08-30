@@ -106,6 +106,14 @@ func TestGUIApiKeyDeleteRoutesRemoved(t *testing.T) {
 			t.Fatalf("app.go still registers %s", needle)
 		}
 	}
+	for _, needle := range []string{
+		`GET("/api-keys/:id/revoke"`,
+		`PUT("/api-keys/:id/revoke"`,
+	} {
+		if !strings.Contains(text, needle) {
+			t.Fatalf("app.go missing %s", needle)
+		}
+	}
 }
 
 func TestGUIRoutesRequirePermissionOnEachRegistration(t *testing.T) {

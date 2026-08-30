@@ -359,6 +359,40 @@ func TestGUIShell_ApiKeyDeleteIs404(t *testing.T) {
 	}
 }
 
+func TestGUIShell_ApiKeysPageHasRevokeNotDelete(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiGET(engine, "/gui/api-keys", cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, "revokeApiKeyModal") {
+		t.Fatal("keys page missing revoke modal")
+	}
+	if strings.Contains(body, "deleteApiKeyModal") || strings.Contains(body, "apiKeyDeleted") {
+		t.Fatal("keys page still has delete")
+	}
+}
+
+func TestGUIShell_ViewerApiKeysForbidden(t *testing.T) {
+	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
+	response := guiGET(engine, "/gui/api-keys", cookie, "", "")
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+}
+
+func TestGUIShell_BoundAdminApiKeysOK(t *testing.T) {
+	engine, cookie := boundAdminGUIShell(t)
+	response := guiGET(engine, "/gui/api-keys", cookie, "", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Body.String(), "deleteApiKeyModal") {
+		t.Fatal("bound admin keys page still has delete")
+	}
+}
+
 func TestGUIShell_ViewerMyAccountOK(t *testing.T) {
 	engine, cookie := guiShellEngine(t, operator.RoleIDViewer, operator.RoleViewer)
 	response := guiGET(engine, "/gui/my-account", cookie, "", "")
@@ -1236,6 +1270,7 @@ func newGUIShell(t *testing.T, roleID uuid.UUID, roleName string) *guiShell {
 		c.Status(http.StatusOK)
 	})
 	guiAuth.GET("/api-keys/new", requireGUI(operator.ResAPIKeys, operator.ActionWrite), h.ApiKeyCreateForm)
+	guiAuth.GET("/api-keys", requireGUI(operator.ResAPIKeys, operator.ActionRead), h.ApiKeysPage)
 	guiAuth.POST("/api-keys", requireGUI(operator.ResAPIKeys, operator.ActionWrite), func(c *gin.Context) {
 		val, ok := c.Get(web.OperatorPrincipalKey)
 		if !ok {
