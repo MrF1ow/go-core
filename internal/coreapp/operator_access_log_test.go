@@ -35,7 +35,11 @@ type accessLogKeyStore struct {
 }
 
 func (s *accessLogKeyStore) FindActiveKeyByHash(keyHash string) (*models.ApiKey, error) {
-	return s.keys[keyHash], nil
+	key := s.keys[keyHash]
+	if key == nil || key.IsRevoked {
+		return nil, nil
+	}
+	return key, nil
 }
 
 func (s *accessLogKeyStore) UpdateApiKeyLastUsed(uuid.UUID) {}

@@ -57,6 +57,7 @@ type iamEventHarness struct {
 	engine         *gin.Engine
 	handler        *admin.Handler
 	mem            *iamEventMem
+	store          *accessLogKeyStore
 	viewerKeyID    uuid.UUID
 	keys           map[uuid.UUID]*models.ApiKey
 	superAccountID uuid.UUID
@@ -246,6 +247,9 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 	group.GET("/operator/iam-events/export", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorIAMEventsExport)
 	group.PUT("/operator/keys/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorKeyRole)
 	group.POST("/operator/keys", requireOp(operator.ResAPIKeys, operator.ActionWrite), handler.OperatorCreateKey)
+	group.GET("/tenants", requireOp(operator.ResTenants, operator.ActionRead), func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
 	group.POST("/operator/accounts", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorCreateAccount)
 	group.PUT("/operator/accounts/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorAccountRole)
 	group.POST("/operator/accounts/:id/disable", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorDisableAccount)
@@ -258,6 +262,7 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 		engine:         engine,
 		handler:        handler,
 		mem:            mem,
+		store:          store,
 		viewerKeyID:    viewerKey.ID,
 		keys:           keys,
 		superAccountID: superAccount.ID,
@@ -934,4 +939,49 @@ type createKeyResponse struct {
 	KeyType        string    `json:"key_type"`
 	OperatorRoleID uuid.UUID `json:"operator_role_id"`
 	Secret         string    `json:"secret"`
+}
+
+func TestOperatorCreateKey_MintedKeyAuthAndRevoke(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"name":"ci","operator_role_id":"` + operator.RoleIDSuperadmin.String() + `","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got createKeyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	stored := h.keys[got.ID]
+	h.store.put(got.Secret, stored)
+	auth := iamEventDo(h.engine, http.MethodGet, "/admin/tenants", got.Secret, "")
+	if auth.Code != http.StatusOK {
+		t.Fatalf("minted auth status = %d, body = %s", auth.Code, auth.Body.String())
+	}
+	stored.IsRevoked = true
+	revoked := iamEventDo(h.engine, http.MethodGet, "/admin/tenants", got.Secret, "")
+	if revoked.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked auth status = %d, body = %s", revoked.Code, revoked.Body.String())
+	}
+	if _, ok := h.keys[got.ID]; !ok {
+		t.Fatal("revoked key row was dropped")
+	}
+}
+
+func TestOperatorCreateKey_ViewerMintNever401OnTenants(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"name":"ci","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got createKeyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	h.store.put(got.Secret, h.keys[got.ID])
+	auth := iamEventDo(h.engine, http.MethodGet, "/admin/tenants", got.Secret, "")
+	if auth.Code != http.StatusForbidden {
+		t.Fatalf("viewer tenants status = %d, want 403, body = %s", auth.Code, auth.Body.String())
+	}
 }
