@@ -83,9 +83,25 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 	}
 	store.put(accessViewerKey, viewerKey)
 	store.put(accessSuperadminKey, superKey)
+	adminRole := operator.RoleIDAdmin
+	supportRole := operator.RoleIDSupport
+	adminKey := &models.ApiKey{
+		ID:             uuid.New(),
+		KeyType:        admin.KeyTypeAdmin,
+		OperatorRoleID: &adminRole,
+	}
+	supportKey := &models.ApiKey{
+		ID:             uuid.New(),
+		KeyType:        admin.KeyTypeAdmin,
+		OperatorRoleID: &supportRole,
+	}
+	store.put(accessAdminKey, adminKey)
+	store.put(accessSupportKey, supportKey)
 	keys := map[uuid.UUID]*models.ApiKey{
-		viewerKey.ID: viewerKey,
-		superKey.ID:  superKey,
+		viewerKey.ID:  viewerKey,
+		superKey.ID:   superKey,
+		adminKey.ID:   adminKey,
+		supportKey.ID: supportKey,
 	}
 	grants := &accessLogGrants{byID: map[uuid.UUID]struct {
 		name string
@@ -94,6 +110,7 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 		viewerRole:             {name: operator.RoleViewer, keys: operator.GrantsFor(operator.RoleViewer)},
 		superRole:              {name: operator.RoleSuperadmin, keys: operator.GrantsFor(operator.RoleSuperadmin)},
 		operator.RoleIDSupport: {name: operator.RoleSupport, keys: operator.GrantsFor(operator.RoleSupport)},
+		operator.RoleIDAdmin:   {name: operator.RoleAdmin, keys: operator.GrantsFor(operator.RoleAdmin)},
 	}}
 
 	mem := &iamEventMem{}
@@ -144,6 +161,22 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 			}
 			copied := *roleID
 			key.OperatorRoleID = &copied
+			return nil
+		},
+		CreateAPIKey: func(key *models.ApiKey) error {
+			if key.ID == uuid.Nil {
+				key.ID = uuid.New()
+			}
+			stored := *key
+			if key.OperatorRoleID != nil {
+				role := *key.OperatorRoleID
+				stored.OperatorRoleID = &role
+			}
+			if key.ExpiresAt != nil {
+				exp := *key.ExpiresAt
+				stored.ExpiresAt = &exp
+			}
+			keys[stored.ID] = &stored
 			return nil
 		},
 	}
@@ -212,6 +245,7 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 	group.GET("/operator/iam-events", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorIAMEvents)
 	group.GET("/operator/iam-events/export", requireOp(operator.ResAdminIAM, operator.ActionRead), handler.OperatorIAMEventsExport)
 	group.PUT("/operator/keys/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorKeyRole)
+	group.POST("/operator/keys", requireOp(operator.ResAPIKeys, operator.ActionWrite), handler.OperatorCreateKey)
 	group.POST("/operator/accounts", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorCreateAccount)
 	group.PUT("/operator/accounts/:id/role", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorAccountRole)
 	group.POST("/operator/accounts/:id/disable", requireOp(operator.ResAdminIAM, operator.ActionWrite), handler.OperatorDisableAccount)
@@ -752,4 +786,152 @@ func TestOperatorDeleteRole_SystemImmutable(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), operator.ErrSystemRoleImmutable.Error()) {
 		t.Fatalf("body = %s", rec.Body.String())
 	}
+}
+
+func operatorCreateKeyExpiry() string {
+	return time.Now().UTC().Add(90 * 24 * time.Hour).Format("2006-01-02T15:04")
+}
+
+func TestOperatorCreateKey_Superadmin201SecretOnce(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"name":"ci","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got createKeyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(got.Secret, "ak_") {
+		t.Fatalf("secret = %q", got.Secret)
+	}
+	if got.KeyType != admin.KeyTypeAdmin {
+		t.Fatalf("key_type = %q", got.KeyType)
+	}
+	if got.OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("role = %s, want viewer", got.OperatorRoleID)
+	}
+	stored, ok := h.keys[got.ID]
+	if !ok {
+		t.Fatal("created key missing from store")
+	}
+	if stored.AppID != nil {
+		t.Fatalf("app_id = %v, want nil", stored.AppID)
+	}
+	if stored.KeyHash == got.Secret {
+		t.Fatal("stored hash is the raw secret")
+	}
+	replay, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(replay), got.Secret) {
+		t.Fatal("stored key JSON still contains the raw secret")
+	}
+	entries := iamEventList(t, h.engine)
+	if len(entries) != 1 || entries[0].Action != operator.ActionCreatePrincipal {
+		t.Fatalf("events = %#v", entries)
+	}
+}
+
+func TestOperatorCreateKey_MissingExpiry400(t *testing.T) {
+	h := iamEventTestEngine(t)
+	before := len(h.keys)
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, `{"name":"ci"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if len(h.keys) != before {
+		t.Fatal("missing expiry still inserted a key")
+	}
+}
+
+func TestOperatorCreateKey_EmptyRoleIsViewer(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"name":"ci","operator_role_id":"","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got createKeyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("role = %s, want viewer", got.OperatorRoleID)
+	}
+}
+
+func TestOperatorCreateKey_SupportForbidden(t *testing.T) {
+	h := iamEventTestEngine(t)
+	before := len(h.keys)
+	body := `{"name":"ci","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSupportKey, body)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if len(h.keys) != before {
+		t.Fatal("support mint still inserted a key")
+	}
+}
+
+func TestOperatorCreateKey_AdminMintsViewer(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"name":"ci","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessAdminKey, body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got createKeyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.OperatorRoleID != operator.RoleIDViewer {
+		t.Fatalf("role = %s, want viewer", got.OperatorRoleID)
+	}
+}
+
+func TestOperatorCreateKey_AdminCannotStampNonViewer(t *testing.T) {
+	h := iamEventTestEngine(t)
+	before := len(h.keys)
+	body := `{"name":"ci","operator_role_id":"` + operator.RoleIDAdmin.String() + `","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessAdminKey, body)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if len(h.keys) != before {
+		t.Fatal("denied stamp still inserted a key")
+	}
+}
+
+func TestOperatorCreateKey_IgnoresAppTypeAndAppID(t *testing.T) {
+	h := iamEventTestEngine(t)
+	appID := uuid.New()
+	body := `{"name":"ci","key_type":"app","app_id":"` + appID.String() + `","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got createKeyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.KeyType != admin.KeyTypeAdmin {
+		t.Fatalf("key_type = %q", got.KeyType)
+	}
+	stored := h.keys[got.ID]
+	if stored.KeyType != admin.KeyTypeAdmin {
+		t.Fatalf("stored key_type = %q", stored.KeyType)
+	}
+	if stored.AppID != nil {
+		t.Fatalf("stored app_id = %v, want nil", stored.AppID)
+	}
+}
+
+type createKeyResponse struct {
+	ID             uuid.UUID `json:"id"`
+	KeyType        string    `json:"key_type"`
+	OperatorRoleID uuid.UUID `json:"operator_role_id"`
+	Secret         string    `json:"secret"`
 }

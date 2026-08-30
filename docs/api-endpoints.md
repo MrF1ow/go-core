@@ -47,6 +47,7 @@ Operator IAM routes need `admin_iam:read` or `admin_iam:write` on the key's role
 | `/admin/operator/access-logs/export` | GET | Export access logs as CSV | Admin |
 | `/admin/operator/iam-events` | GET | List role and principal changes | Admin |
 | `/admin/operator/iam-events/export` | GET | Export IAM events as CSV | Admin |
+| `/admin/operator/keys` | POST | Mint a platform admin API key | Admin |
 | `/admin/operator/keys/:id/role` | PUT | Stamp an admin key's operator role | Admin |
 | `/admin/operator/accounts` | POST | Create a viewer GUI operator | Admin |
 | `/admin/operator/accounts/:id/role` | PUT | Change a GUI operator's role | Admin |

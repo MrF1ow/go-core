@@ -40,6 +40,7 @@ type Handler struct {
 	GetOperatorRole         func(context.Context, uuid.UUID) (sqlcgen.OperatorRole, error)
 	CreateOperatorRole      func(context.Context, string, string, []operator.Permission) (sqlcgen.OperatorRole, error)
 	GetAPIKey               func(id string) (*models.ApiKey, error)
+	CreateAPIKey            func(*models.ApiKey) error
 	UpdateAPIKeyRole        func(id string, roleID *uuid.UUID) error
 	CreateAccount           func(*models.AdminAccount) error
 	GetAccount              func(id string) (*models.AdminAccount, error)

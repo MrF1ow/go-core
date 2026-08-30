@@ -26,6 +26,8 @@ const (
 	accessEnvKey        = "access-env-key"
 	accessViewerKey     = "access-viewer-key"
 	accessSuperadminKey = "access-superadmin-key"
+	accessAdminKey      = "access-admin-key"
+	accessSupportKey    = "access-support-key"
 )
 
 type accessLogKeyStore struct {

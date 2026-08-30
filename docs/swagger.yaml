@@ -1,5 +1,158 @@
 basePath: /
 definitions:
+  admin.accessLogResponse:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/operator.AccessRecord'
+        type: array
+    type: object
+  admin.assignAccountRoleRequest:
+    properties:
+      operator_role_id:
+        type: string
+    required:
+    - operator_role_id
+    type: object
+  admin.assignKeyRoleRequest:
+    properties:
+      operator_role_id:
+        type: string
+    required:
+    - operator_role_id
+    type: object
+  admin.createOperatorAccountRequest:
+    properties:
+      email:
+        type: string
+      password:
+        maxLength: 128
+        minLength: 12
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  admin.createOperatorKeyRequest:
+    properties:
+      description:
+        type: string
+      expires_at:
+        type: string
+      name:
+        type: string
+      operator_role_id:
+        type: string
+    required:
+    - name
+    type: object
+  admin.createOperatorKeyResponse:
+    properties:
+      expires_at:
+        type: string
+      id:
+        type: string
+      key_prefix:
+        type: string
+      key_suffix:
+        type: string
+      key_type:
+        type: string
+      name:
+        type: string
+      operator_role_id:
+        type: string
+      role:
+        type: string
+      secret:
+        type: string
+    type: object
+  admin.createOperatorRoleRequest:
+    properties:
+      description:
+        type: string
+      grants:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  admin.iamEventResponse:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/operator.IAMEvent'
+        type: array
+    type: object
+  admin.operatorAccountResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      operator_role_id:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+  admin.operatorRoleJSON:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      grants:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      is_system:
+        type: boolean
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  admin.operatorRoleListResponse:
+    properties:
+      roles:
+        items:
+          $ref: '#/definitions/admin.operatorRoleJSON'
+        type: array
+    type: object
+  admin.replaceOperatorRolePermissionsRequest:
+    properties:
+      grants:
+        items:
+          type: string
+        type: array
+    type: object
+  admin.rosterResponse:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/operator.RosterEntry'
+        type: array
+    type: object
+  admin.updateOperatorRoleRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    required:
+    - name
+    type: object
   dto.AccountLockedResponse:
     properties:
       error:
@@ -1758,6 +1911,99 @@ definitions:
         items:
           $ref: '#/definitions/oidc.JWK'
         type: array
+    type: object
+  operator.AccessRecord:
+    properties:
+      account_id:
+        type: string
+      action:
+        type: string
+      at:
+        type: string
+      decision:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      key_id:
+        type: string
+      kind:
+        $ref: '#/definitions/operator.Kind'
+      method:
+        type: string
+      path:
+        type: string
+      resource:
+        type: string
+      role_name:
+        type: string
+      status:
+        type: integer
+      user_agent:
+        type: string
+    type: object
+  operator.IAMEvent:
+    properties:
+      action:
+        type: string
+      actor_account_id:
+        type: string
+      actor_key_id:
+        type: string
+      actor_kind:
+        type: string
+      at:
+        type: string
+      id:
+        type: string
+      new_role_id:
+        type: string
+      old_role_id:
+        type: string
+      target_account_id:
+        type: string
+      target_key_id:
+        type: string
+      target_kind:
+        $ref: '#/definitions/operator.Kind'
+    type: object
+  operator.Kind:
+    enum:
+    - env_key
+    - api_key
+    - gui_account
+    type: string
+    x-enum-varnames:
+    - KindEnvKey
+    - KindAPIKey
+    - KindGUIAccount
+  operator.RosterEntry:
+    properties:
+      account_id:
+        type: string
+      app_id:
+        type: string
+      app_name:
+        type: string
+      created_at:
+        type: string
+      disabled:
+        type: boolean
+      display_name:
+        type: string
+      expires_at:
+        type: string
+      key_id:
+        type: string
+      kind:
+        type: string
+      last_used_at:
+        type: string
+      revoked:
+        type: boolean
+      role:
+        type: string
     type: object
   sso.exchangeRequest:
     properties:
@@ -4092,6 +4338,629 @@ paths:
       summary: Rotate client secret
       tags:
       - Admin OIDC
+  /admin/operator/access-logs:
+    get:
+      description: Newest-first JSON list of operator allow and deny decisions
+      parameters:
+      - default: 100
+        description: Max rows, default 100, max 1000
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by allow or deny
+        in: query
+        name: decision
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.accessLogResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: List operator access logs
+      tags:
+      - Admin
+  /admin/operator/access-logs/export:
+    get:
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: CSV export
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Export operator access logs
+      tags:
+      - Admin
+  /admin/operator/accounts:
+    post:
+      consumes:
+      - application/json
+      description: Creates a GUI operator with role viewer. Posted roles are ignored.
+      parameters:
+      - description: Account
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.createOperatorAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/admin.operatorAccountResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Create an operator GUI account
+      tags:
+      - Admin
+  /admin/operator/accounts/{id}/disable:
+    post:
+      description: Idempotent if already disabled. Refuses the last enabled superadmin
+        with 409.
+      parameters:
+      - description: Account UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Disabled or already disabled
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Disable an operator GUI account
+      tags:
+      - Admin
+  /admin/operator/accounts/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Refuses with 409 when the change would leave zero enabled superadmin
+        accounts
+      parameters:
+      - description: Account UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role assignment
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.assignAccountRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Role assigned or unchanged
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Assign operator role on a GUI account
+      tags:
+      - Admin
+  /admin/operator/iam-events:
+    get:
+      description: Newest-first JSON list of operator role assignment and principal
+        lifecycle events
+      parameters:
+      - default: 100
+        description: Max rows, default 100, max 1000
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by target API key UUID
+        in: query
+        name: target_key_id
+        type: string
+      - description: Filter by target GUI account UUID
+        in: query
+        name: target_account_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.iamEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: List operator IAM events
+      tags:
+      - Admin
+  /admin/operator/iam-events/export:
+    get:
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: CSV export
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Export operator IAM events
+      tags:
+      - Admin
+  /admin/operator/keys:
+    post:
+      consumes:
+      - application/json
+      description: Creates an admin key with null app_id. Raw secret is returned once.
+        Empty role stamps viewer. Expiry is required.
+      parameters:
+      - description: Key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.createOperatorKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/admin.createOperatorKeyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Mint a platform admin API key
+      tags:
+      - Admin
+  /admin/operator/keys/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Stamp operator_role_id on an existing admin key. Same role is 204
+        with no event.
+      parameters:
+      - description: API key UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role assignment
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.assignKeyRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Role assigned or unchanged
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Assign operator role on an admin API key
+      tags:
+      - Admin
+  /admin/operator/roles:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.operatorRoleListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: List operator roles
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.createOperatorRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/admin.operatorRoleJSON'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Create a custom operator role
+      tags:
+      - Admin
+  /admin/operator/roles/{id}:
+    delete:
+      parameters:
+      - description: Role UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Delete a custom operator role
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Role UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.updateOperatorRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.operatorRoleJSON'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Update a custom operator role
+      tags:
+      - Admin
+  /admin/operator/roles/{id}/permissions:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Role UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Grants
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/admin.replaceOperatorRolePermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Grants replaced
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Replace custom operator role grants
+      tags:
+      - Admin
+  /admin/operator/roster:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/admin.rosterResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Operator IAM roster
+      tags:
+      - Admin
+  /admin/operator/roster/export:
+    get:
+      produces:
+      - text/csv
+      responses:
+        "200":
+          description: CSV export
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - AdminApiKey: []
+      summary: Export operator IAM roster
+      tags:
+      - Admin
   /admin/rbac/permissions:
     get:
       description: Retrieve all available permissions in the system
