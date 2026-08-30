@@ -138,3 +138,7 @@ All must pass before committing. Fix any failures — do not skip or bypass chec
 
 Types: `feat`, `fix`, `security`, `docs`, `refactor`, `test`, `chore`
 Scopes: `auth`, `user`, `social`, `twofa`, `email`, `middleware`, `database`, `redis`, `log`, `api`, `models`, `dto`, `jwt`, `webauthn`, `oidc`, `rbac`, `webhook`, `session`, `admin`
+
+## Cloud Agents
+
+Postgres listens on 5432 and Redis on 6379. `make docker-dev` is not available here (no Docker, and compose publishes Postgres on 5433). Start writes `.env` from `.env.example` with `DB_PORT=5432` and applies migrations to `go_core` and `auth_test`.
