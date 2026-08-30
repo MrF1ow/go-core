@@ -21,7 +21,7 @@ Admin API keys are created in the GUI. JSON has `PUT /admin/operator/keys/:id/ro
 
 ## Still later
 
-Product work is in [remaining](../2026-08-23-operator-iam-remaining/overview.md). SOC 2 Type I/II organizational evidence stays out of that directory too.
+Shipped leftover IAM is [remaining](../2026-08-23-operator-iam-remaining/overview.md). Next product work is [key lifecycle](../2026-08-30-operator-key-lifecycle/plan.md). Parked items are [deferred](../2026-08-30-operator-key-lifecycle/deferred.md). SOC 2 Type I/II organizational evidence stays out of those directories too.
 
 Dashboard `/gui/dashboard/stats` stays `dashboard:read`. That is a locked decision, not unfinished work.
 
