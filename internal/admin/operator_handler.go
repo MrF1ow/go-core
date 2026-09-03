@@ -544,23 +544,25 @@ type createOperatorKeyRequest struct {
 	Description    string `json:"description"`
 	OperatorRoleID string `json:"operator_role_id"`
 	ExpiresAt      string `json:"expires_at"`
+	AppID          string `json:"app_id"`
 }
 
 type createOperatorKeyResponse struct {
-	ID             uuid.UUID `json:"id"`
-	Name           string    `json:"name"`
-	KeyType        string    `json:"key_type"`
-	KeyPrefix      string    `json:"key_prefix"`
-	KeySuffix      string    `json:"key_suffix"`
-	OperatorRoleID uuid.UUID `json:"operator_role_id"`
-	Role           string    `json:"role"`
-	ExpiresAt      time.Time `json:"expires_at"`
-	Secret         string    `json:"secret"`
+	ID             uuid.UUID  `json:"id"`
+	Name           string     `json:"name"`
+	KeyType        string     `json:"key_type"`
+	KeyPrefix      string     `json:"key_prefix"`
+	KeySuffix      string     `json:"key_suffix"`
+	OperatorRoleID uuid.UUID  `json:"operator_role_id"`
+	Role           string     `json:"role"`
+	AppID          *uuid.UUID `json:"app_id"`
+	ExpiresAt      time.Time  `json:"expires_at"`
+	Secret         string     `json:"secret"`
 }
 
-// OperatorCreateKey mints a platform admin API key.
-// @Summary Mint a platform admin API key
-// @Description Creates an admin key with null app_id. Raw secret is returned once. Empty role stamps viewer. Expiry is required.
+// OperatorCreateKey mints an admin API key.
+// @Summary Mint an admin API key
+// @Description Creates an admin key. Empty app_id is platform. Posted app_id binds the key. Superadmin plus app_id is 400. Raw secret is returned once. Empty role stamps viewer. Expiry is required.
 // @Tags Admin
 // @Accept json
 // @Produce json
@@ -597,6 +599,15 @@ func (h *Handler) OperatorCreateKey(c *gin.Context) {
 		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "insufficient permissions"})
 		return
 	}
+	var appID *uuid.UUID
+	if raw := strings.TrimSpace(req.AppID); raw != "" {
+		parsed, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid app_id"})
+			return
+		}
+		appID = &parsed
+	}
 	roleID, err := operator.ParseAssignedAdminRole(*p, req.OperatorRoleID, KeyTypeAdmin, nil, h.roleExists())
 	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "insufficient permissions"})
@@ -604,6 +615,10 @@ func (h *Handler) OperatorCreateKey(c *gin.Context) {
 	}
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid operator role"})
+		return
+	}
+	if appID != nil && roleID != nil && *roleID == operator.RoleIDSuperadmin {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Superadmin cannot be bound to an application"})
 		return
 	}
 	rawKey, keyHash, keyPrefix, keySuffix, err := GenerateApiKey(KeyTypeAdmin)
@@ -616,6 +631,7 @@ func (h *Handler) OperatorCreateKey(c *gin.Context) {
 		Name:           name,
 		Description:    strings.TrimSpace(req.Description),
 		OperatorRoleID: roleID,
+		AppID:          appID,
 		KeyHash:        keyHash,
 		KeyPrefix:      keyPrefix,
 		KeySuffix:      keySuffix,
@@ -644,6 +660,7 @@ func (h *Handler) OperatorCreateKey(c *gin.Context) {
 		KeySuffix:      apiKey.KeySuffix,
 		OperatorRoleID: *apiKey.OperatorRoleID,
 		Role:           operator.SystemRoleName(*apiKey.OperatorRoleID),
+		AppID:          apiKey.AppID,
 		ExpiresAt:      *apiKey.ExpiresAt,
 		Secret:         rawKey,
 	})
