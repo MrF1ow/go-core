@@ -4,10 +4,13 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/MrF1ow/go-core/pkg/dto"
-	"github.com/MrF1ow/go-core/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/pkg/models"
+	"github.com/MrF1ow/go-core/web"
 )
 
 // Handler exposes webhook management endpoints.
@@ -67,6 +70,43 @@ func parsePage(c *gin.Context) (int, int) {
 	return page, pageSize
 }
 
+func jsonBound(c *gin.Context) *uuid.UUID {
+	val, ok := c.Get(web.OperatorPrincipalKey)
+	if !ok {
+		return nil
+	}
+	p, ok := val.(*operator.Principal)
+	if !ok || p == nil {
+		return nil
+	}
+	return p.AppID
+}
+
+func abortJSONNotFound(c *gin.Context) {
+	c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "not found"})
+}
+
+func abortIfForeignApp(c *gin.Context, appID uuid.UUID) bool {
+	if operator.ForeignApp(jsonBound(c), appID) {
+		abortJSONNotFound(c)
+		return true
+	}
+	return false
+}
+
+func (h *Handler) abortIfForeignEndpoint(c *gin.Context, id uuid.UUID) bool {
+	bound := jsonBound(c)
+	if bound == nil {
+		return false
+	}
+	ep, err := h.Service.GetEndpoint(id)
+	if err != nil || ep == nil || operator.ForeignApp(bound, ep.AppID) {
+		abortJSONNotFound(c)
+		return true
+	}
+	return false
+}
+
 // ============================================================================
 // Admin API endpoints (X-Admin-API-Key)
 // ============================================================================
@@ -84,7 +124,14 @@ func parsePage(c *gin.Context) (int, int) {
 // @Router /admin/webhooks [get]
 func (h *Handler) AdminListEndpoints(c *gin.Context) {
 	page, pageSize := parsePage(c)
-	endpoints, total, err := h.Service.ListAllEndpoints(page, pageSize)
+	var endpoints []models.WebhookEndpoint
+	var total int64
+	var err error
+	if bound := jsonBound(c); bound != nil {
+		endpoints, total, err = h.Service.ListEndpointsByApp(*bound, page, pageSize)
+	} else {
+		endpoints, total, err = h.Service.ListAllEndpoints(page, pageSize)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to list webhook endpoints"})
 		return
@@ -120,6 +167,9 @@ func (h *Handler) AdminCreateEndpoint(c *gin.Context) {
 	appID, err := uuid.Parse(c.Param("app_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid app_id"})
+		return
+	}
+	if abortIfForeignApp(c, appID) {
 		return
 	}
 
@@ -164,6 +214,9 @@ func (h *Handler) AdminListEndpointsByApp(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid app_id"})
 		return
 	}
+	if abortIfForeignApp(c, appID) {
+		return
+	}
 	page, pageSize := parsePage(c)
 	endpoints, total, svcErr := h.Service.ListEndpointsByApp(appID, page, pageSize)
 	if svcErr != nil {
@@ -202,6 +255,9 @@ func (h *Handler) AdminToggleEndpoint(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid endpoint ID"})
 		return
 	}
+	if h.abortIfForeignEndpoint(c, id) {
+		return
+	}
 
 	var req dto.ToggleWebhookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -233,6 +289,9 @@ func (h *Handler) AdminDeleteEndpoint(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid endpoint ID"})
 		return
 	}
+	if h.abortIfForeignEndpoint(c, id) {
+		return
+	}
 	if err := h.Service.DeleteEndpoint(id); err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to delete endpoint"})
 		return
@@ -257,6 +316,9 @@ func (h *Handler) AdminListDeliveriesByEndpoint(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid endpoint ID"})
+		return
+	}
+	if h.abortIfForeignEndpoint(c, id) {
 		return
 	}
 	page, pageSize := parsePage(c)
@@ -295,6 +357,9 @@ func (h *Handler) AdminListDeliveriesByApp(c *gin.Context) {
 	appID, err := uuid.Parse(c.Param("app_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid app_id"})
+		return
+	}
+	if abortIfForeignApp(c, appID) {
 		return
 	}
 	page, pageSize := parsePage(c)

@@ -50,6 +50,8 @@ type Handler struct {
 	CountEnabledSuperadmins func() (int64, error)
 	RosterKeys              func() ([]operator.RosterEntry, error)
 	RosterAccounts          func() ([]operator.RosterEntry, error)
+	GetUserDetail           func(id string) (*UserDetail, error)
+	ExportUsersFn           func(appID, search string) ([]UserExportItem, bool, error)
 }
 
 func NewHandler(r *Repository, emailService *email.Service) *Handler {
@@ -333,6 +335,10 @@ func (h *Handler) UpsertOAuthConfig(c *gin.Context) {
 	appID, err := uuid.Parse(appIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid App ID"})
+		return
+	}
+	if operator.ForeignApp(jsonBound(c), appID) {
+		abortJSONNotFound(c)
 		return
 	}
 
@@ -1298,6 +1304,10 @@ func (h *Handler) ListIPRules(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid application ID"})
 		return
 	}
+	if operator.ForeignApp(jsonBound(c), appID) {
+		abortJSONNotFound(c)
+		return
+	}
 
 	includeInactive := c.DefaultQuery("include_inactive", "false") == "true"
 
@@ -1345,6 +1355,10 @@ func (h *Handler) CreateIPRule(c *gin.Context) {
 	appID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid application ID"})
+		return
+	}
+	if operator.ForeignApp(jsonBound(c), appID) {
+		abortJSONNotFound(c)
 		return
 	}
 
@@ -1405,6 +1419,10 @@ func (h *Handler) GetIPRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid application ID"})
 		return
 	}
+	if operator.ForeignApp(jsonBound(c), appID) {
+		abortJSONNotFound(c)
+		return
+	}
 
 	ruleID, err := uuid.Parse(c.Param("rule_id"))
 	if err != nil {
@@ -1451,6 +1469,10 @@ func (h *Handler) UpdateIPRule(c *gin.Context) {
 	appID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid application ID"})
+		return
+	}
+	if operator.ForeignApp(jsonBound(c), appID) {
+		abortJSONNotFound(c)
 		return
 	}
 
@@ -1538,6 +1560,10 @@ func (h *Handler) DeleteIPRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid application ID"})
 		return
 	}
+	if operator.ForeignApp(jsonBound(c), appID) {
+		abortJSONNotFound(c)
+		return
+	}
 
 	ruleID, err := uuid.Parse(c.Param("rule_id"))
 	if err != nil {
@@ -1591,6 +1617,10 @@ func (h *Handler) CheckIPAccess(c *gin.Context) {
 	appID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid application ID"})
+		return
+	}
+	if operator.ForeignApp(jsonBound(c), appID) {
+		abortJSONNotFound(c)
 		return
 	}
 
@@ -1656,6 +1686,9 @@ func (h *Handler) AdminListTrustedDevices(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid user ID"})
 		return
 	}
+	if h.abortForeignUser(c, userIDStr) {
+		return
+	}
 
 	devices, err := h.TrustedDeviceRepo.FindAllForUser(userID)
 	if err != nil {
@@ -1702,6 +1735,9 @@ func (h *Handler) AdminRevokeTrustedDevice(c *gin.Context) {
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid user ID"})
+		return
+	}
+	if h.abortForeignUser(c, userIDStr) {
 		return
 	}
 
@@ -1758,6 +1794,9 @@ func (h *Handler) AdminRevokeAllTrustedDevices(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid user ID"})
 		return
 	}
+	if h.abortForeignUser(c, userIDStr) {
+		return
+	}
 
 	// Delete across all apps for this user
 	if err := h.TrustedDeviceRepo.DeleteAllForUserAllApps(userID); err != nil {
@@ -1802,8 +1841,16 @@ func (h *Handler) ExportUsers(c *gin.Context) {
 	if req.Format != "csv" && req.Format != "json" {
 		req.Format = "csv"
 	}
+	req.AppID = operator.RestrictAppQuery(jsonBound(c), req.AppID)
 
-	items, truncated, err := h.Repo.ExportUsers(req.AppID, req.Search)
+	var items []UserExportItem
+	var truncated bool
+	var err error
+	if h.ExportUsersFn != nil {
+		items, truncated, err = h.ExportUsersFn(req.AppID, req.Search)
+	} else {
+		items, truncated, err = h.Repo.ExportUsers(req.AppID, req.Search)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to export users"})
 		return
@@ -1866,6 +1913,10 @@ func (h *Handler) ImportUsers(c *gin.Context) {
 	appID := strings.TrimSpace(c.Query("app_id"))
 	if appID == "" {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "app_id query parameter is required"})
+		return
+	}
+	if operator.ForeignAppID(jsonBound(c), appID) {
+		abortJSONNotFound(c)
 		return
 	}
 

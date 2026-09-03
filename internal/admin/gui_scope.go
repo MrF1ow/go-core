@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/MrF1ow/go-core/internal/operator"
 	"github.com/MrF1ow/go-core/pkg/models"
 )
 
@@ -18,26 +19,15 @@ func boundAppID(c *gin.Context) *uuid.UUID {
 }
 
 func restrictAppQuery(c *gin.Context, requested string) string {
-	if bound := boundAppID(c); bound != nil {
-		return bound.String()
-	}
-	return requested
+	return operator.RestrictAppQuery(boundAppID(c), requested)
 }
 
 func foreignApp(c *gin.Context, resourceApp uuid.UUID) bool {
-	bound := boundAppID(c)
-	if bound == nil {
-		return false
-	}
-	return *bound != resourceApp
+	return operator.ForeignApp(boundAppID(c), resourceApp)
 }
 
 func foreignAppID(c *gin.Context, raw string) bool {
-	id, err := uuid.Parse(raw)
-	if err != nil {
-		return boundAppID(c) != nil
-	}
-	return foreignApp(c, id)
+	return operator.ForeignAppID(boundAppID(c), raw)
 }
 
 func abortGUINotFound(c *gin.Context, body string) {

@@ -93,7 +93,7 @@ func (s *QueryService) ListUserActivityLogs(userID uuid.UUID, req dto.ActivityLo
 }
 
 // ListAllActivityLogs retrieves activity logs for all users (admin) with pagination and filtering.
-func (s *QueryService) ListAllActivityLogs(req dto.ActivityLogListRequest) (*dto.ActivityLogListResponse, *errors.AppError) {
+func (s *QueryService) ListAllActivityLogs(req dto.ActivityLogListRequest, appID *uuid.UUID) (*dto.ActivityLogListResponse, *errors.AppError) {
 	if req.Page <= 0 {
 		req.Page = 1
 	}
@@ -109,7 +109,7 @@ func (s *QueryService) ListAllActivityLogs(req dto.ActivityLogListRequest) (*dto
 		return nil, appErr
 	}
 
-	logs, totalCount, err := s.Repo.ListAllActivityLogs(req.Page, req.Limit, req.EventType, startDate, endDate)
+	logs, totalCount, err := s.Repo.ListAllActivityLogs(req.Page, req.Limit, req.EventType, startDate, endDate, appID)
 	if err != nil {
 		return nil, errors.NewAppError(errors.ErrInternal, "Failed to retrieve activity logs")
 	}
@@ -179,13 +179,13 @@ func (s *QueryService) ExportUserActivityLogs(userID uuid.UUID, req dto.Activity
 
 // ExportAllActivityLogs returns up to ExportMaxRows logs across all users (admin).
 // truncated is true when the result set was capped.
-func (s *QueryService) ExportAllActivityLogs(req dto.ActivityLogExportRequest) ([]dto.ActivityLogResponse, bool, *errors.AppError) {
+func (s *QueryService) ExportAllActivityLogs(req dto.ActivityLogExportRequest, appID *uuid.UUID) ([]dto.ActivityLogResponse, bool, *errors.AppError) {
 	startDate, endDate, appErr := parseDateFilters(req.StartDate, req.EndDate)
 	if appErr != nil {
 		return nil, false, appErr
 	}
 
-	logs, err := s.Repo.ExportAllActivityLogs(ExportMaxRows+1, req.EventType, startDate, endDate)
+	logs, err := s.Repo.ExportAllActivityLogs(ExportMaxRows+1, req.EventType, startDate, endDate, appID)
 	if err != nil {
 		return nil, false, errors.NewAppError(errors.ErrInternal, "Failed to export activity logs")
 	}

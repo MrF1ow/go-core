@@ -6,9 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/web"
 )
 
 type Handler struct {
@@ -17,6 +20,18 @@ type Handler struct {
 
 func NewHandler(queryService *QueryService) *Handler {
 	return &Handler{QueryService: queryService}
+}
+
+func jsonBound(c *gin.Context) *uuid.UUID {
+	val, ok := c.Get(web.OperatorPrincipalKey)
+	if !ok {
+		return nil
+	}
+	p, ok := val.(*operator.Principal)
+	if !ok || p == nil {
+		return nil
+	}
+	return p.AppID
 }
 
 // @Summary Get user activity logs
@@ -129,9 +144,6 @@ func (h *Handler) GetActivityLogByID(c *gin.Context) {
 // @Failure 500 {object} dto.ErrorResponse
 // @Router /admin/activity-logs [get]
 func (h *Handler) GetAllActivityLogs(c *gin.Context) {
-	// Note: In a real application, you would check for admin role here
-	// For now, this is a placeholder for future role-based access control
-
 	// Parse query parameters
 	var req dto.ActivityLogListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -139,8 +151,7 @@ func (h *Handler) GetAllActivityLogs(c *gin.Context) {
 		return
 	}
 
-	// Get activity logs
-	response, appErr := h.QueryService.ListAllActivityLogs(req)
+	response, appErr := h.QueryService.ListAllActivityLogs(req, jsonBound(c))
 	if appErr != nil {
 		c.JSON(appErr.Code, dto.ErrorResponse{Error: appErr.Message})
 		return
@@ -285,7 +296,7 @@ func (h *Handler) ExportAllActivityLogs(c *gin.Context) {
 		req.Format = "json"
 	}
 
-	logs, truncated, appErr := h.QueryService.ExportAllActivityLogs(req)
+	logs, truncated, appErr := h.QueryService.ExportAllActivityLogs(req, jsonBound(c))
 	if appErr != nil {
 		c.JSON(appErr.Code, dto.ErrorResponse{Error: appErr.Message})
 		return
