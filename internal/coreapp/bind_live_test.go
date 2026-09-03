@@ -199,11 +199,10 @@ func TestBindLive_Lanes(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO applications (id, tenant_id, name) VALUES ($1, $2, 'delete-blocked')`, delApp, defaultApp); err != nil {
 		t.Fatal(err)
 	}
-	raw, keyHash, prefix, suffix, err := admin.GenerateApiKey(admin.KeyTypeAdmin)
+	_, keyHash, prefix, suffix, err := admin.GenerateApiKey(admin.KeyTypeAdmin)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = raw
 	exp := time.Now().UTC().Add(90 * 24 * time.Hour)
 	role := operator.RoleIDViewer
 	if err := adminRepo.CreateApiKey(&models.ApiKey{
