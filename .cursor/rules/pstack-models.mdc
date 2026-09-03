@@ -1,0 +1,29 @@
+---
+description: pstack per-role model choices (overrides skill defaults)
+alwaysApply: true
+---
+# pstack model configuration. One line per role. Delete a line to fall back to the skill default.
+# `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model`). Alias entries in a panel list still count toward its fan-out.
+#
+# Constraints for this repo: no -fast, no -max, no -xhigh, no fable, no opus 5, no grok 4.5.
+# hardest tasks and the fourth panel seat wanted claude-opus-4-8-thinking-high; that slug is not
+# in this session's Task set. Substituted claude-sonnet-5-thinking-high (hardest) and
+# gpt-5.6-terra-high (fourth panel seat).
+feature, refactoring: cursor-grok-4.6-high
+bug-fix: gpt-5.6-sol-high
+perf-issue: gpt-5.6-sol-high
+hillclimb: gpt-5.6-sol-high
+judgment and prose: claude-sonnet-5-thinking-high
+hardest tasks: claude-sonnet-5-thinking-high
+how explorer: cursor-grok-4.6-high
+how explainer: claude-sonnet-5-thinking-high
+how critics: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, gpt-5.6-terra-high
+why investigators: cursor-grok-4.6-high
+why synthesizer: claude-sonnet-5-thinking-high
+reflect tooling: gpt-5.6-sol-high
+reflect judgment, divergent, synthesizer: claude-sonnet-5-thinking-high
+arena runners: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, gpt-5.6-terra-high
+arena cross-judge pool: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, gpt-5.6-terra-high
+swarm workers: cursor-grok-4.6-high
+architect runners: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, gpt-5.6-terra-high
+interrogate reviewers: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, gpt-5.6-terra-high
