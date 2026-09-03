@@ -7,15 +7,16 @@ alwaysApply: true
 #
 # Budget: grok 4.6 high is the default. Composer 2.5 only for planned feature/refactor
 # implementation. Never -fast, -max, or -xhigh (cap is high). Never fable, opus 5, grok 4.5.
-# Do not put gpt-5.6-sol* or opus on the always-on map; they are expensive.
-# claude-opus-4-8-thinking-high is not in this session's Task set, so hardest tasks stays grok.
-# Panels are 3-wide (grok, composer, sonnet) for family diversity without a sol/opus seat.
+# No gpt-5.6-sol* on the map. Opus 4.8 only on hardest tasks and one interrogate seat.
+# If claude-opus-4-8-thinking-high is unresolvable, skip that subagent or use
+# cursor-grok-4.6-high — never substitute claude-opus-5-*.
+# Other panels stay 3-wide: grok, composer, sonnet.
 feature, refactoring: composer-2.5
 bug-fix: cursor-grok-4.6-high
 perf-issue: cursor-grok-4.6-high
 hillclimb: cursor-grok-4.6-high
 judgment and prose: cursor-grok-4.6-high
-hardest tasks: cursor-grok-4.6-high
+hardest tasks: claude-opus-4-8-thinking-high
 how explorer: cursor-grok-4.6-high
 how explainer: cursor-grok-4.6-high
 how critics: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
@@ -27,4 +28,4 @@ arena runners: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
 arena cross-judge pool: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
 swarm workers: cursor-grok-4.6-high
 architect runners: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
-interrogate reviewers: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
+interrogate reviewers: cursor-grok-4.6-high, composer-2.5, claude-opus-4-8-thinking-high
