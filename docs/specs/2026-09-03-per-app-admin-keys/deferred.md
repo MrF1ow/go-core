@@ -1,10 +1,6 @@
-# Operator IAM deferred
+# Per-app admin keys deferred
 
-Parked after the 2026-08-30 key lifecycle plan. Do not start these in that program. Move an item into a new plan when its unlock condition is true. Do not treat this file as a backlog to burn down.
-
-## Per-app admin API keys
-
-Moved to [2026-09-03 per-app admin keys](../2026-09-03-per-app-admin-keys/plan.md). Do not start it from this file.
+Parked after the 2026-09-03 per-app admin keys plan. Do not start these in that program. Move an item into a new plan when its unlock condition is true. Do not treat this file as a backlog to burn down.
 
 ## App-type keys as operator principals
 
@@ -24,7 +20,7 @@ Unlock when a real operator must use two apps without a platform account.
 
 ## JSON mint of app-type keys
 
-`POST /admin/operator/keys` in the lifecycle program mints `key_type=admin` only. App keys stay GUI `POST /gui/api-keys`.
+`POST /admin/operator/keys` mints `key_type=admin` only. App keys stay GUI `POST /gui/api-keys`.
 
 Unlock when automation needs worker keys and the JSON body can force `app_id` without minting an admin key.
 
@@ -34,21 +30,23 @@ Unlock when automation needs worker keys and the JSON body can force `app_id` wi
 
 Unlock when operators miss the default enough to measure.
 
-## JSON list filters for bound principals
-
-Moved to [2026-09-03 per-app admin keys](../2026-09-03-per-app-admin-keys/plan.md) as json-scope. Same program as the CHECK drop. Do not start it from this file.
-
 ## Last-superadmin count then update
 
 Demote and disable count, then write, with no transaction. Two concurrent disables can clear the last platform superadmin.
 
-Unlock when that race is observed or when the next IAM mutation PR touches those handlers anyway.
+Unlock when that race is observed or when the next IAM mutation PR touches those handlers anyway. bind does not touch disable or demote. Do not hitchhike.
 
 ## GUI operator account hard delete
 
 `AccountRepository.DeleteByID` has no HTTP caller. Evidence FKs are `ON DELETE SET NULL`. Passkeys CASCADE.
 
 Do not add a delete button. Disable is the leaver path.
+
+## GUI mint of bound admin keys
+
+Platform GUI create still stores null `app_id`. Bound GUI operators still cannot create admin keys.
+
+Unlock when humans, not automation, must mint a bound admin key from the API Keys page.
 
 ## `Grants()` lattice, Redis grant store, cannot-grant-above-self
 
