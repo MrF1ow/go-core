@@ -2,6 +2,7 @@ package operator
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -230,7 +231,7 @@ func TestAdminKeyAppBindLive(t *testing.T) {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM tenants WHERE id = $1`, tenantID)
 	})
 
-	adminHash := fmt.Sprintf("%064x", uuid.New())
+	adminHash := bindKeyHash()
 	_, err := pool.Exec(ctx, `
 		INSERT INTO api_keys (key_type, name, key_hash, key_prefix, key_suffix, app_id, operator_role_id, expires_at)
 		VALUES ('admin', 'bound', $1, 'ak_test_', 'abcd', $2, $3, NOW() + INTERVAL '90 days')
@@ -247,7 +248,7 @@ func TestAdminKeyAppBindLive(t *testing.T) {
 		t.Fatalf("delete err = %v", err)
 	}
 
-	superHash := fmt.Sprintf("%064x", uuid.New())
+	superHash := bindKeyHash()
 	_, err = pool.Exec(ctx, `
 		INSERT INTO api_keys (key_type, name, key_hash, key_prefix, key_suffix, app_id, operator_role_id, expires_at)
 		VALUES ('admin', 'super', $1, 'ak_test_', 'efgh', $2, $3, NOW() + INTERVAL '90 days')
@@ -263,7 +264,7 @@ func TestAdminKeyAppBindLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	workerHash := fmt.Sprintf("%064x", uuid.New())
+	workerHash := bindKeyHash()
 	_, err = pool.Exec(ctx, `
 		INSERT INTO api_keys (key_type, name, key_hash, key_prefix, key_suffix, app_id)
 		VALUES ('app', 'worker', $1, 'sk_test_', 'ijkl', $2)
@@ -301,6 +302,11 @@ func bindTestPool(t *testing.T) *pgxpool.Pool {
 		t.Skip(err.Error())
 	}
 	return pool
+}
+
+func bindKeyHash() string {
+	a, b := uuid.New(), uuid.New()
+	return hex.EncodeToString(a[:]) + hex.EncodeToString(b[:])
 }
 
 func getenv(key, fallback string) string {
