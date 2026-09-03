@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/MrF1ow/go-core/internal/admin"
 	"github.com/MrF1ow/go-core/internal/middleware"
@@ -176,6 +178,10 @@ func iamEventTestEngine(t *testing.T) *iamEventHarness {
 			if key.ExpiresAt != nil {
 				exp := *key.ExpiresAt
 				stored.ExpiresAt = &exp
+			}
+			if key.AppID != nil {
+				appID := *key.AppID
+				stored.AppID = &appID
 			}
 			keys[stored.ID] = &stored
 			return nil
@@ -910,7 +916,7 @@ func TestOperatorCreateKey_AdminCannotStampNonViewer(t *testing.T) {
 	}
 }
 
-func TestOperatorCreateKey_IgnoresAppTypeAndAppID(t *testing.T) {
+func TestOperatorCreateKey_IgnoresAppTypeAndPersistsAppID(t *testing.T) {
 	h := iamEventTestEngine(t)
 	appID := uuid.New()
 	body := `{"name":"ci","key_type":"app","app_id":"` + appID.String() + `","expires_at":"` + operatorCreateKeyExpiry() + `"}`
@@ -925,20 +931,101 @@ func TestOperatorCreateKey_IgnoresAppTypeAndAppID(t *testing.T) {
 	if got.KeyType != admin.KeyTypeAdmin {
 		t.Fatalf("key_type = %q", got.KeyType)
 	}
+	if got.AppID == nil || *got.AppID != appID {
+		t.Fatalf("response app_id = %v, want %s", got.AppID, appID)
+	}
 	stored := h.keys[got.ID]
 	if stored.KeyType != admin.KeyTypeAdmin {
 		t.Fatalf("stored key_type = %q", stored.KeyType)
 	}
-	if stored.AppID != nil {
-		t.Fatalf("stored app_id = %v, want nil", stored.AppID)
+	if stored.AppID == nil || *stored.AppID != appID {
+		t.Fatalf("stored app_id = %v, want %s", stored.AppID, appID)
+	}
+}
+
+func TestOperatorCreateKey_EmptyAppIDStaysNull(t *testing.T) {
+	h := iamEventTestEngine(t)
+	body := `{"name":"ci","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, body)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var got createKeyResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.AppID != nil {
+		t.Fatalf("response app_id = %v, want nil", got.AppID)
+	}
+	if h.keys[got.ID].AppID != nil {
+		t.Fatalf("stored app_id = %v, want nil", h.keys[got.ID].AppID)
+	}
+}
+
+func TestOperatorCreateKey_SuperadminAppIDRejected(t *testing.T) {
+	h := iamEventTestEngine(t)
+	before := len(h.keys)
+	body := `{"name":"ci","operator_role_id":"` + operator.RoleIDSuperadmin.String() + `","app_id":"` + uuid.New().String() + `","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, body)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if len(h.keys) != before {
+		t.Fatal("superadmin bind still inserted a key")
+	}
+}
+
+func TestOperatorCreateKey_InvalidAppIDRejected(t *testing.T) {
+	h := iamEventTestEngine(t)
+	before := len(h.keys)
+	body := `{"name":"ci","app_id":"not-a-uuid","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", accessSuperadminKey, body)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if len(h.keys) != before {
+		t.Fatal("invalid app_id still inserted a key")
+	}
+}
+
+func TestOperatorCreateKey_BoundMintForbidden(t *testing.T) {
+	h := iamEventTestEngine(t)
+	boundApp := uuid.New()
+	adminRole := operator.RoleIDAdmin
+	boundKey := &models.ApiKey{
+		ID:             uuid.New(),
+		KeyType:        admin.KeyTypeAdmin,
+		OperatorRoleID: &adminRole,
+		AppID:          &boundApp,
+	}
+	h.store.put("ak_bound_mint_forbidden", boundKey)
+	before := len(h.keys)
+	body := `{"name":"ci","expires_at":"` + operatorCreateKeyExpiry() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/keys", "ak_bound_mint_forbidden", body)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if len(h.keys) != before {
+		t.Fatal("bound mint inserted a key")
+	}
+}
+
+func TestBoundAdminKeyRestrict(t *testing.T) {
+	err := &pgconn.PgError{Code: "P0001", Message: "application has bound admin keys"}
+	if !admin.BoundAdminKeyRestrict(err) {
+		t.Fatal("pg raise should match")
+	}
+	if admin.BoundAdminKeyRestrict(errors.New("Failed to delete application")) {
+		t.Fatal("generic error should not match")
 	}
 }
 
 type createKeyResponse struct {
-	ID             uuid.UUID `json:"id"`
-	KeyType        string    `json:"key_type"`
-	OperatorRoleID uuid.UUID `json:"operator_role_id"`
-	Secret         string    `json:"secret"`
+	ID             uuid.UUID  `json:"id"`
+	KeyType        string     `json:"key_type"`
+	OperatorRoleID uuid.UUID  `json:"operator_role_id"`
+	AppID          *uuid.UUID `json:"app_id"`
+	Secret         string     `json:"secret"`
 }
 
 func TestOperatorCreateKey_MintedKeyAuthAndRevoke(t *testing.T) {

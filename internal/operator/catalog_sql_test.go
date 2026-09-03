@@ -1,6 +1,9 @@
 package operator
 
 import (
+	"context"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -9,6 +12,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	core "github.com/MrF1ow/go-core"
 )
 
 var (
@@ -117,8 +124,8 @@ func TestAdminAccountAppMigration(t *testing.T) {
 	if !strings.Contains(schemaText, superadminCheck) {
 		t.Fatal("schema.sql missing superadmin platform CHECK expression")
 	}
-	if !strings.Contains(schemaText, "api_keys_admin_app_id_null") {
-		t.Fatal("schema.sql missing admin-key app_id CHECK")
+	if strings.Contains(schemaText, "api_keys_admin_app_id_null") {
+		t.Fatal("schema.sql still has api_keys_admin_app_id_null")
 	}
 	countSQL, err := os.ReadFile("../queries/admin_account.sql")
 	if err != nil {
@@ -155,7 +162,6 @@ func TestOperatorOneWayRevokeMigration(t *testing.T) {
 	for _, needle := range []string{
 		"admin_accounts_disabled_at_one_way",
 		"api_keys_is_revoked_one_way",
-		"api_keys_admin_app_id_null",
 		"disabled_at cannot be cleared",
 		"is_revoked cannot be cleared",
 	} {
@@ -163,6 +169,151 @@ func TestOperatorOneWayRevokeMigration(t *testing.T) {
 			t.Fatalf("schema.sql missing %q", needle)
 		}
 	}
+}
+
+func TestAdminKeyAppBindMigration(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/024_admin_key_app_bind.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(sql)
+	for _, needle := range []string{
+		"applications_admin_keys_restrict",
+		"api_keys_admin_superadmin_is_platform",
+		"DROP CONSTRAINT api_keys_admin_app_id_null",
+		"EXECUTE FUNCTION prevent_delete_app_with_admin_keys",
+		"CHECK (key_type <> 'admin' OR operator_role_id <> '" + RoleIDSuperadmin.String() + "'::uuid OR app_id IS NULL)",
+		"application has bound admin keys",
+	} {
+		if !strings.Contains(text, needle) {
+			t.Fatalf("024 missing %q", needle)
+		}
+	}
+	schema, err := os.ReadFile("../schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemaText := string(schema)
+	for _, needle := range []string{
+		"applications_admin_keys_restrict",
+		"api_keys_admin_superadmin_is_platform",
+		"EXECUTE FUNCTION prevent_delete_app_with_admin_keys",
+		"CHECK (key_type <> 'admin' OR operator_role_id <> '" + RoleIDSuperadmin.String() + "'::uuid OR app_id IS NULL)",
+	} {
+		if !strings.Contains(schemaText, needle) {
+			t.Fatalf("schema.sql missing %q", needle)
+		}
+	}
+	if strings.Contains(schemaText, "api_keys_admin_app_id_null") {
+		t.Fatal("schema.sql still has api_keys_admin_app_id_null")
+	}
+}
+
+func TestAdminKeyAppBindLive(t *testing.T) {
+	ctx := context.Background()
+	pool := bindTestPool(t)
+	t.Cleanup(pool.Close)
+	if err := core.RunCoreMigrations(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+
+	var tenantID uuid.UUID
+	if err := pool.QueryRow(ctx, `INSERT INTO tenants (name) VALUES ('bind-live') RETURNING id`).Scan(&tenantID); err != nil {
+		t.Fatal(err)
+	}
+	var appID uuid.UUID
+	if err := pool.QueryRow(ctx, `INSERT INTO applications (tenant_id, name) VALUES ($1, 'bound-app') RETURNING id`, tenantID).Scan(&appID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM api_keys WHERE app_id = $1`, appID)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM applications WHERE id = $1`, appID)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM tenants WHERE id = $1`, tenantID)
+	})
+
+	adminHash := bindKeyHash()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO api_keys (key_type, name, key_hash, key_prefix, key_suffix, app_id, operator_role_id, expires_at)
+		VALUES ('admin', 'bound', $1, 'ak_test_', 'abcd', $2, $3, NOW() + INTERVAL '90 days')
+	`, adminHash, appID, RoleIDAdmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(ctx, `DELETE FROM applications WHERE id = $1`, appID)
+	if err == nil {
+		t.Fatal("delete succeeded with a bound admin key")
+	}
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || !strings.Contains(pgErr.Message, "application has bound admin keys") {
+		t.Fatalf("delete err = %v", err)
+	}
+
+	superHash := bindKeyHash()
+	_, err = pool.Exec(ctx, `
+		INSERT INTO api_keys (key_type, name, key_hash, key_prefix, key_suffix, app_id, operator_role_id, expires_at)
+		VALUES ('admin', 'super', $1, 'ak_test_', 'efgh', $2, $3, NOW() + INTERVAL '90 days')
+	`, superHash, appID, RoleIDSuperadmin)
+	if err == nil {
+		t.Fatal("superadmin admin key with app_id inserted")
+	}
+	if !errors.As(err, &pgErr) || pgErr.ConstraintName != "api_keys_admin_superadmin_is_platform" {
+		t.Fatalf("superadmin insert err = %v", err)
+	}
+
+	_, err = pool.Exec(ctx, `DELETE FROM api_keys WHERE key_hash = $1`, adminHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	workerHash := bindKeyHash()
+	_, err = pool.Exec(ctx, `
+		INSERT INTO api_keys (key_type, name, key_hash, key_prefix, key_suffix, app_id)
+		VALUES ('app', 'worker', $1, 'sk_test_', 'ijkl', $2)
+	`, workerHash, appID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `DELETE FROM applications WHERE id = $1`, appID); err != nil {
+		t.Fatal(err)
+	}
+	var leftover int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM api_keys WHERE key_hash = $1`, workerHash).Scan(&leftover); err != nil {
+		t.Fatal(err)
+	}
+	if leftover != 0 {
+		t.Fatal("worker key survived application delete")
+	}
+	appID = uuid.Nil
+}
+
+func bindTestPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	host := getenv("DB_HOST", "localhost")
+	port := getenv("DB_PORT", "5432")
+	user := getenv("DB_USER", "postgres")
+	pass := getenv("DB_PASSWORD", "postgres")
+	name := getenv("DB_NAME", "auth_test")
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, pass, host, port, name)
+	pool, err := pgxpool.New(context.Background(), dsn)
+	if err != nil {
+		t.Skip(err.Error())
+	}
+	if err := pool.Ping(context.Background()); err != nil {
+		pool.Close()
+		t.Skip(err.Error())
+	}
+	return pool
+}
+
+func bindKeyHash() string {
+	a, b := uuid.New(), uuid.New()
+	return hex.EncodeToString(a[:]) + hex.EncodeToString(b[:])
+}
+
+func getenv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func TestOperatorIAMEvidenceMigrationExists(t *testing.T) {

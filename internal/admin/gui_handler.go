@@ -34,6 +34,7 @@ import (
 	"github.com/MrF1ow/go-core/web"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Brute-force form defaults — match the hardcoded defaults in bruteforce.ResolveConfig().
@@ -1073,6 +1074,16 @@ func (h *GUIHandler) AppUpdate(c *gin.Context) {
 		`<div class="alert alert-success alert-dismissible fade show" role="alert">Application updated successfully.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`)
 }
 
+const boundAdminKeysMessage = "application has bound admin keys"
+
+func BoundAdminKeyRestrict(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return strings.Contains(pgErr.Message, boundAdminKeysMessage)
+	}
+	return err != nil && strings.Contains(err.Error(), boundAdminKeysMessage)
+}
+
 // AppDeleteConfirm returns the delete confirmation modal body for HTMX.
 // GET /gui/applications/:id/delete
 func (h *GUIHandler) AppDeleteConfirm(c *gin.Context) {
@@ -1094,20 +1105,21 @@ func (h *GUIHandler) AppDeleteConfirm(c *gin.Context) {
 	})
 }
 
-// AppDelete handles deleting an application.
-// DELETE /gui/applications/:id
 func (h *GUIHandler) AppDelete(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.Repo.DeleteApp(id); err != nil {
+		if BoundAdminKeyRestrict(err) {
+			c.String(http.StatusConflict,
+				`<div class="alert alert-danger">The application has bound admin keys.</div>`)
+			return
+		}
 		c.String(http.StatusInternalServerError,
 			`<div class="alert alert-danger">Failed to delete application.</div>`)
 		return
 	}
 
-	// Return a refreshed application list and trigger modal close
 	c.Header("HX-Trigger", "appDeleted")
 
-	// Re-fetch and render the updated application list
 	page := 1
 	pageSize := 10
 	apps, total, err := h.Repo.ListAppsWithDetails(page, pageSize, "")

@@ -4002,7 +4002,7 @@ const docTemplate = `{
                         "AdminApiKey": []
                     }
                 ],
-                "description": "Creates an admin key with null app_id. Raw secret is returned once. Empty role stamps viewer. Expiry is required.",
+                "description": "Creates an admin key. Empty app_id is platform. Posted app_id binds the key. Superadmin plus app_id is 400. Raw secret is returned once. Empty role stamps viewer. Expiry is required.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4012,7 +4012,7 @@ const docTemplate = `{
                 "tags": [
                     "Admin"
                 ],
-                "summary": "Mint a platform admin API key",
+                "summary": "Mint an admin API key",
                 "parameters": [
                     {
                         "description": "Key",
@@ -8939,6 +8939,9 @@ const docTemplate = `{
                 "name"
             ],
             "properties": {
+                "app_id": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -8956,6 +8959,9 @@ const docTemplate = `{
         "admin.createOperatorKeyResponse": {
             "type": "object",
             "properties": {
+                "app_id": {
+                    "type": "string"
+                },
                 "expires_at": {
                     "type": "string"
                 },
