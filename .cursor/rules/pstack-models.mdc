@@ -1,0 +1,31 @@
+---
+description: pstack per-role model choices (overrides skill defaults)
+alwaysApply: true
+---
+# pstack model configuration. One line per role. Delete a line to fall back to the skill default.
+# `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model`). Alias entries in a panel list still count toward its fan-out.
+#
+# Budget: grok 4.6 high is the default. Composer 2.5 only for planned feature/refactor
+# implementation. Never -fast, -max, or -xhigh (cap is high). Never fable, opus 5, grok 4.5.
+# No gpt-5.6-sol* on the map. Opus 4.8 only on hardest tasks and one interrogate seat.
+# If claude-opus-4-8-thinking-high is unresolvable, skip that subagent or use
+# cursor-grok-4.6-high — never substitute claude-opus-5-*.
+# Other panels stay 3-wide: grok, composer, sonnet.
+feature, refactoring: composer-2.5
+bug-fix: cursor-grok-4.6-high
+perf-issue: cursor-grok-4.6-high
+hillclimb: cursor-grok-4.6-high
+judgment and prose: cursor-grok-4.6-high
+hardest tasks: claude-opus-4-8-thinking-high
+how explorer: cursor-grok-4.6-high
+how explainer: cursor-grok-4.6-high
+how critics: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
+why investigators: cursor-grok-4.6-high
+why synthesizer: cursor-grok-4.6-high
+reflect tooling: cursor-grok-4.6-high
+reflect judgment, divergent, synthesizer: cursor-grok-4.6-high
+arena runners: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
+arena cross-judge pool: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
+swarm workers: cursor-grok-4.6-high
+architect runners: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
+interrogate reviewers: cursor-grok-4.6-high, composer-2.5, claude-opus-4-8-thinking-high
