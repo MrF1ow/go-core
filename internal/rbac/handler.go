@@ -4,9 +4,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/MrF1ow/go-core/pkg/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/MrF1ow/go-core/internal/operator"
+	"github.com/MrF1ow/go-core/pkg/dto"
+	"github.com/MrF1ow/go-core/web"
 )
 
 // Handler serves RBAC admin API endpoints (JSON).
@@ -17,6 +20,62 @@ type Handler struct {
 // NewHandler creates a new RBAC handler.
 func NewHandler(service *Service) *Handler {
 	return &Handler{Service: service}
+}
+
+func jsonBound(c *gin.Context) *uuid.UUID {
+	val, ok := c.Get(web.OperatorPrincipalKey)
+	if !ok {
+		return nil
+	}
+	p, ok := val.(*operator.Principal)
+	if !ok || p == nil {
+		return nil
+	}
+	return p.AppID
+}
+
+func abortJSONNotFound(c *gin.Context) {
+	c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "not found"})
+}
+
+func restrictQueryApp(c *gin.Context) string {
+	return operator.RestrictAppQuery(jsonBound(c), c.Query("app_id"))
+}
+
+func abortIfForeignAppID(c *gin.Context, raw string) bool {
+	if operator.ForeignAppID(jsonBound(c), raw) {
+		abortJSONNotFound(c)
+		return true
+	}
+	return false
+}
+
+func (h *Handler) abortIfForeignRole(c *gin.Context, id string) bool {
+	bound := jsonBound(c)
+	if bound == nil {
+		return false
+	}
+	role, err := h.Service.GetRoleByID(id)
+	if err != nil || role == nil || operator.ForeignApp(bound, role.AppID) {
+		abortJSONNotFound(c)
+		return true
+	}
+	return false
+}
+
+func boundOrQueryAppID(c *gin.Context) (string, bool) {
+	appID := c.Query("app_id")
+	if appID == "" {
+		if bound := jsonBound(c); bound != nil {
+			return bound.String(), true
+		}
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "app_id query parameter is required"})
+		return "", false
+	}
+	if abortIfForeignAppID(c, appID) {
+		return "", false
+	}
+	return appID, true
 }
 
 // ============================================================
@@ -35,7 +94,7 @@ func NewHandler(service *Service) *Handler {
 // @Security AdminApiKey
 // @Router /admin/rbac/roles [get]
 func (h *Handler) ListRoles(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictQueryApp(c)
 	if appID == "" {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "app_id query parameter is required"})
 		return
@@ -85,6 +144,9 @@ func (h *Handler) ListRoles(c *gin.Context) {
 // @Router /admin/rbac/roles/{id} [get]
 func (h *Handler) GetRole(c *gin.Context) {
 	id := c.Param("id")
+	if h.abortIfForeignRole(c, id) {
+		return
+	}
 	role, err := h.Service.GetRoleByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Role not found"})
@@ -130,6 +192,9 @@ func (h *Handler) CreateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
 		return
 	}
+	if abortIfForeignAppID(c, req.AppID) {
+		return
+	}
 
 	role, err := h.Service.CreateRole(req.AppID, req.Name, req.Description)
 	if err != nil {
@@ -163,6 +228,9 @@ func (h *Handler) CreateRole(c *gin.Context) {
 // @Router /admin/rbac/roles/{id} [put]
 func (h *Handler) UpdateRole(c *gin.Context) {
 	id := c.Param("id")
+	if h.abortIfForeignRole(c, id) {
+		return
+	}
 
 	var req dto.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -191,6 +259,9 @@ func (h *Handler) UpdateRole(c *gin.Context) {
 // @Router /admin/rbac/roles/{id} [delete]
 func (h *Handler) DeleteRole(c *gin.Context) {
 	id := c.Param("id")
+	if h.abortIfForeignRole(c, id) {
+		return
+	}
 
 	if err := h.Service.DeleteRole(id); err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Failed to delete role: " + err.Error()})
@@ -215,6 +286,9 @@ func (h *Handler) DeleteRole(c *gin.Context) {
 // @Router /admin/rbac/roles/{id}/permissions [put]
 func (h *Handler) SetRolePermissions(c *gin.Context) {
 	id := c.Param("id")
+	if h.abortIfForeignRole(c, id) {
+		return
+	}
 
 	var req dto.SetRolePermissionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -314,7 +388,7 @@ func (h *Handler) CreatePermission(c *gin.Context) {
 // @Security AdminApiKey
 // @Router /admin/rbac/user-roles [get]
 func (h *Handler) ListUserRoles(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictQueryApp(c)
 	if appID == "" {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "app_id query parameter is required"})
 		return
@@ -358,9 +432,8 @@ func (h *Handler) ListUserRoles(c *gin.Context) {
 // @Security AdminApiKey
 // @Router /admin/rbac/user-roles [post]
 func (h *Handler) AssignRole(c *gin.Context) {
-	appID := c.Query("app_id")
-	if appID == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "app_id query parameter is required"})
+	appID, ok := boundOrQueryAppID(c)
+	if !ok {
 		return
 	}
 
@@ -404,11 +477,14 @@ func (h *Handler) AssignRole(c *gin.Context) {
 // @Security AdminApiKey
 // @Router /admin/rbac/user-roles [delete]
 func (h *Handler) RevokeRole(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID, ok := boundOrQueryAppID(c)
+	if !ok {
+		return
+	}
 	userID := c.Query("user_id")
 	roleID := c.Query("role_id")
 
-	if appID == "" || userID == "" || roleID == "" {
+	if userID == "" || roleID == "" {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "app_id, user_id, and role_id query parameters are required"})
 		return
 	}
@@ -434,7 +510,7 @@ func (h *Handler) RevokeRole(c *gin.Context) {
 // @Security AdminApiKey
 // @Router /admin/rbac/user-roles/user [get]
 func (h *Handler) GetUserRoles(c *gin.Context) {
-	appID := c.Query("app_id")
+	appID := restrictQueryApp(c)
 	userID := c.Query("user_id")
 
 	if appID == "" || userID == "" {

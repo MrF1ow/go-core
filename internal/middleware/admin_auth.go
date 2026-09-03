@@ -85,6 +85,10 @@ func principalForDBKey(c *gin.Context, foundKey *models.ApiKey, grants operator.
 	p := operator.NewPrincipal(operator.KindAPIKey, name, keys)
 	id := foundKey.ID
 	p.KeyID = &id
+	if foundKey.AppID != nil {
+		appID := *foundKey.AppID
+		p.AppID = &appID
+	}
 	return &p, true
 }
 

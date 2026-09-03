@@ -593,6 +593,10 @@ func (h *Handler) OperatorCreateKey(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "internal authentication error"})
 		return
 	}
+	if p.AppID != nil {
+		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "insufficient permissions"})
+		return
+	}
 	roleID, err := operator.ParseAssignedAdminRole(*p, req.OperatorRoleID, KeyTypeAdmin, nil, h.roleExists())
 	if errors.Is(err, operator.ErrIAMAssignmentDenied) {
 		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "insufficient permissions"})
@@ -744,6 +748,41 @@ func jsonPrincipal(c *gin.Context) (*operator.Principal, bool) {
 	}
 	p, ok := val.(*operator.Principal)
 	return p, ok && p != nil
+}
+
+func jsonBound(c *gin.Context) *uuid.UUID {
+	p, ok := jsonPrincipal(c)
+	if !ok {
+		return nil
+	}
+	return p.AppID
+}
+
+func abortJSONNotFound(c *gin.Context) {
+	c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "not found"})
+}
+
+func (h *Handler) loadUserDetail(id string) (*UserDetail, error) {
+	if h.GetUserDetail != nil {
+		return h.GetUserDetail(id)
+	}
+	if h.Repo == nil {
+		return nil, errNotFound
+	}
+	return h.Repo.GetUserDetailByID(id)
+}
+
+func (h *Handler) abortForeignUser(c *gin.Context, userID string) bool {
+	bound := jsonBound(c)
+	if bound == nil {
+		return false
+	}
+	detail, err := h.loadUserDetail(userID)
+	if err != nil || detail == nil || operator.ForeignApp(bound, detail.AppID) {
+		abortJSONNotFound(c)
+		return true
+	}
+	return false
 }
 
 func (h *Handler) writeJSONIAMEvent(c *gin.Context, ev operator.IAMEvent) {

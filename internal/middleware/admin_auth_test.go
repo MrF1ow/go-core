@@ -191,6 +191,41 @@ func TestAdminAuth_ViewerDBKeyNoScopesKey(t *testing.T) {
 	}
 }
 
+func TestAdminAuth_CopiesNonNullAppID(t *testing.T) {
+	roleID := operator.RoleIDAdmin
+	store := &stubKeys{}
+	raw := "ak_admin_bound_key_value"
+	id := uuid.New()
+	appID := uuid.New()
+	store.put(raw, &models.ApiKey{
+		ID:             id,
+		KeyType:        admin.KeyTypeAdmin,
+		OperatorRoleID: &roleID,
+		AppID:          &appID,
+	})
+	grants := &stubGrants{byID: map[uuid.UUID]struct {
+		name string
+		keys []string
+	}{
+		roleID: {name: operator.RoleAdmin, keys: operator.GrantsFor(operator.RoleAdmin)},
+	}}
+	w := adminGET(AdminAuthMiddleware("", store, grants), func(c *gin.Context) {
+		p := mustPrincipal(t, c)
+		if p.AppID == nil {
+			t.Fatal("app ID is nil")
+		}
+		if *p.AppID != appID {
+			t.Fatalf("app ID = %s, want %s", *p.AppID, appID)
+		}
+		if p.AppID == &appID {
+			t.Fatal("AppID must be a copy, not the key pointer")
+		}
+	}, raw)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+}
+
 func TestAdminAuth_NullRoleIsUnauthorized(t *testing.T) {
 	store := &stubKeys{}
 	raw := "ak_admin_legacy_key_value"

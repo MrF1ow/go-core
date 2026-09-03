@@ -115,14 +115,23 @@ func (r *Repository) ListUserActivityLogs(userID uuid.UUID, page, limit int, eve
 }
 
 // ListAllActivityLogs retrieves activity logs for all users (admin functionality) with pagination and filtering.
-func (r *Repository) ListAllActivityLogs(page, limit int, eventType string, startDate, endDate *time.Time) ([]models.ActivityLog, int64, error) {
+func toAppID(appID *uuid.UUID) pgtype.UUID {
+	if appID == nil {
+		return pgtype.UUID{Valid: false}
+	}
+	return pgtype.UUID{Bytes: *appID, Valid: true}
+}
+
+func (r *Repository) ListAllActivityLogs(page, limit int, eventType string, startDate, endDate *time.Time, appID *uuid.UUID) ([]models.ActivityLog, int64, error) {
 	ctx := context.Background()
 	et, sd, ed := toFilterParams(eventType, startDate, endDate)
+	filter := toAppID(appID)
 
 	totalCount, err := r.queries.CountAllActivityLogs(ctx, sqlcgen.CountAllActivityLogsParams{
 		EventType: et,
 		StartDate: sd,
 		EndDate:   ed,
+		AppID:     filter,
 	})
 	if err != nil {
 		return nil, 0, err
@@ -133,6 +142,7 @@ func (r *Repository) ListAllActivityLogs(page, limit int, eventType string, star
 		EventType: et,
 		StartDate: sd,
 		EndDate:   ed,
+		AppID:     filter,
 		OffsetVal: safeconv.ToInt32(offset),
 		LimitVal:  safeconv.ToInt32(limit),
 	})
@@ -175,13 +185,14 @@ func (r *Repository) ExportUserActivityLogs(userID uuid.UUID, limit int, eventTy
 }
 
 // ExportAllActivityLogs retrieves activity logs for all users without pagination, capped at limit rows.
-func (r *Repository) ExportAllActivityLogs(limit int, eventType string, startDate, endDate *time.Time) ([]models.ActivityLog, error) {
+func (r *Repository) ExportAllActivityLogs(limit int, eventType string, startDate, endDate *time.Time, appID *uuid.UUID) ([]models.ActivityLog, error) {
 	et, sd, ed := toFilterParams(eventType, startDate, endDate)
 
 	rows, err := r.queries.ExportAllActivityLogs(context.Background(), sqlcgen.ExportAllActivityLogsParams{
 		EventType: et,
 		StartDate: sd,
 		EndDate:   ed,
+		AppID:     toAppID(appID),
 		LimitVal:  safeconv.ToInt32(limit),
 	})
 	if err != nil {
