@@ -560,7 +560,6 @@ type createOperatorKeyResponse struct {
 	Secret         string     `json:"secret"`
 }
 
-// OperatorCreateKey mints an admin API key.
 // @Summary Mint an admin API key
 // @Description Creates an admin key. Empty app_id is platform. Posted app_id binds the key. Superadmin plus app_id is 400. Raw secret is returned once. Empty role stamps viewer. Expiry is required.
 // @Tags Admin

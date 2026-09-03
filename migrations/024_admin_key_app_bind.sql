@@ -1,6 +1,3 @@
--- Migration: Bind admin API keys to an application. Superadmin keys stay platform.
--- Depends on: 006_api_keys, 016_operator_rbac, 022_admin_account_app
-
 ALTER TABLE api_keys
     DROP CONSTRAINT api_keys_admin_app_id_null;
 

@@ -1105,8 +1105,6 @@ func (h *GUIHandler) AppDeleteConfirm(c *gin.Context) {
 	})
 }
 
-// AppDelete handles deleting an application.
-// DELETE /gui/applications/:id
 func (h *GUIHandler) AppDelete(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.Repo.DeleteApp(id); err != nil {
@@ -1120,10 +1118,8 @@ func (h *GUIHandler) AppDelete(c *gin.Context) {
 		return
 	}
 
-	// Return a refreshed application list and trigger modal close
 	c.Header("HX-Trigger", "appDeleted")
 
-	// Re-fetch and render the updated application list
 	page := 1
 	pageSize := 10
 	apps, total, err := h.Repo.ListAppsWithDetails(page, pageSize, "")
