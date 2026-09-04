@@ -54,11 +54,10 @@ curl -X POST http://localhost:8080/admin/apps \
 OAuth client credentials are per app:
 
 ```bash
-curl -X POST http://localhost:8080/admin/oauth-providers \
+curl -X POST http://localhost:8080/admin/apps/660e8400-e29b-41d4-a716-446655440000/oauth-config \
   -H "X-Admin-API-Key: $ADMIN_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "app_id": "660e8400-e29b-41d4-a716-446655440000",
     "provider": "google",
     "client_id": "....apps.googleusercontent.com",
     "client_secret": "...",
@@ -67,7 +66,7 @@ curl -X POST http://localhost:8080/admin/oauth-providers \
   }'
 ```
 
-If you still have provider secrets in an old `.env`, configure them per app in the admin GUI (OAuth Configs) or `POST /admin/oauth-providers`.
+If you still have provider secrets in an old `.env`, configure them per app in the admin GUI (OAuth Configs) or `POST /admin/apps/:id/oauth-config`.
 
 ## Isolation
 

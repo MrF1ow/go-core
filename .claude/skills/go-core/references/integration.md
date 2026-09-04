@@ -25,6 +25,7 @@ cfg.Database.DBName = "myapp"
 cfg.Database.User = "postgres"
 cfg.Database.Password = "secret"
 cfg.JWT.Secret = "your-secret-at-least-32-characters-long"
+cfg.Redis = nil // DefaultConfig() otherwise pings localhost:6379
 
 coreApp, err := app.New(cfg)
 if err != nil {
@@ -52,7 +53,9 @@ r.Run(":8080")
 
 ## What RegisterRoutes() Mounts
 
-All routes from the auth module: registration, login, token refresh, password reset, OAuth2 callbacks, 2FA endpoints, RBAC, admin GUI, OIDC provider, webhooks, health checks. See `references/route-map.md` for the full list.
+All routes from the auth module: registration, login, token refresh, password reset, OAuth2 callbacks, 2FA endpoints, RBAC, admin GUI, OIDC provider, webhooks, SSO, health checks. See [docs/api-endpoints.md](../../../../docs/api-endpoints.md) and `RegisterRoutes` in `internal/coreapp/app.go`.
+
+`NewWithDB(cfg, pool)` is the same as `New` but reuses an existing `*pgxpool.Pool`.
 
 ## Required Config
 
@@ -70,7 +73,7 @@ All routes from the auth module: registration, login, token refresh, password re
 
 | Field | Default | Notes |
 |-------|---------|-------|
-| `Redis` | nil (in-memory) | Use Redis in production for token blacklisting and sessions |
+| `Redis` | `DefaultConfig()` uses localhost:6379 DB 1 | Set `cfg.Redis = nil` for in-memory. `app.New()` pings Redis when the pointer is non-nil. |
 | `Email` | nil (disabled) | Required for magic links, 2FA email codes, verification emails |
 | `CORS` | Sensible defaults | Override `AllowedOrigins` for your domains |
 | `OIDC` | Disabled | OpenID Connect provider |
@@ -98,7 +101,7 @@ cfg.Admin.Branding = core.AdminBrandingConfig{
 }
 ```
 
-All fields optional. Zero-value = default Bootstrap appearance. `LogoURL` and `FaviconURL` accept URLs or file paths (files served from memory at `<basePath>/branding/logo` and `<basePath>/branding/favicon`). See [`web/README.md`](../../../web/README.md) for full field reference.
+All fields optional. Zero-value = default Bootstrap appearance. `LogoURL` and `FaviconURL` accept URLs or file paths (files served from memory at `<basePath>/branding/logo` and `<basePath>/branding/favicon`). See [`web/README.md`](../../../../web/README.md) for full field reference.
 
 ### Custom Admin Path
 
@@ -117,12 +120,13 @@ go-core embeds its migrations. Consumers apply them programmatically before star
 ```go
 import (
     "context"
+
+    "github.com/jackc/pgx/v5/pgxpool"
+
     core "github.com/MrF1ow/go-core"
-    "github.com/MrF1ow/go-core/internal/database"
 )
 
-// Connect to DB
-pool, err := database.ConnectPgx(host, port, user, password, dbName, sslMode)
+pool, err := pgxpool.New(ctx, databaseURL)
 if err != nil {
     log.Fatal(err)
 }
@@ -137,6 +141,8 @@ if err := core.RunMigrations(context.Background(), pool, "./migrations"); err !=
     log.Fatal(err)
 }
 ```
+
+Consumers cannot import `internal/`. Use `pgxpool.New` plus `core.RunCoreMigrations`. `NewWithDB(cfg, pool)` reuses that pool.
 
 Call `RunCoreMigrations` first — it creates core tables (users, admin_accounts, roles, etc.). Then `RunMigrations` for consumer tables that reference core tables via foreign keys.
 
@@ -164,12 +170,12 @@ api := r.Group("/api", coreApp.AuthMiddleware())
 }
 ```
 
-JWT claims set `user_id` and `app_id` in the Gin context. Access them in consumer handlers:
+Middleware puts `userID` and `appID` in the Gin context. Access them in consumer handlers:
 
 ```go
 func (h *OrderHandler) List(c *gin.Context) {
-    userID := c.GetString("user_id")
-    appID := c.GetString("app_id")
+    userID := c.GetString("userID")
+    appID := c.GetString("appID")
     // query orders for this user...
 }
 ```
@@ -219,6 +225,7 @@ CREATE TABLE orders (
 - `/activity-logs`, `/activity-logs/*`
 - `/magic-link/*`
 - `/app/*` (per-app API key routes)
+- `/sso/*` (cross-app SSO)
 - `/phone`, `/phone/*`
 
 Consumer routes should use a distinct prefix (e.g., `/api/v1/*`).
@@ -238,5 +245,5 @@ Consumer routes should use a distinct prefix (e.g., `/api/v1/*`).
 
 - `examples/basic/main.go` — runnable example
 - `cmd/api/main.go` — full reference implementation with env var loading
-- `references/route-map.md` — all HTTP routes
+- [docs/api-endpoints.md](../../../../docs/api-endpoints.md) — HTTP routes
 - `references/auth-flows.md` — how authentication works

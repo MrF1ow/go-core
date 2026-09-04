@@ -8,7 +8,7 @@ Multi-tenant authentication and authorization **Go module** built with Gin, Post
 
 Features: JWT auth, OAuth2 social login, WebAuthn/passkeys, magic links, OIDC provider, RBAC, 2FA (TOTP/SMS/email/passkey), session groups (cross-app SSO), webhooks, brute-force protection, GeoIP rules, and an HTMX-based admin GUI with embedded assets.
 
-All API requests require the `X-App-ID` header for multi-tenant context. Default app ID: `00000000-0000-0000-0000-000000000001`.
+All API requests need the `X-App-ID` header when `Config.MultiTenant` is true. Single-tenant mode injects the default app ID if the header is missing. Default app ID: `00000000-0000-0000-0000-000000000001`.
 
 ## Commands
 
@@ -50,7 +50,7 @@ The module exposes a minimal surface via the `app/` package:
 - `app.AuthMiddleware()` — returns a `gin.HandlerFunc` for protecting consumer routes
 - `app.Close()` — shuts down background services and connection pool
 
-Configuration types live in the root `core` package (`Config`, `DatabaseConfig`, etc.). The module never reads environment variables — consumers build the `Config` struct however they want.
+Configuration types live in the root `core` package (`Config`, `DatabaseConfig`, etc.). Consumers build the `Config` struct and pass it to `app.New()`. `cmd/api` maps env onto that struct. Activity-log retention and a few notify flags still read env via `internal/config/logging.go` and the admin settings chain.
 
 ### Clean Architecture layers (Repository -> Service -> Handler)
 
@@ -69,6 +69,8 @@ Each domain module in `internal/` follows this pattern:
 - `internal/coreapp/` — service initialization and wiring (composition root)
 - `internal/` — domain modules (auth logic lives in `user/`, `social/`, `twofa/`, `webauthn/`)
 - `internal/admin/` — admin GUI (HTMX templates + account/dashboard/settings services)
+- `internal/operator/` — admin JSON/GUI grants, catalog, bound keys
+- `internal/sso/` — cross-app SSO token issue/exchange
 - `internal/middleware/` — auth JWT validation, CORS, rate limiting, API key, CSRF, IP rules
 - `internal/oidc/` — OpenID Connect provider (auth code + PKCE, JWKS, introspection)
 - `internal/sessiongroup/` — cross-app SSO session linking and global logout
@@ -90,9 +92,9 @@ All database access uses **pgx** (connection pool) and **SQLC** (generated type-
 
 - **Callback wiring**: Services expose function fields (e.g., `LookupRoles`, `GroupLogoutFunc`, `WebhookService`) set in `internal/coreapp/` to avoid circular imports between domain packages.
 - **Multi-tenancy**: App-scoped via `X-App-ID` when `Config.MultiTenant` is true. Single-tenant mode injects the default app ID if the header is missing. Models reference `AppID` (UUID).
-- **Configuration**: Consumers build a `core.Config` struct and pass it to `app.New()`. Some settings have a 3-tier resolution: config value > DB (admin GUI) > default.
+- **Configuration**: Consumers build a `core.Config` struct and pass it to `app.New()`. Some settings have a 3-tier resolution: env or config value > DB (admin GUI) > default.
 - **Token lifecycle**: 15-min access tokens, 720-hour refresh tokens (configurable). Blacklisted via Redis on logout.
-- **Email templates**: 3-tier resolution chain (DB custom > file override > embedded default). CodeMirror editor in admin GUI.
+- **Email templates**: 3-tier resolution chain (app DB > global DB > hardcoded defaults in `internal/email/defaults.go`). CodeMirror editor in admin GUI.
 
 ## Security
 
@@ -137,7 +139,7 @@ All must pass before committing. Fix any failures — do not skip or bypass chec
 ```
 
 Types: `feat`, `fix`, `security`, `docs`, `refactor`, `test`, `chore`
-Scopes: `auth`, `user`, `social`, `twofa`, `email`, `middleware`, `database`, `redis`, `log`, `api`, `models`, `dto`, `jwt`, `webauthn`, `oidc`, `rbac`, `webhook`, `session`, `admin`
+Scopes: `auth`, `user`, `social`, `twofa`, `email`, `middleware`, `database`, `redis`, `log`, `api`, `models`, `dto`, `jwt`, `webauthn`, `oidc`, `rbac`, `webhook`, `session`, `admin`, `operator`, `sso`
 
 ## Cloud Agents
 

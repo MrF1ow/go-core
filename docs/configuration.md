@@ -1,6 +1,6 @@
 # Configuration
 
-Consumers build a `core.Config` and pass it to `app.New()`. The module does not read environment variables. The reference app in `cmd/api` is the exception: it maps a `.env` file onto this struct. Those keys are listed in [Environment variables](guides/ENV_VARIABLES.md).
+Consumers build a `core.Config` and pass it to `app.New()`. Do not import `internal/` from a consumer. The reference app in `cmd/api` maps a `.env` file onto this struct. Those keys are listed in [Environment variables](guides/ENV_VARIABLES.md). Activity-log retention and a few notify flags still read env via `internal/config/logging.go` and the admin settings chain.
 
 ```go
 cfg := core.DefaultConfig()
@@ -34,11 +34,11 @@ Some runtime values (activity log retention, CORS, OAuth redirect domains) can l
 
 | Field | When unset |
 |-------|------------|
-| `Redis` | `nil` uses an in-memory store. Fine for tests. Use Redis in production for sessions and token blacklists. |
+| `Redis` | `DefaultConfig()` uses `localhost:6379` DB 1. `app.New()` pings it. Set `cfg.Redis = nil` for in-memory. |
 | `Email` | `nil` disables sending. Magic links, verification, and email 2FA will not work until you set SMTP or configure a server in the admin GUI. The reference app does not map SMTP env vars into this field. |
 | `CORS` | Localhost origins and common headers from `DefaultConfig()` |
 | `OIDC` | Disabled. Set `OIDC.Enabled` and `PublicURL` to issue ID tokens. |
-| `WebAuthn` | Empty `RPID` disables passkeys. Set `RPID`, `RPName`, and `RPOrigins`. |
+| `WebAuthn` | `DefaultConfig()` sets `RPID` to `localhost`. A zero Config with empty `RPID` disables passkeys. |
 | `SMS` | Empty `Provider` disables SMS 2FA. Twilio needs account SID, auth token, and from-number. |
 | `Admin` | Empty `APIKey` still allows GUI login after `make setup-admin`. The key is for `/admin` JSON routes (`X-Admin-API-Key`). `AdminBasePath` defaults to `/gui`. Branding is documented in [web/README.md](../web/README.md). |
 | `Social` | `AllowedRedirectDomains` and `DefaultRedirectURI` for OAuth callbacks. Provider client IDs live per-app in the database, not on this struct. |
@@ -74,7 +74,7 @@ cfg.Redis = &core.RedisConfig{
 }
 ```
 
-Set `cfg.Redis = nil` for the in-memory store.
+Set `cfg.Redis = nil` for the in-memory store. Leaving the `DefaultConfig()` pointer in place requires a reachable Redis.
 
 ## Email
 
@@ -138,7 +138,7 @@ Country-based IP rules need this file. CIDR rules do not.
 
 ## Social login
 
-Provider credentials (Google, Facebook, GitHub) are stored per application via the admin GUI or `POST /admin/oauth-providers`. `Config.Social` only controls which redirect URIs are accepted after the callback. See [OAuth redirect domains](guides/multi-app-oauth-config.md).
+Provider credentials (Google, Facebook, GitHub) are stored per application via the admin GUI or `POST /admin/apps/:id/oauth-config`. `Config.Social` only controls which redirect URIs are accepted after the callback. See [OAuth redirect domains](guides/multi-app-oauth-config.md).
 
 ## Activity logging
 

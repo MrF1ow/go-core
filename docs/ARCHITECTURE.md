@@ -54,7 +54,10 @@ Cross-domain calls use function fields (`LookupRoles`, `GroupLogoutFunc`, `Webho
 | `internal/sms/` | Twilio |
 | `internal/log/` | Activity logs |
 | `internal/email/` | Templates and SMTP |
-| `internal/middleware/` | JWT, CORS, rate limit, API keys, CSRF |
+| `internal/operator/` | Admin JSON/GUI grants, catalog, bound keys |
+| `internal/sso/` | Cross-app SSO token issue/exchange |
+| `internal/safeconv/` | Integer conversions |
+| `internal/middleware/` | JWT, CORS, rate limit, API keys, CSRF, operator grants |
 | `internal/admin/` | JSON admin API + HTMX GUI |
 | `pkg/jwt`, `pkg/dto`, `pkg/models`, `pkg/errors` | Shared types |
 

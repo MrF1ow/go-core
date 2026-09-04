@@ -24,6 +24,7 @@ func main() {
 	cfg.Database.User = "postgres"
 	cfg.Database.Password = "secret"
 	cfg.JWT.Secret = "your-secret-at-least-32-characters-long"
+	cfg.Redis = nil // in-memory; DefaultConfig() otherwise uses localhost:6379 DB 1
 
 	coreApp, err := app.New(cfg)
 	if err != nil {
@@ -68,22 +69,22 @@ Everything below is off or defaulted until you configure it. `DefaultConfig()` g
 
 | Field | What it does | When unset |
 |-------|-------------|------------|
-| `Redis` | Redis connection for token blacklisting and sessions | Nil pointer = in-memory cache. Fine for dev, use Redis in production. |
+| `Redis` | Redis connection for token blacklisting and sessions | `DefaultConfig()` uses `localhost:6379` DB 1. `app.New()` pings it and fails if Redis is down. Set `cfg.Redis = nil` for in-memory cache. |
 | `Email` | SMTP config for sending emails | Nil = email sending disabled. Magic links, 2FA email codes, and verification emails won't work. |
 | `CORS` | Cross-origin settings | Sensible defaults via `DefaultConfig()`. Override if needed. |
 | `OIDC` | OpenID Connect provider config | Disabled. |
-| `WebAuthn` | Passkey and biometric authentication | Disabled. |
+| `WebAuthn` | Passkey and biometric authentication | Disabled unless you set RPID. `DefaultConfig()` sets RPID to `localhost`. |
 | `SMS` | 2FA via Twilio | Disabled. |
 | `Admin` | Admin GUI settings, API key, and [branding](web/README.md) | Disabled. |
 | `Social` | OAuth2 social login (Google, Facebook, GitHub) | Disabled. |
 | `GeoIP` | IP-based access rules, requires a MaxMind database file | Disabled. |
 | `Session` | Session groups, trusted devices, cross-app SSO settings | Defaults to single-app mode. |
 | `MultiTenant` | Enables multi-app mode with `X-App-ID` header | False. Single-app mode. |
-| `PublicURL` | Base URL for API links in emails and redirects | Empty. |
-| `FrontendURL` | Frontend app URL for redirect targets | Empty. |
+| `PublicURL` | Base URL for API links in emails and redirects | `DefaultConfig()` sets `http://localhost:8080`. |
+| `FrontendURL` | Frontend app URL for redirect targets | `DefaultConfig()` sets `http://localhost:5173`. |
 | `AppName` | Application name used in emails and admin GUI | Empty. |
-| `Port` | Server port for the reference `cmd/api` implementation | Empty. |
-| `GinMode` | Gin framework mode (`debug`, `release`, `test`) | Empty (Gin default). |
+| `Port` | Server port for the reference `cmd/api` implementation | `DefaultConfig()` sets `8080`. |
+| `GinMode` | Gin framework mode (`debug`, `release`, `test`) | `DefaultConfig()` sets `debug`. |
 
 ## Features
 
@@ -142,18 +143,15 @@ make swag-init    # Regenerate Swagger docs after API changes
 
 This project includes Claude Code skills for AI-assisted development. They live in `.claude/skills/go-core/` and cover:
 
-- **Project map** — architecture overview and key directories
-- **Route map** — all API endpoints and middleware
+- **Hub** — routes you to living `docs/` and the remaining skill refs
 - **Auth flows** — registration, login, token lifecycle, 2FA, OAuth2
-- **Data model** — database schema and SQLC query patterns
-- **Admin GUI** — HTMX admin interface structure
 - **Email system** — email templates and sending logic
 - **Security** — brute-force protection, GeoIP, CSRF, rate limiting
-- **New endpoint** — guide for adding new API endpoints
+- **New endpoint** — guide for adding new API endpoints (`internal/coreapp`)
 - **Integration** — how to consume the module in your app
 - **Commits** — commit message conventions and scopes
 
-Invoke the hub skill with `/go-core` in Claude Code to get routed to the right reference.
+Project structure, schema, routes, and admin GUI live in `docs/` and in code (`internal/schema.sql`, `RegisterRoutes`). Invoke the hub skill with `/go-core` in Claude Code.
 
 ## Credits
 

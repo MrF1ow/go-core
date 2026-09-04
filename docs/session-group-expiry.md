@@ -35,7 +35,7 @@ On login, Redis stores:
 - Session hash `app:{appID}:session:{sessionID}`
 - Metadata `session_meta:{appID}:{userID}:{sessionID}` with the same TTL
 
-When the metadata key expires, Redis publishes `__keyevent@0__:expired`. The listener parses the key, loads the app's session group, and if `GlobalLogout` is set, revokes the user's sessions in the other member apps.
+When the metadata key expires, Redis publishes `__keyevent@<db>__:expired`. The listener is currently subscribed to `__keyevent@0__:expired`. `DefaultConfig()` and the reference app use `REDIS_DB=1`, so real-time expiry does not fire on the documented Redis DB. The SCAN fallback every `GroupExpiryScanInterval` still covers missed events.
 
 If keyspace notifications are off, a SCAN every `GroupExpiryScanInterval` looks for `session_meta:*` keys with TTL ≤ 0.
 

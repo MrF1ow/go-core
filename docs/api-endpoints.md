@@ -24,14 +24,12 @@ The reference app serves Swagger at `/swagger/index.html`. Request and response 
 | `/admin/tenants` | POST | Create new tenant | Admin |
 | `/admin/tenants` | GET | List all tenants (paginated) | Admin |
 | `/admin/apps` | POST | Create application for tenant | Admin |
-| `/admin/apps` | GET | List applications (paginated) | Admin |
-| `/admin/oauth-providers` | POST | Configure OAuth provider for app | Admin |
-| `/admin/oauth-providers/:app_id` | GET | List OAuth providers for app | Admin |
-| `/admin/oauth-providers/:id` | PUT | Update OAuth provider config | Admin |
-| `/admin/oauth-providers/:id` | DELETE | Delete OAuth provider config | Admin |
+| `/admin/apps/:id` | GET | Get application details | Admin |
+| `/admin/apps/:id/oauth-config` | POST | Upsert OAuth provider config for an app | Admin |
 | `/admin/users/export` | GET | Export all users as CSV | Admin |
 | `/admin/users/import` | POST | Bulk-import users from CSV | Admin |
 | `/admin/users/:id/trusted-devices` | GET | List trusted devices for a user | Admin |
+| `/admin/users/:id/trusted-devices/:device_id` | DELETE | Revoke one trusted device | Admin |
 | `/admin/users/:id/trusted-devices` | DELETE | Revoke all trusted devices for a user | Admin |
 | `/admin/activity-logs/export` | GET | Export activity logs as CSV | Admin |
 
@@ -82,9 +80,9 @@ Operator IAM routes need `admin_iam:read` or `admin_iam:write` on the key's role
 | `/admin/webhooks/apps/:app_id/deliveries` | GET | List all deliveries for an app | Admin |
 | `/app/:id/webhooks` | GET | List webhook endpoints (App API Key) | App API Key |
 | `/app/:id/webhooks` | POST | Create a webhook endpoint (App API Key) | App API Key |
-| `/app/:id/webhooks/:wid/toggle` | PUT | Toggle a webhook endpoint (App API Key) | App API Key |
-| `/app/:id/webhooks/:wid` | DELETE | Delete a webhook endpoint (App API Key) | App API Key |
-| `/app/:id/webhooks/:wid/deliveries` | GET | List delivery history (App API Key) | App API Key |
+| `/app/:id/webhooks/:webhook_id/toggle` | PUT | Toggle a webhook endpoint (App API Key) | App API Key |
+| `/app/:id/webhooks/:webhook_id` | DELETE | Delete a webhook endpoint (App API Key) | App API Key |
+| `/app/:id/webhooks/deliveries` | GET | List delivery history (App API Key) | App API Key |
 
 ### OIDC Client Management
 
@@ -216,6 +214,7 @@ Operator IAM routes need `admin_iam:read` or `admin_iam:write` on the key's role
 | `/auth/facebook/link/callback` | GET | Facebook link callback | No |
 | `/auth/github/link` | GET | Initiate GitHub account linking | Yes |
 | `/auth/github/link/callback` | GET | GitHub link callback | No |
+| `/auth/merge/confirm` | POST | Confirm merging two social identities | Yes |
 
 ---
 
@@ -229,6 +228,16 @@ Operator IAM routes need `admin_iam:read` or `admin_iam:write` on the key's role
 
 ---
 
+## Cross-app SSO
+
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/sso/token` | POST | Issue an SSO token for a peer app | Yes |
+| `/sso/exchange` | POST | Exchange an SSO token for JWTs | No |
+| `/sso/peers` | GET | List peer apps in the session group | No |
+
+---
+
 ## User Management
 
 | Endpoint | Method | Description | Auth |
@@ -237,6 +246,7 @@ Operator IAM routes need `admin_iam:read` or `admin_iam:write` on the key's role
 | `/profile` | PUT | Update user profile | Yes |
 | `/profile/email` | PUT | Update user email | Yes |
 | `/profile/password` | PUT | Update user password | Yes |
+| `/profile/set-password` | POST | Set a password on a social-only account | Yes |
 | `/profile` | DELETE | Delete user account | Yes |
 | `/auth/validate` | GET | Validate JWT token | Yes |
 

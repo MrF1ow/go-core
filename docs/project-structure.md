@@ -18,6 +18,8 @@
 │   ├── rbac/
 │   ├── session/
 │   ├── sessiongroup/           # Cross-app SSO
+│   ├── sso/                    # SSO token issue/exchange
+│   ├── operator/               # Admin JSON/GUI grants
 │   ├── oidc/
 │   ├── webhook/
 │   ├── bruteforce/
@@ -29,8 +31,8 @@
 │   ├── middleware/
 │   ├── database/               # pgx pool helpers
 │   ├── redis/
-│   ├── settings/
 │   ├── config/                 # Activity-log config (still reads env)
+│   ├── safeconv/
 │   ├── queries/                # SQLC source
 │   ├── sqlcgen/                # Generated query code
 │   ├── schema.sql              # SQLC schema snapshot (not applied)
