@@ -2,14 +2,6 @@
 
 Parked after json-scope and bind shipped. Do not treat this file as a backlog to burn down. Move an item into a new plan when its unlock condition is true. Never items have no unlock. Living Operator IAM recap: [2026-08-22](../2026-08-22-operator-iam.md).
 
-## Last-superadmin count then update
-
-Demote and disable count, then write, with no transaction. Two concurrent disables can clear the last platform superadmin. Disable is one-way. Waiting until the race is observed waits until those accounts are already gone.
-
-json-scope and bind did not touch disable or demote. Do not hitchhike onto an unrelated mint PR.
-
-Unlock when the next PR mutates disable or demote, or as a dedicated `BEFORE UPDATE` trigger in the `023` style. The trigger raises when an update would leave zero enabled platform superadmins. Do not wrap four handlers in transactions. Count stays platform GUI accounts with `app_id IS NULL`.
-
 ## Many-to-many operator-to-app grants
 
 One account or key scoped to a set of apps.

@@ -29,7 +29,8 @@ migrations/
 ├── 021_admin_key_must_expire.sql
 ├── 022_admin_account_app.sql   # Per-app GUI operators
 ├── 023_operator_one_way_revoke.sql
-└── 024_admin_key_app_bind.sql  # Bound admin keys
+├── 024_admin_key_app_bind.sql  # Bound admin keys
+└── 025_last_superadmin_guard.sql
 ```
 
 ## How It Works
@@ -58,7 +59,7 @@ core.RunMigrations(ctx, pool, "migrations")
 
 ## Adding a New Migration
 
-1. Create a new file with the next sequential number: `025_description.sql`
+1. Create a new file with the next sequential number: `026_description.sql`
 2. Use plain `CREATE TABLE` / `ALTER TABLE` statements (no `IF NOT EXISTS` needed for new tables)
 3. Update `internal/schema.sql` to reflect the new final state (used by SQLC for code generation)
 4. Run `sqlc generate` to regenerate type-safe query code

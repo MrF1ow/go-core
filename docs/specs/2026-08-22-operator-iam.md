@@ -62,7 +62,7 @@ Logout and my-account stay session-only. No `requireGUI`. AppID does not apply.
 
 ## Still later
 
-Parked items are [deferred](2026-09-03-per-app-admin-keys/deferred.md). SOC 2 Type I/II organizational evidence stays out of this repository.
+Parked items are [deferred](2026-09-03-per-app-admin-keys/deferred.md). `prevent_last_superadmin_cleared` raises when an update would leave zero enabled platform superadmins. SOC 2 Type I/II organizational evidence stays out of this repository.
 
 ## Do not build
 
