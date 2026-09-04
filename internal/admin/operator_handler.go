@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/MrF1ow/go-core/internal/operator"
@@ -852,6 +853,14 @@ func (h *Handler) updateOperatorAPIKeyRole(id string, key *models.ApiKey, roleID
 
 const lastSuperadminMessage = "cannot demote or disable the last enabled superadmin"
 
+func LastSuperadminRestrict(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return strings.Contains(pgErr.Message, lastSuperadminMessage)
+	}
+	return err != nil && strings.Contains(err.Error(), lastSuperadminMessage)
+}
+
 type createOperatorAccountRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Email    string `json:"email"`
@@ -1006,6 +1015,10 @@ func (h *Handler) OperatorAccountRole(c *gin.Context) {
 		}
 	}
 	if err := h.updateOperatorAccountRole(account.ID, *roleID); err != nil {
+		if LastSuperadminRestrict(err) {
+			c.JSON(http.StatusConflict, dto.ErrorResponse{Error: lastSuperadminMessage})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to update operator account"})
 		return
 	}
@@ -1055,6 +1068,10 @@ func (h *Handler) OperatorDisableAccount(c *gin.Context) {
 		return
 	}
 	if err := h.disableOperatorAccount(account.ID); err != nil {
+		if LastSuperadminRestrict(err) {
+			c.JSON(http.StatusConflict, dto.ErrorResponse{Error: lastSuperadminMessage})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to disable operator account"})
 		return
 	}

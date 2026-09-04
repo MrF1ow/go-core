@@ -296,10 +296,14 @@ func applyRowToModel(m *models.AdminAccount, row sqlcgen.AdminAccount) {
 }
 
 func (r *AccountRepository) UpdateOperatorRole(id uuid.UUID, roleID uuid.UUID) error {
-	return r.queries.UpdateAdminAccountOperatorRole(context.Background(), sqlcgen.UpdateAdminAccountOperatorRoleParams{
+	err := r.queries.UpdateAdminAccountOperatorRole(context.Background(), sqlcgen.UpdateAdminAccountOperatorRoleParams{
 		ID:             id,
 		OperatorRoleID: roleID,
 	})
+	if LastSuperadminRestrict(err) {
+		return err
+	}
+	return err
 }
 
 func (r *AccountRepository) UpdateAppID(id uuid.UUID, appID *uuid.UUID) error {
@@ -313,10 +317,14 @@ func (r *AccountRepository) SetDisabledAt(id uuid.UUID, at *time.Time) error {
 	if at == nil {
 		return errors.New("disabled_at cannot be cleared")
 	}
-	return r.queries.SetAdminAccountDisabledAt(context.Background(), sqlcgen.SetAdminAccountDisabledAtParams{
+	err := r.queries.SetAdminAccountDisabledAt(context.Background(), sqlcgen.SetAdminAccountDisabledAtParams{
 		ID:         id,
 		DisabledAt: pgtype.Timestamptz{Time: *at, Valid: true},
 	})
+	if LastSuperadminRestrict(err) {
+		return err
+	}
+	return err
 }
 
 func (r *AccountRepository) CountEnabledSuperadmins(ctx context.Context) (int64, error) {

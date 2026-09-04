@@ -456,6 +456,10 @@ func (h *GUIHandler) OperatorAccountRole(c *gin.Context) {
 			}
 		}
 		if err := h.guiUpdateAccountRole(account.ID, *roleID); err != nil {
+			if LastSuperadminRestrict(err) {
+				guiLastSuperadminConflict(c)
+				return
+			}
 			log.Printf("operator GUI account role: %v", err)
 			h.abortInternal(c)
 			return
@@ -502,6 +506,10 @@ func (h *GUIHandler) OperatorDisableAccount(c *gin.Context) {
 		return
 	}
 	if err := h.guiDisableAccount(account.ID); err != nil {
+		if LastSuperadminRestrict(err) {
+			guiLastSuperadminConflict(c)
+			return
+		}
 		log.Printf("operator GUI disable account: %v", err)
 		h.abortInternal(c)
 		return
