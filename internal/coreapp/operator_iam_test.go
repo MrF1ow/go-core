@@ -710,6 +710,59 @@ func TestOperatorAccountRole_LastSuperadminStillJSONConflict(t *testing.T) {
 	}
 }
 
+func TestOperatorDisableAccount_LastSuperadminTriggerConflict(t *testing.T) {
+	h := iamEventTestEngine(t)
+	second := &models.AdminAccount{
+		ID:             uuid.New(),
+		Username:       "root-peer",
+		OperatorRoleID: operator.RoleIDSuperadmin,
+	}
+	h.accounts[second.ID] = second
+	h.handler.DisableAccount = func(uuid.UUID) error {
+		return &pgconn.PgError{Code: "P0001", Message: "cannot demote or disable the last enabled superadmin"}
+	}
+	rec := iamEventDo(h.engine, http.MethodPost, "/admin/operator/accounts/"+h.superAccountID.String()+"/disable", accessSuperadminKey, "")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "cannot demote or disable the last enabled superadmin") {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+	if h.accounts[h.superAccountID].DisabledAt != nil {
+		t.Fatal("last superadmin was disabled")
+	}
+	if len(iamEventList(t, h.engine)) != 0 {
+		t.Fatal("trigger last-superadmin disable must not write an IAM event")
+	}
+}
+
+func TestOperatorAccountRole_LastSuperadminTriggerConflict(t *testing.T) {
+	h := iamEventTestEngine(t)
+	second := &models.AdminAccount{
+		ID:             uuid.New(),
+		Username:       "root-peer",
+		OperatorRoleID: operator.RoleIDSuperadmin,
+	}
+	h.accounts[second.ID] = second
+	h.handler.UpdateAccountRole = func(uuid.UUID, uuid.UUID) error {
+		return &pgconn.PgError{Code: "P0001", Message: "cannot demote or disable the last enabled superadmin"}
+	}
+	body := `{"operator_role_id":"` + operator.RoleIDAdmin.String() + `"}`
+	rec := iamEventDo(h.engine, http.MethodPut, "/admin/operator/accounts/"+h.superAccountID.String()+"/role", accessSuperadminKey, body)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "cannot demote or disable the last enabled superadmin") {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+	if h.accounts[h.superAccountID].OperatorRoleID != operator.RoleIDSuperadmin {
+		t.Fatalf("role = %s, want superadmin", h.accounts[h.superAccountID].OperatorRoleID)
+	}
+	if len(iamEventList(t, h.engine)) != 0 {
+		t.Fatal("trigger last-superadmin demote must not write an IAM event")
+	}
+}
+
 func TestOperatorCreateRole_AdminIAMGrantRejected(t *testing.T) {
 	h := iamEventTestEngine(t)
 	body := `{"name":"auditor","grants":["users:read","admin_iam:write"]}`
@@ -1016,6 +1069,16 @@ func TestBoundAdminKeyRestrict(t *testing.T) {
 		t.Fatal("pg raise should match")
 	}
 	if admin.BoundAdminKeyRestrict(errors.New("Failed to delete application")) {
+		t.Fatal("generic error should not match")
+	}
+}
+
+func TestLastSuperadminRestrict(t *testing.T) {
+	err := &pgconn.PgError{Code: "P0001", Message: "cannot demote or disable the last enabled superadmin"}
+	if !admin.LastSuperadminRestrict(err) {
+		t.Fatal("pg raise should match")
+	}
+	if admin.LastSuperadminRestrict(errors.New("Failed to disable operator account")) {
 		t.Fatal("generic error should not match")
 	}
 }
