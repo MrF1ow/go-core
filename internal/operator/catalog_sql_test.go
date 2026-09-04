@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -206,6 +207,201 @@ func TestAdminKeyAppBindMigration(t *testing.T) {
 	}
 	if strings.Contains(schemaText, "api_keys_admin_app_id_null") {
 		t.Fatal("schema.sql still has api_keys_admin_app_id_null")
+	}
+}
+
+func TestLastSuperadminGuardMigration(t *testing.T) {
+	sql, err := os.ReadFile("../../migrations/025_last_superadmin_guard.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(sql)
+	for _, needle := range []string{
+		"prevent_last_superadmin_cleared",
+		"admin_accounts_last_superadmin",
+		"cannot demote or disable the last enabled superadmin",
+		"EXECUTE FUNCTION prevent_last_superadmin_cleared",
+		"pg_advisory_xact_lock",
+	} {
+		if !strings.Contains(text, needle) {
+			t.Fatalf("025 missing %q", needle)
+		}
+	}
+	schema, err := os.ReadFile("../schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemaText := string(schema)
+	for _, needle := range []string{
+		"prevent_last_superadmin_cleared",
+		"admin_accounts_last_superadmin",
+		"cannot demote or disable the last enabled superadmin",
+		"EXECUTE FUNCTION prevent_last_superadmin_cleared",
+		"pg_advisory_xact_lock",
+	} {
+		if !strings.Contains(schemaText, needle) {
+			t.Fatalf("schema.sql missing %q", needle)
+		}
+	}
+}
+
+func TestLastSuperadminGuardLive(t *testing.T) {
+	ctx := context.Background()
+	pool := bindTestPool(t)
+	t.Cleanup(pool.Close)
+	if err := core.RunCoreMigrations(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+
+	a, b := insertLiveSuperadmin(t, ctx, pool), insertLiveSuperadmin(t, ctx, pool)
+	existing := demoteOtherLiveSuperadmins(t, ctx, pool, a, b)
+	t.Cleanup(func() {
+		restore := context.Background()
+		if len(existing) > 0 {
+			_, _ = pool.Exec(restore, `UPDATE admin_accounts SET operator_role_id = $1 WHERE id = ANY($2)`, RoleIDSuperadmin, existing)
+		}
+		_, _ = pool.Exec(restore, `DELETE FROM admin_accounts WHERE id = ANY($1)`, []uuid.UUID{a, b})
+	})
+
+	errA, errB := raceLiveSuperadminUpdates(t, pool, func(ctx context.Context, conn *pgxpool.Conn) error {
+		_, err := conn.Exec(ctx, `UPDATE admin_accounts SET disabled_at = NOW() WHERE id = $1`, a)
+		return err
+	}, func(ctx context.Context, conn *pgxpool.Conn) error {
+		_, err := conn.Exec(ctx, `UPDATE admin_accounts SET disabled_at = NOW() WHERE id = $1`, b)
+		return err
+	})
+	assertLiveLastSuperadminRace(t, pool, errA, errB)
+
+	if len(existing) > 0 {
+		if _, err := pool.Exec(ctx, `UPDATE admin_accounts SET operator_role_id = $1 WHERE id = ANY($2)`, RoleIDSuperadmin, existing); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM admin_accounts WHERE id = ANY($1)`, []uuid.UUID{a, b}); err != nil {
+		t.Fatal(err)
+	}
+
+	c, d := insertLiveSuperadmin(t, ctx, pool), insertLiveSuperadmin(t, ctx, pool)
+	existing = demoteOtherLiveSuperadmins(t, ctx, pool, c, d)
+	t.Cleanup(func() {
+		restore := context.Background()
+		if len(existing) > 0 {
+			_, _ = pool.Exec(restore, `UPDATE admin_accounts SET operator_role_id = $1 WHERE id = ANY($2)`, RoleIDSuperadmin, existing)
+		}
+		_, _ = pool.Exec(restore, `DELETE FROM admin_accounts WHERE id = ANY($1)`, []uuid.UUID{c, d})
+	})
+
+	errA, errB = raceLiveSuperadminUpdates(t, pool, func(ctx context.Context, conn *pgxpool.Conn) error {
+		_, err := conn.Exec(ctx, `UPDATE admin_accounts SET disabled_at = NOW() WHERE id = $1`, c)
+		return err
+	}, func(ctx context.Context, conn *pgxpool.Conn) error {
+		_, err := conn.Exec(ctx, `UPDATE admin_accounts SET operator_role_id = $1 WHERE id = $2`, RoleIDAdmin, d)
+		return err
+	})
+	assertLiveLastSuperadminRace(t, pool, errA, errB)
+}
+
+func insertLiveSuperadmin(t *testing.T, ctx context.Context, pool *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	id := uuid.New()
+	username := "sa-" + id.String()
+	_, err := pool.Exec(ctx, `
+		INSERT INTO admin_accounts (id, username, email, password_hash, operator_role_id, disabled_at, app_id)
+		VALUES ($1, $2, $3, 'x', $4, NULL, NULL)
+	`, id, username, username+"@example.test", RoleIDSuperadmin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func demoteOtherLiveSuperadmins(t *testing.T, ctx context.Context, pool *pgxpool.Pool, keep ...uuid.UUID) []uuid.UUID {
+	t.Helper()
+	rows, err := pool.Query(ctx, `
+		SELECT id FROM admin_accounts
+		WHERE operator_role_id = $1 AND disabled_at IS NULL AND app_id IS NULL
+		  AND NOT (id = ANY($2))
+	`, RoleIDSuperadmin, keep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var existing []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		existing = append(existing, id)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(existing) == 0 {
+		return existing
+	}
+	if _, err := pool.Exec(ctx, `UPDATE admin_accounts SET operator_role_id = $1 WHERE id = ANY($2)`, RoleIDAdmin, existing); err != nil {
+		t.Fatal(err)
+	}
+	return existing
+}
+
+func raceLiveSuperadminUpdates(
+	t *testing.T,
+	pool *pgxpool.Pool,
+	runA, runB func(ctx context.Context, conn *pgxpool.Conn) error,
+) (errA, errB error) {
+	t.Helper()
+	ctx := context.Background()
+	connA, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connA.Release()
+	connB, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connB.Release()
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		errA = runA(ctx, connA)
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		errB = runB(ctx, connB)
+	}()
+	close(start)
+	wg.Wait()
+	return errA, errB
+}
+
+func assertLiveLastSuperadminRace(t *testing.T, pool *pgxpool.Pool, errA, errB error) {
+	t.Helper()
+	var remaining int
+	if err := pool.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM admin_accounts
+		WHERE operator_role_id = $1 AND disabled_at IS NULL AND app_id IS NULL
+	`, RoleIDSuperadmin).Scan(&remaining); err != nil {
+		t.Fatal(err)
+	}
+	if remaining != 1 {
+		t.Fatalf("remaining enabled platform superadmins = %d, want 1", remaining)
+	}
+	raises := 0
+	for _, err := range []error{errA, errB} {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && strings.Contains(pgErr.Message, "cannot demote or disable the last enabled superadmin") {
+			raises++
+		}
+	}
+	if raises != 1 {
+		t.Fatalf("raises = %d, want 1 (errA=%v errB=%v)", raises, errA, errB)
 	}
 }
 
