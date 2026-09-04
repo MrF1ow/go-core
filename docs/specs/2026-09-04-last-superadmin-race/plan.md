@@ -73,6 +73,7 @@ Each live lane runs on its own cloud VM at the PR head. Drive JSON with `curl`. 
 - [ ] Edit `internal/admin/gui_iam.go`.
 - [ ] Edit `internal/operator/catalog_sql_test.go`.
 - [ ] Edit `internal/coreapp/operator_iam_test.go`.
+- [ ] Edit `internal/coreapp/gui_shell_test.go`.
 - [ ] Edit `docs/specs/2026-09-03-per-app-admin-keys/deferred.md`.
 - [ ] Edit `docs/specs/2026-08-22-operator-iam.md`.
 - [ ] Edit `docs/README.md`.
@@ -80,7 +81,7 @@ Each live lane runs on its own cloud VM at the PR head. Drive JSON with `curl`. 
 
 **Build.**
 
-- [ ] Add `prevent_last_superadmin_cleared` as a `BEFORE UPDATE` trigger on `admin_accounts` in the 023 style. Take `pg_advisory_xact_lock(hashtextextended('admin_accounts.last_enabled_superadmin', 0))` before the count. Raise `cannot demote or disable the last enabled superadmin` when the update would leave zero enabled platform superadmins (`operator_role_id = 'd0000000-0000-0000-0000-000000000001'`, `disabled_at IS NULL`, `app_id IS NULL`, `id <> NEW.id`). Do not wrap the four handlers in transactions. Keep the Go `WouldLeaveLastSuperadmin` 409. Map the trigger error to 409 in `AccountRepository.SetDisabledAt` and `AccountRepository.UpdateOperatorRole`, then check that error in JSON and GUI disable and role-change writes. Copy the function and trigger into `internal/schema.sql`. Remove the last-superadmin section from deferred.md and point the IAM recap at this plan. The SQL to land is this shape.
+- [ ] Add `prevent_last_superadmin_cleared` as a `BEFORE UPDATE` trigger on `admin_accounts` in the 023 style. Take `pg_advisory_xact_lock(hashtextextended('admin_accounts.last_enabled_superadmin', 0))` before the count. Raise `cannot demote or disable the last enabled superadmin` when the update would leave zero enabled platform superadmins (`operator_role_id = 'd0000000-0000-0000-0000-000000000001'`, `disabled_at IS NULL`, `app_id IS NULL`, `id <> NEW.id`). Do not wrap `Handler.OperatorAccountRole`, `Handler.OperatorDisableAccount`, `GUIHandler.OperatorAccountRole`, or `GUIHandler.OperatorDisableAccount` in transactions. Keep the Go `WouldLeaveLastSuperadmin` 409. Map the trigger error to 409 in `AccountRepository.SetDisabledAt` and `AccountRepository.UpdateOperatorRole`, then check that error in those four write paths. Copy the function and trigger into `internal/schema.sql`. Do not run `sqlc generate` unless a query changes. Remove the last-superadmin section from deferred.md and point the IAM recap at this plan. The SQL to land is this shape.
 
 ```sql
 CREATE OR REPLACE FUNCTION prevent_last_superadmin_cleared()
@@ -129,7 +130,7 @@ CREATE TRIGGER admin_accounts_last_superadmin
 **Verify, unit.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 
 - [ ] `internal/operator/catalog_sql_test.go` gains a 025 needle test and a live two-session race against `auth_test`. Run `go test -v ./internal/operator -run 'TestLastSuperadmin|TestOperatorOneWayRevokeMigration' -count=1`.
-- [ ] `internal/coreapp/operator_iam_test.go` still passes last-superadmin 409 and maps a `P0001` write error to 409 with no IAM event. Run `go test -v ./internal/coreapp -run 'TestOperatorDisableAccount_LastSuperadmin|TestOperatorAccountRole_LastSuperadmin|TestGUIShell_LastSuperadmin' -count=1`.
+- [ ] `internal/coreapp/operator_iam_test.go` still passes last-superadmin 409 and maps a `P0001` write error to 409 with no IAM event. `internal/coreapp/gui_shell_test.go` gains `TestGUIShell_LastSuperadminDemoteIsHTML409` next to the existing disable case. Run `go test -v ./internal/coreapp -run 'TestOperatorDisableAccount_LastSuperadmin|TestOperatorAccountRole_LastSuperadmin|TestGUIShell_LastSuperadmin' -count=1`.
 
 **Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. Ten lanes on the swarm workers model at the PR head, per the boot recipe.
 
@@ -180,7 +181,7 @@ Throwaway program. `/tmp/last-superadmin-proto/main.go` against `auth_test` on l
 
 Naive count loses. `SELECT FOR UPDATE` and `LOCK TABLE` keep one superadmin and deadlock. `pg_advisory_xact_lock` keeps one superadmin and never deadlocked, including mixed disable plus demote.
 
-Unproven. A `BEFORE DELETE` path. `DeleteByID` has no HTTP caller. Out of this PR.
+Unproven. A `BEFORE DELETE` path. `DeleteByID` has no HTTP caller. Out of this PR. `WouldLeaveLastSuperadmin(0, true)` is false in Go. The trigger still raises when `remaining = 0`.
 
 ## Appendix B. Alternatives rejected
 
@@ -204,7 +205,7 @@ PR-1. `control-ui` and `control-cli` are not in this repository. Live lanes use 
 
 PR-1. The advisory lock serializes only updates that leave enabled-platform-superadmin. Viewer disables skip the lock. Watch the superadmin-disable median in Verify, perf.
 
-PR-1. If `AccountRepository` mapping misses `UpdateOperatorRole`, concurrent demote returns 500. The mixed live lane and the role-change unit test catch that.
+PR-1. If `AccountRepository` mapping misses `UpdateOperatorRole`, concurrent demote returns 500. The mixed live lane, the JSON role-change unit test, and the new GUI demote HTML 409 test catch that. GUI role POST can also write `app_id` in a second statement. Superadmin plus `app_id` is already 400 before that write.
 
 PR-1. `DeleteByID` can still remove a row without the UPDATE trigger. No HTTP caller. Do not add a delete button. Leave the unused query for the next `admin_account.sql` PR named in deferred.md.
 
