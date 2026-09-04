@@ -186,7 +186,7 @@ Each live lane runs on its own cloud VM at the PR head. Drive through httptest. 
 
 - [ ] Every box above is checked with its evidence.
 - [ ] Reply to the operator with the report the execution playbook names.
-- [ ] Deferred items still live only in `docs/specs/2026-08-30-operator-key-lifecycle/deferred.md`.
+- [ ] Deferred items still live only in `docs/specs/2026-09-03-per-app-admin-keys/deferred.md`. The 08-30 deferred file points there.
 
 ## Appendix A. Prototype evidence
 
@@ -220,7 +220,7 @@ json-mint. Raw secret in 201. Logs and error middleware must not print the body.
 
 Live lanes. No control-ui. httptest HTML saved as the named png. Operator review of lifecycle still needs a real screen capture when a human is present.
 
-Per-app admin keys. Starting them during this program is drift. See deferred.md.
+Per-app admin keys. Starting them during this program is drift. See [2026-09-03 deferred](../2026-09-03-per-app-admin-keys/deferred.md).
 
 ## Appendix D. Links and reading list
 
@@ -232,4 +232,4 @@ lifecycle does not need interrogate. json-mint needs `how` first. Interrogate js
 
 Trail per `pstack/skills/show-me-your-work/SKILL.md`. Owners keep `decisions.tsv` uncommitted.
 
-Defer list. `docs/specs/2026-08-30-operator-key-lifecycle/deferred.md`.
+Defer list. `docs/specs/2026-09-03-per-app-admin-keys/deferred.md`. The 08-30 deferred file is a pointer.
