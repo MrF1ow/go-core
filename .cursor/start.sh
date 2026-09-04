@@ -31,3 +31,7 @@ fi
 
 go run ./cmd/migrate
 DB_NAME=auth_test go run ./cmd/migrate
+
+# Re-pin on every boot so a newer checkout's map wins over a snapshot copy.
+mkdir -p "$HOME/.cursor/rules"
+cp "$ROOT/.cursor/rules/pstack-models.mdc" "$HOME/.cursor/rules/pstack-models.mdc"
