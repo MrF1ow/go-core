@@ -49,3 +49,7 @@ pg_isready -h localhost -p 5432
 sudo -u postgres psql -v ON_ERROR_STOP=1 -c "ALTER USER postgres WITH PASSWORD 'postgres';"
 sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='go_core'" | grep -q 1 || sudo -u postgres createdb -O postgres go_core
 sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='auth_test'" | grep -q 1 || sudo -u postgres createdb -O postgres auth_test
+
+# Pin this repo's pstack model map so skill home-path reads cannot fall back to fable/opus 5.
+mkdir -p "$HOME/.cursor/rules"
+cp "$ROOT/.cursor/rules/pstack-models.mdc" "$HOME/.cursor/rules/pstack-models.mdc"

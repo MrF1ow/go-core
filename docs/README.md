@@ -47,6 +47,6 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 |----------|-------------|
 | [Operator deferred work](specs/2026-09-03-per-app-admin-keys/deferred.md) | Last-superadmin race, many-to-many grants, and rejected IAM extras |
 
-`pstack/` is a vendored Cursor plugin snapshot (0.14.8) so overnight plans can `git show origin/main:pstack/...`. Live `/poteto-mode` comes from the Cursor plugin. Model budget is `.cursor/rules/pstack-models.mdc`. Do not run `/setup-pstack` against the vendored defaults.
+`pstack/` is this repo's trimmed plugin snapshot. `.cursor/settings.json` enables it. The model map is `.cursor/rules/pstack-models.mdc`; Cloud Agent start copies it to `~/.cursor/rules/pstack-models.mdc`. Do not run `/setup-pstack` against upstream defaults.
 
 Swagger UI is served by the reference app at `/swagger/index.html`. Generated files live in this directory (`docs.go`, `swagger.json`, `swagger.yaml`) and are not hand-edited. Run `make swag-init` after changing HTTP handlers.
