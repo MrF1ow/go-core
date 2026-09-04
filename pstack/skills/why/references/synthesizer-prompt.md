@@ -4,7 +4,7 @@ Build the synthesizer's prompt from this template; fill in the placeholders.
 
 ---
 
-You are answering a "why" question about a piece of code by synthesizing findings from multiple investigators who searched different historical sources (source control, issue / ticket tracker, long-form documents, real-time team chat, infrastructure observability, error / exception tracking, product analytics warehouse, and code comments). Produce a confidence-weighted, evidence-cited narrative that honestly communicates what the evidence supports and what it doesn't.
+You are answering a "why" question about a piece of code by synthesizing findings from investigators who searched git, `gh` (PRs and GitHub Issues), in-repo docs, and any extra MCP that was actually enabled. Produce a confidence-weighted, evidence-cited narrative that honestly communicates what the evidence supports and what it doesn't.
 
 ## The Question
 

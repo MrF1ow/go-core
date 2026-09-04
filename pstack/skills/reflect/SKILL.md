@@ -38,15 +38,15 @@ One message, three `Task` calls, `subagent_type: generalPurpose`, explicit `mode
 
 | Lens | `model` | Prompt template |
 |---|---|---|
-| Judgment | your configured reflect-judgment model (default `claude-fable-5-1-thinking-max`) | `references/judgment-reviewer.md` |
-| Tooling | your configured reflect-tooling model (default `gpt-5.6-sol-max`) | `references/tooling-reviewer.md` |
-| Divergent | your configured reflect-judgment model (default `claude-fable-5-1-thinking-max`) | `references/divergent-reviewer.md` |
+| Judgment | `reflect judgment, divergent, synthesizer` from `.cursor/rules/pstack-models.mdc` | `references/judgment-reviewer.md` |
+| Tooling | `reflect tooling` from `.cursor/rules/pstack-models.mdc` | `references/tooling-reviewer.md` |
+| Divergent | `reflect judgment, divergent, synthesizer` from `.cursor/rules/pstack-models.mdc` | `references/divergent-reviewer.md` |
 
 Pass each template verbatim, substituting the transcript path or digest where marked. Reviewers return findings in the `Task` response body.
 
 ### 3. Synthesize
 
-One `Task` call, `subagent_type: generalPurpose`, using your configured reflect-judgment model (default `claude-fable-5-1-thinking-max`), agent mode (`readonly: false`). The synthesizer's quality check includes spot-verifying citations, which can require MCP access; readonly strips MCPs. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+One `Task` call, `subagent_type: generalPurpose`, using the `reflect judgment, divergent, synthesizer` slug from `.cursor/rules/pstack-models.mdc` (then `~/.cursor/rules/pstack-models.mdc` if the project file is missing), agent mode (`readonly: false`). The synthesizer's quality check includes spot-verifying citations, which can require MCP access; readonly strips MCPs. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
 
 ### 4. Structural enforcement check
 

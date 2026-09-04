@@ -47,6 +47,10 @@ git log -1 --format=%B <hash>
 gh pr view <number> --json title,body,author,createdAt,mergedAt,labels,closingIssuesReferences,comments,reviews,files
 
 # The --json reviews and comments fields are where the real signal is
+
+# Linked GitHub Issues from that PR (and any ID in the commit message)
+gh issue view <number> --json title,body,author,createdAt,closedAt,labels,comments
+gh issue list --search "<symbol or error string>" --limit 20
 ```
 
 Look for out-of-band docs:

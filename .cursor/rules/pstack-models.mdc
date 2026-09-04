@@ -2,30 +2,30 @@
 description: pstack per-role model choices (overrides skill defaults)
 alwaysApply: true
 ---
-# pstack model configuration. One line per role. Delete a line to fall back to the skill default.
+# pstack model configuration. One line per role. This file is the only map. Skills have no inline fallback.
 # `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model`). Alias entries in a panel list still count toward its fan-out.
 #
-# Budget: grok 4.6 high is the default. Composer 2.5 only for planned feature/refactor
-# implementation. Never -fast, -max, or -xhigh (cap is high). Never fable, opus 5, grok 4.5.
-# No gpt-5.6-sol* on the map. Opus 4.8 only on hardest tasks and one interrogate seat.
-# If claude-opus-4-8-thinking-high is unresolvable, skip that subagent or use
-# cursor-grok-4.6-high — never substitute claude-opus-5-*.
-# Other panels stay 3-wide: grok, composer, sonnet.
-feature, refactoring: composer-2.5
-bug-fix: cursor-grok-4.6-high
-perf-issue: cursor-grok-4.6-high
-hillclimb: cursor-grok-4.6-high
-judgment and prose: cursor-grok-4.6-high
+# This file is the house map. Cloud Agent start copies it to ~/.cursor/rules/pstack-models.mdc
+# so pstack skills that Read the home path still hit these values. Do not run /setup-pstack
+# against upstream defaults (fable, opus 5, -fast, -max, -xhigh).
+#
+# Constraints: no -fast, no -max, no -xhigh, no fable, no opus 5, no grok 4.5.
+# If claude-opus-4-8-thinking-high is unresolvable, skip that seat or use cursor-grok-4.6-high.
+feature, refactoring: cursor-grok-4.6-high
+bug-fix: gpt-5.6-sol-high
+perf-issue: gpt-5.6-sol-high
+hillclimb: gpt-5.6-sol-high
+judgment and prose: claude-sonnet-5-thinking-high
 hardest tasks: claude-opus-4-8-thinking-high
 how explorer: cursor-grok-4.6-high
-how explainer: cursor-grok-4.6-high
-how critics: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
+how explainer: claude-sonnet-5-thinking-high
+how critics: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, claude-opus-4-8-thinking-high
 why investigators: cursor-grok-4.6-high
-why synthesizer: cursor-grok-4.6-high
-reflect tooling: cursor-grok-4.6-high
-reflect judgment, divergent, synthesizer: cursor-grok-4.6-high
-arena runners: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
-arena cross-judge pool: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
+why synthesizer: claude-sonnet-5-thinking-high
+reflect tooling: gpt-5.6-sol-high
+reflect judgment, divergent, synthesizer: claude-sonnet-5-thinking-high
+arena runners: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, claude-opus-4-8-thinking-high
+arena cross-judge pool: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, claude-opus-4-8-thinking-high
 swarm workers: cursor-grok-4.6-high
-architect runners: cursor-grok-4.6-high, composer-2.5, claude-sonnet-5-thinking-high
-interrogate reviewers: cursor-grok-4.6-high, composer-2.5, claude-opus-4-8-thinking-high
+architect runners: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, claude-opus-4-8-thinking-high
+interrogate reviewers: claude-sonnet-5-thinking-high, gpt-5.6-sol-high, cursor-grok-4.6-high, claude-opus-4-8-thinking-high
