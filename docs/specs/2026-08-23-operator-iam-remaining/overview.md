@@ -1,7 +1,7 @@
 # Operator IAM remaining
 
 **Date:** 2026-08-23
-**Status:** shipped on `main` through [PR #39](https://github.com/MrF1ow/go-core/pull/39). Leftover product is [deferred](../2026-08-30-operator-key-lifecycle/deferred.md). Next impl plan is [per-app admin keys](../2026-09-03-per-app-admin-keys/plan.md).
+**Status:** shipped on `main` through [PR #39](https://github.com/MrF1ow/go-core/pull/39). Per-app admin keys shipped as json-scope and bind. Leftover product is [deferred](../2026-09-03-per-app-admin-keys/deferred.md).
 **Depends on:** [shipped recap](../2026-08-22-operator-iam.md) on `main` through [PR #31](https://github.com/MrF1ow/go-core/pull/31)
 
 The IAM program is on `main`. This directory was the parked leftovers. Access client, must-expire, and per-app GUI operators shipped as PRs #34 through #39. Do not re-implement them.

@@ -17,11 +17,11 @@ Operator IAM gates `/admin` JSON and `/gui`. It is a frozen `resource:action` ca
 - CSRF 403 is HTML and does not send `X-GUI-Forbidden`
 - Custom operator roles. Non-system roles cannot grant `admin_iam`
 
-Admin API keys are created in the GUI. JSON has `PUT /admin/operator/keys/:id/role` only.
+JSON `POST /admin/operator/keys` mints admin keys. Empty `app_id` is platform. Set `app_id` binds the key. The GUI still mints admin keys with null `app_id`.
 
 ## Still later
 
-Shipped leftover IAM is [remaining](../2026-08-23-operator-iam-remaining/overview.md). Next product work is [per-app admin keys](../2026-09-03-per-app-admin-keys/plan.md). Parked items are [deferred](../2026-09-03-per-app-admin-keys/deferred.md). SOC 2 Type I/II organizational evidence stays out of those directories too.
+Shipped leftover IAM is [remaining](../2026-08-23-operator-iam-remaining/overview.md). Per-app admin keys shipped as json-scope and bind. Parked items are [deferred](../2026-09-03-per-app-admin-keys/deferred.md). SOC 2 Type I/II organizational evidence stays out of those directories too.
 
 Dashboard `/gui/dashboard/stats` stays `dashboard:read`. That is a locked decision, not unfinished work.
 
@@ -29,7 +29,8 @@ Dashboard `/gui/dashboard/stats` stays `dashboard:read`. That is a locked decisi
 
 - A `Grants()` lattice or a Redis grant store
 - Cannot-grant-above-self. `admin_iam:write` is the stamp gate
-- A JSON API-key create handler
+- JSON mint of app-type keys on `POST /admin/operator/keys`. Bind owns `app_id`
+- Duration preset buttons. Create already defaults to now plus 90 days
 - GUI delete of operator accounts. Disable is the leaver path
 - App-type API keys as operator principals
 - The stale plan on [PR #7](https://github.com/MrF1ow/go-core/pull/7)

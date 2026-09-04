@@ -225,9 +225,9 @@ Replace CASCADE with RESTRICT for every `api_keys` row, then delete worker keys 
 
 Drop the CHECK in json-scope. A bound row plus stamp without list filters is a cross-app read. All three gates in one program, CHECK drop in bind only.
 
-GUI mint of bound admin keys. Bound GUI already cannot create admin keys. JSON is the automation path.
+GUI mint of bound admin keys. Bound GUI already cannot create admin keys. JSON is the automation path. Unlock only for a named human who cannot use JSON.
 
-JSON mint of app-type keys. `/operator/` is admin principals. App keys stay GUI `POST /gui/api-keys`.
+JSON mint of app-type keys on `POST /admin/operator/keys`. Bind owns `app_id` on that body. Empty is platform admin. Set is bound admin. Posted `key_type=app` still inserts `key_type=admin`. Worker JSON mint, if it ever exists, is a new route.
 
 `Allows` as the only bound mint gate. `api_keys` is app-scoped, so a bound key with write would mint a platform admin key. Handler 403 when `p.AppID != nil`.
 
