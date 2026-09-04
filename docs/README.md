@@ -45,7 +45,7 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 
 | Document | Description |
 |----------|-------------|
-| [Operator deferred work](specs/2026-09-03-per-app-admin-keys/deferred.md) | Last-superadmin race, many-to-many grants, and rejected IAM extras |
+| [Operator deferred work](specs/2026-09-03-per-app-admin-keys/deferred.md) | Many-to-many grants and rejected IAM extras |
 
 `pstack/` is this repo's trimmed plugin snapshot. `.cursor/settings.json` enables it. The model map is `.cursor/rules/pstack-models.mdc`; Cloud Agent start copies it to `~/.cursor/rules/pstack-models.mdc`. Do not run `/setup-pstack` against upstream defaults.
 

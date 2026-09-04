@@ -773,6 +773,29 @@ func TestGUIShell_LastSuperadminDisableIsHTML409(t *testing.T) {
 	}
 }
 
+func TestGUIShell_LastSuperadminDemoteIsHTML409(t *testing.T) {
+	fx := newGUIShell(t, operator.RoleIDSuperadmin, operator.RoleSuperadmin)
+	response := guiPUT(fx.engine, "/gui/operator/accounts/"+fx.account.ID.String()+"/role", fx.cookie, url.Values{
+		"operator_role_id": {operator.RoleIDAdmin.String()},
+	})
+	if response.Code != http.StatusConflict {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if strings.Contains(response.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("content type = %q", response.Header().Get("Content-Type"))
+	}
+	body := response.Body.String()
+	if strings.HasPrefix(strings.TrimSpace(body), "{") {
+		t.Fatalf("JSON body = %s", body)
+	}
+	if !strings.Contains(body, lastSuperadminGUIMessage) {
+		t.Fatalf("body = %s", body)
+	}
+	if fx.accounts[fx.account.ID].OperatorRoleID != operator.RoleIDSuperadmin {
+		t.Fatalf("role = %s, want superadmin", fx.accounts[fx.account.ID].OperatorRoleID)
+	}
+}
+
 func TestGUIShell_ViewerOperatorCreateForbidden(t *testing.T) {
 	fx := newGUIShell(t, operator.RoleIDViewer, operator.RoleViewer)
 	form := url.Values{
