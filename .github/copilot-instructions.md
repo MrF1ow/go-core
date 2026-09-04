@@ -28,7 +28,7 @@
 
 ## Conventions & Patterns
 
-- **Configuration**: Consumers build a `core.Config` struct. The module never reads environment variables itself.
+- **Configuration**: Consumers build a `core.Config` struct. `cmd/api` maps env onto it. Activity-log settings still read env.
 - **Dependency wiring**: Manual DI in `internal/coreapp/app.go`. Services use callback fields (e.g., `LookupRoles`, `AppLookup`) to avoid circular imports.
 - **Validation**: `go-playground/validator` struct tags on DTOs in `pkg/dto/`.
 - **Error handling**: Never expose raw database errors to API clients — use `pkg/errors/NewAppError()`.
@@ -42,7 +42,9 @@
 - **2FA**: `internal/twofa/` handles TOTP, SMS, email, and backup email 2FA.
 - **Passkeys**: `internal/webauthn/` handles WebAuthn registration and login.
 - **OIDC**: `internal/oidc/` provides OpenID Connect provider (auth code + PKCE).
-- **Redis**: Used for token blacklisting, session data, and RBAC caching.
+- **Operator IAM**: `internal/operator/` gates `/admin` and `/gui`. See `docs/specs/2026-08-22-operator-iam.md`.
+- **SSO**: `internal/sso/` mounts `/sso/token`, `/sso/exchange`, `/sso/peers`.
+- **Redis**: Used for token blacklisting, session data, and RBAC caching. `DefaultConfig()` points at localhost:6379 DB 1; set `cfg.Redis = nil` for in-memory.
 - **Admin GUI**: HTMX-based, templates embedded via `web/` package.
 
 ## Adding a New Endpoint

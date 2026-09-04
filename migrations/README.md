@@ -20,7 +20,16 @@ migrations/
 ├── 012_trusted_devices.sql     # Trusted device tokens
 ├── 013_webauthn.sql            # WebAuthn/passkey credentials
 ├── 014_ip_rules.sql            # IP allowlist/blocklist rules
-└── 015_session_groups.sql      # Cross-app SSO session groups
+├── 015_session_groups.sql      # Cross-app SSO session groups
+├── 016_operator_rbac.sql       # Operator catalog / roles
+├── 017_admin_account_operator_role.sql
+├── 018_operator_iam_evidence.sql
+├── 019_admin_key_operator_role_required.sql
+├── 020_operator_access_log_client.sql
+├── 021_admin_key_must_expire.sql
+├── 022_admin_account_app.sql   # Per-app GUI operators
+├── 023_operator_one_way_revoke.sql
+└── 024_admin_key_app_bind.sql  # Bound admin keys
 ```
 
 ## How It Works
@@ -49,7 +58,7 @@ core.RunMigrations(ctx, pool, "migrations")
 
 ## Adding a New Migration
 
-1. Create a new file with the next sequential number: `016_description.sql`
+1. Create a new file with the next sequential number: `025_description.sql`
 2. Use plain `CREATE TABLE` / `ALTER TABLE` statements (no `IF NOT EXISTS` needed for new tables)
 3. Update `internal/schema.sql` to reflect the new final state (used by SQLC for code generation)
 4. Run `sqlc generate` to regenerate type-safe query code

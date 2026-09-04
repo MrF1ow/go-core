@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Notable work after 1.0.0 that has not been cut into a tagged release. See git history and [Operator IAM](docs/specs/2026-08-22-operator-iam.md) for the IAM program.
+
+- Operator IAM (catalog, roster, evidence, must-expire, one-way revoke, JSON mint, per-app operators and bound admin keys)
+- Admin branding: Custom CSS, favicon, OIDC page fallback
+- Cross-app SSO routes (`/sso/token`, `/sso/exchange`, `/sso/peers`)
+- Security scans: gosec + govulncheck (nancy removed)
+- Migrations `016`–`024`
+
 ## [1.0.0] - 2026-04-04
 
 First release of go-core as an importable Go module.
@@ -25,7 +35,7 @@ and refactored from a standalone API into a self-contained library.
 - **Multi-tenancy toggle** — single-tenant mode via `Config.MultiTenant = false`
 - **Integration tests** — public API lifecycle tests (`app/app_integration_test.go`)
 - **Example app** — `examples/basic/main.go` showing minimal consumer usage
-- **CI pipeline** — test, integration test, security scan (gosec + nancy)
+- **CI pipeline** — test, integration test, security scan (gosec + govulncheck)
 - **AI coding instructions** — CLAUDE.md, AGENTS.md, .cursorrules, copilot-instructions.md, opencode.json
 - **Project skills** — `.claude/skills/go-core/` with endpoint, security, data model references
 - **MIT License**

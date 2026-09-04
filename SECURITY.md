@@ -24,7 +24,7 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 - **Token Type Enforcement** — JWT claims include a `type` field (`"access"` or `"refresh"`); middleware rejects refresh tokens used as access tokens
 - **Token Blacklisting** — Redis-backed token blacklisting for immediate logout and user deactivation
 - **Password Hashing** — bcrypt with cost factor 12 (above OWASP minimum recommendation of 10)
-- **Two-Factor Authentication** — TOTP-based 2FA with recovery codes
+- **Two-Factor Authentication** — TOTP, email, SMS, backup email, and passkey 2FA with recovery codes
 
 ### Admin GUI Security
 
@@ -38,7 +38,7 @@ We aim to acknowledge reports within 48 hours and provide a fix or mitigation pl
 
 - **Rate Limiting** — Applied to all public authentication endpoints:
   - `/register` — 3 requests/minute per IP
-  - `/login` — 5 requests/minute per IP, lockout after 10 attempts for 15 minutes
+  - `/login` — 15 requests/minute per IP, lockout after 30 attempts for 15 minutes (GUI login is 5/60s, lockout after 10)
   - `/refresh-token` — 10 requests/minute per IP
   - `/forgot-password` — 3 requests/minute per IP
   - `/reset-password` — 5 requests/minute per IP
@@ -66,12 +66,11 @@ All responses include the following security headers:
 
 - **Parameterized Queries** — All database queries use pgx parameterized queries and SQLC generated code (no raw SQL concatenation)
 - **Multi-Tenant Isolation** — All user data scoped by `app_id` at the database level
-- **Encrypted OAuth Secrets** — OAuth client secrets stored with `json:"-"` tag, never exposed in API responses
+- **OAuth client secrets** — stored as TEXT and omitted from JSON (`json:"-"`). They are not encrypted at rest.
 
 ### CORS
 
-- **Production Mode** — Localhost origins are excluded from the CORS allowlist in release mode
-- **Frontend URL Required** — Warning logged if `FRONTEND_URL` is not configured
+- Origins come from `Config.CORS`. There is no automatic localhost stripping in release mode.
 
 ## Security Scanning
 

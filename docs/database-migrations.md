@@ -35,7 +35,7 @@ There is no rollback command. To rebuild a local database: `docker compose down 
 
 ## Adding a file
 
-1. Next number: `016_short_description.sql`
+1. Next number: `025_short_description.sql`
 2. Plain `CREATE TABLE` / `ALTER TABLE`
 3. Update `internal/schema.sql` to the new final shape
 4. `sqlc generate`

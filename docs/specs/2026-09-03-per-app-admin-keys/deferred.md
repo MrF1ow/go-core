@@ -1,6 +1,6 @@
 # Per-app admin keys deferred
 
-Parked after the 2026-09-03 per-app admin keys plan. json-scope and bind shipped. Do not treat this file as a backlog to burn down. Move an item into a new plan when its unlock condition is true. Never items have no unlock.
+Parked after json-scope and bind shipped. Do not treat this file as a backlog to burn down. Move an item into a new plan when its unlock condition is true. Never items have no unlock. Living Operator IAM recap: [2026-08-22](../2026-08-22-operator-iam.md).
 
 ## Last-superadmin count then update
 

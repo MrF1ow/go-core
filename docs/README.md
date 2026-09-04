@@ -1,6 +1,6 @@
 # Documentation
 
-go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mount routes, and shut it down with `Close()`. The module never reads environment variables. The reference app in `cmd/api` maps a `.env` file onto that struct if you want to run the API on its own.
+go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mount routes, and shut it down with `Close()`. Consumers build that struct however they want. The reference app in `cmd/api` maps a `.env` file onto it. A few process settings (activity-log retention, brute-force notify flags) still read the environment through `internal/config/logging.go` and the admin settings chain.
 
 ## Using the module
 
@@ -11,7 +11,7 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | [API endpoints](api-endpoints.md) | Routes and auth flows |
 | [Multi-tenancy](multi-tenancy.md) | Tenants, apps, and `X-App-ID` |
 | [Admin GUI](admin-gui.md) | Embedded HTMX admin panel |
-| [Admin branding](../web/README.md) | Logo, colors, and org name |
+| [Admin branding](../web/README.md) | Logo, colors, Custom CSS, favicon, OIDC fallback |
 
 ## Running the reference app
 
@@ -26,7 +26,7 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | Document | Description |
 |----------|-------------|
 | [Activity logging](activity-logging.md) | Event categories, anomalies, retention |
-| [Operator IAM](specs/2026-08-22-operator-iam.md) | Admin JSON and GUI grants, roster, evidence |
+| [Operator IAM](specs/2026-08-22-operator-iam.md) | Admin JSON and GUI grants, roster, evidence, bound keys |
 | [Session group expiry](session-group-expiry.md) | Cross-app logout when a session TTL expires |
 
 ## Development
@@ -38,14 +38,15 @@ go-core is an importable Go module. You pass a `core.Config` to `app.New()`, mou
 | [Database migrations](database-migrations.md) | Schema files and how they run |
 | [Testing](testing.md) | How to run tests |
 | [Makefile](makefile-reference.md) | `make` targets |
-| [Custom CSS spec](specs/2026-08-20-admin-custom-css-design.md) | Admin GUI extra stylesheet |
-| [Favicon spec](specs/2026-08-20-admin-favicon-design.md) | Admin GUI tab icon |
-| [OIDC branding spec](specs/2026-08-21-oidc-admin-branding-design.md) | Admin branding fallback on OIDC pages |
-| [Operator IAM remaining](specs/2026-08-23-operator-iam-remaining/overview.md) | Shipped recap of must-expire, access-log IP/UA, per-app operators |
-| [Operator key lifecycle](specs/2026-08-30-operator-key-lifecycle/plan.md) | JSON mint of platform admin keys, one-way revoke |
-| [Per-app admin keys](specs/2026-09-03-per-app-admin-keys/plan.md) | Bound admin keys and JSON list filters |
-| [Operator deferred work](specs/2026-09-03-per-app-admin-keys/deferred.md) | Last-superadmin race, many-to-many grants, and rejected IAM extras |
 | [Changelog](../CHANGELOG.md) | Release history |
 | [Security policy](../SECURITY.md) | Vulnerability reporting |
+
+## Parked
+
+| Document | Description |
+|----------|-------------|
+| [Operator deferred work](specs/2026-09-03-per-app-admin-keys/deferred.md) | Last-superadmin race, many-to-many grants, and rejected IAM extras |
+
+`pstack/` is a vendored Cursor plugin snapshot (0.14.8) so overnight plans can `git show origin/main:pstack/...`. Live `/poteto-mode` comes from the Cursor plugin. Model budget is `.cursor/rules/pstack-models.mdc`. Do not run `/setup-pstack` against the vendored defaults.
 
 Swagger UI is served by the reference app at `/swagger/index.html`. Generated files live in this directory (`docs.go`, `swagger.json`, `swagger.yaml`) and are not hand-edited. Run `make swag-init` after changing HTTP handlers.

@@ -45,7 +45,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Environment (please complete the following information):**
 - OS: [e.g. Windows, Mac, Linux]
-- Go version: [e.g. 1.22]
+- Go version: [e.g. 1.25]
 - Docker version: [if applicable]
 
 **Additional context**

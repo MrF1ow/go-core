@@ -2,7 +2,7 @@
 
 Social login (Google, Facebook, GitHub) is the same set of routes for every application. After the provider callback, the API redirects the browser to a frontend URI. That URI must be on an allowed domain.
 
-Provider client IDs and secrets are **not** set here. They are stored per application in the database (Admin GUI → OAuth Configs, or `POST /admin/oauth-providers`).
+Provider client IDs and secrets are **not** set here. They are stored per application in the database (Admin GUI → OAuth Configs, or `POST /admin/apps/:id/oauth-config`).
 
 ## Config
 
